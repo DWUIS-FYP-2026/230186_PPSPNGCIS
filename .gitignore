@@ -1,0 +1,222 @@
+# ======================================================
+# Dependencies
+# ======================================================
+node_modules/
+*/node_modules/
+**/node_modules/
+
+# Package manager caches
+.npm/
+.yarn/
+.pnpm-store/
+.yarn-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ======================================================
+# Environment files / secrets
+# ======================================================
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Local config
+config/local.*
+*.local
+*.secret
+secrets/
+credentials/
+keys/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ======================================================
+# Logs
+# ======================================================
+logs/
+*.log
+debug.log
+error.log
+access.log
+
+# ======================================================
+# Build outputs
+# ======================================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vite/
+coverage/
+.nyc_output/
+
+# ======================================================
+# React / Vite
+# ======================================================
+.vite/
+vite.config.*.timestamp-*
+vite.config.*.mts.timestamp-*
+
+# ======================================================
+# Backend generated files
+# ======================================================
+uploads/
+storage/
+tmp/
+temp/
+cache/
+public/uploads/
+public/files/
+
+# ======================================================
+# Database files
+# ======================================================
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*.backup
+
+# Mongo / Docker database volumes
+mongo_data/
+data/db/
+data/
+dump/
+
+# ======================================================
+# Docker
+# ======================================================
+.docker/
+docker-compose.override.yml
+*.dockerignore.tmp
+
+# Keep Dockerfiles and docker-compose.yml tracked
+!Dockerfile
+!docker-compose.yml
+!docker-compose.yaml
+!.dockerignore
+
+# ======================================================
+# OS files
+# ======================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100
+.Trashes
+
+# ======================================================
+# Windows / Linux / Mac temporary files
+# ======================================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+._*
+
+# ======================================================
+# IDEs and editors
+# ======================================================
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+.idea/
+*.iml
+
+.project
+.classpath
+.settings/
+
+# ======================================================
+# Testing
+# ======================================================
+coverage/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# ======================================================
+# TypeScript
+# ======================================================
+*.tsbuildinfo
+
+# ======================================================
+# Python files, if used
+# ======================================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+pip-log.txt
+
+# ======================================================
+# Java / Maven / Gradle, if used
+# ======================================================
+target/
+.gradle/
+build/
+*.class
+*.jar
+*.war
+
+# ======================================================
+# PHP / Composer, if used
+# ======================================================
+vendor/
+composer.lock
+
+# ======================================================
+# Laravel, if used
+# ======================================================
+/bootstrap/cache/*
+/storage/*.key
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# ======================================================
+# Backup / archive files
+# ======================================================
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.gz
+*.bak
+*.old
+*.orig
+
+# ======================================================
+# Generated reports
+# ======================================================
+reports/
+coverage-reports/
+*.lcov
+
+# ======================================================
+# Misc
+# ======================================================
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
