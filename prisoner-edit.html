@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <script src="js/auth-guard.js"></script>
+  <title>Manage Prisoner Record — PMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/prisoner-profile.css">
+</head>
+<body>
+  <div class="dashboard">
+    <aside class="sidebar" id="app-sidebar"></aside>
+    <main class="main-content">
+      <header class="topbar command-bar">
+        <div class="command-bar__titles">
+          <h1 id="panel-title">Prisoner Record Management</h1>
+          <p id="panel-subtitle">PNGCS Parole Clerk — data entry</p>
+        </div>
+      </header>
+
+      <div class="case-file-page">
+        <div class="edit-page-header">
+          <p class="case-file-header__agency">PNG Correctional Services · Record Management</p>
+          <h1 id="edit-title">Register New Prisoner</h1>
+          <p id="edit-subtitle">Complete all required fields. Prisoner ID is assigned automatically.</p>
+        </div>
+
+        <form id="prisoner-edit-form" class="edit-form-card">
+          <input type="hidden" id="prisoner-id">
+
+          <div class="edit-form-section">
+            <h2>Identification</h2>
+            <div class="form-grid">
+              <div class="form-group"><label for="prisoner-number">Prisoner ID</label><input type="text" id="prisoner-number" readonly class="field-auto-id" placeholder="Automatically Generated" tabindex="-1"></div>
+              <div class="form-group"><label for="prisoner-institution">Institution *</label><select id="prisoner-institution" required></select></div>
+            </div>
+          </div>
+
+          <div class="edit-form-section">
+            <h2>Personal Information</h2>
+            <div class="form-grid">
+              <div class="form-group"><label for="prisoner-first-name">First Name *</label><input type="text" id="prisoner-first-name" required></div>
+              <div class="form-group"><label for="prisoner-last-name">Last Name *</label><input type="text" id="prisoner-last-name" required></div>
+              <div class="form-group"><label for="prisoner-dob">Date of Birth</label><input type="date" id="prisoner-dob"></div>
+              <div class="form-group"><label for="prisoner-gender">Gender</label><select id="prisoner-gender"><option value="">—</option><option>Male</option><option>Female</option></select></div>
+              <div class="form-group form-group--full"><label for="prisoner-offense">Offense *</label><input type="text" id="prisoner-offense" required></div>
+            </div>
+          </div>
+
+          <div class="edit-form-section">
+            <h2>Sentence Details</h2>
+            <div class="form-grid">
+              <div class="form-group"><label for="prisoner-ssd">Sentence Start Date (SSD) *</label><input type="date" id="prisoner-ssd" required></div>
+              <div class="form-group"><label for="prisoner-sed">Sentence End Date (SED) *</label><input type="date" id="prisoner-sed" required></div>
+              <div class="form-group"><label for="prisoner-status-display">Computed Status</label><input type="text" id="prisoner-status-display" readonly class="readonly-field" tabindex="-1"><p class="field-hint">Status is calculated automatically from sentence dates and parole workflow.</p></div>
+              <div class="form-group form-group--full">
+                <span class="sentence-metrics-heading">Sentence Calculation</span>
+                <div class="sentence-metrics" id="prisoner-calc-fields" aria-live="polite">
+                  <div class="sentence-metrics__empty">
+                    <i class="bi bi-calculator" aria-hidden="true"></i>
+                    <p>Enter SSD and SED to calculate duration and eligibility metrics.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="edit-form-section">
+            <h2>Supporting Documents</h2>
+            <div class="form-group form-group--full">
+              <label for="prisoner-doc-upload">Upload Documents</label>
+              <input type="file" id="prisoner-doc-upload" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+              <ul class="doc-list" id="prisoner-doc-list"></ul>
+            </div>
+          </div>
+
+          <div class="edit-form-actions">
+            <a href="#" class="btn-secondary" id="btn-cancel">Cancel</a>
+            <button type="button" class="btn-pms-danger btn-secondary hidden" id="btn-delete-prisoner">Delete Record</button>
+            <button type="submit" class="btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/workspace-shell.js"></script>
+  <script src="js/id-generator.js"></script>
+  <script src="js/eligibility-engine.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/rbac.js"></script>
+  <script src="js/sidebar-nav.js"></script>
+  <script src="js/ui-shared.js"></script>
+  <script src="js/prisoner-edit.js"></script>
+</body>
+</html>

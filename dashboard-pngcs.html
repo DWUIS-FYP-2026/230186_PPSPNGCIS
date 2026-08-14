@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <script src="js/auth-guard.js"></script>
+  <title>PNGCS Parole Clerk — PMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="dashboard">
+    <aside class="sidebar" id="app-sidebar"></aside>
+    <main class="main-content">
+      <header class="topbar command-bar">
+        <div class="command-bar__identity">
+          <div class="command-bar__badges" aria-hidden="true">
+            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
+            <span class="command-badge-divider"></span>
+            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+          </div>
+          <div class="command-bar__titles">
+            <h1 id="panel-title">Overview</h1>
+            <p id="panel-subtitle">PNGCS Parole Clerk Dashboard</p>
+          </div>
+        </div>
+        <aside class="command-bar__status">
+          <div class="command-ticker"><i class="bi bi-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
+          <div class="command-status-row">
+            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
+            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
+          </div>
+        </aside>
+      </header>
+
+      <section class="panel active" id="panel-overview">
+        <div class="stats-grid">
+          <article class="stat-card stat-card--alert stat-card--featured"><span class="stat-label">Eligible for Parole</span><strong class="stat-value" id="stat-eligible">0</strong></article>
+          <article class="stat-card"><span class="stat-label">Prisoner Records</span><strong class="stat-value" id="stat-prisoners">0</strong></article>
+          <article class="stat-card"><span class="stat-label">Draft Applications</span><strong class="stat-value" id="stat-drafts">0</strong></article>
+          <article class="stat-card stat-card--warn"><span class="stat-label">Pending Alerts</span><strong class="stat-value" id="stat-notifications">0</strong></article>
+        </div>
+        <div class="overview-grid overview-grid--single">
+          <div class="card"><div class="card-header"><h2>Recent Notifications</h2></div><div class="card-body" id="overview-notifications"></div></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-prisoners">
+        <div class="panel-toolbar">
+          <input type="search" class="search-input" id="prisoner-search" placeholder="Search prisoners…">
+          <button type="button" class="btn-primary" id="btn-add-prisoner">+ Register Prisoner</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>No.</th><th>Name</th><th>Institution</th><th>SSD</th><th>SED</th><th>Progress</th><th>Status</th><th></th></tr></thead><tbody id="prisoners-tbody"></tbody></table></div></div>
+      </section>
+
+      <section class="panel" id="panel-eligibility">
+        <div class="card"><div class="card-header"><h2>Parole Eligibility Verification</h2><span class="badge" id="eligibility-rule"></span></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>SSD</th><th>Duration</th><th>% Served</th><th>Eligibility Date</th><th>Status</th><th></th></tr></thead><tbody id="eligibility-tbody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-applications">
+        <div class="panel-toolbar"><button type="button" class="btn-primary" id="btn-new-app">+ New Application</button></div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Status</th><th>Forms 1–5</th><th>Submitted</th><th></th></tr></thead><tbody id="applications-tbody"></tbody></table></div></div>
+      </section>
+
+      <section class="panel" id="panel-notifications">
+        <div class="panel-toolbar">
+          <p class="toolbar-note">Workflow alerts for your role. Open a notification to view the related record.</p>
+        </div>
+        <div class="notification-list" id="notification-list"></div>
+      </section>
+
+      <section class="panel" id="panel-reports">
+        <div class="card"><div class="card-header"><h2>Operational Reports</h2></div>
+          <div class="card-body">
+            <div id="reports-filter-bar"></div>
+            <div id="reports-body"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="modal modal--light modal--lg" id="app-modal">
+    <form id="app-form" class="modal-form">
+      <div class="modal-header">
+        <h2 id="app-modal-title">Parole Application</h2>
+        <button type="button" class="modal-close" data-close="app-modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="app-id">
+        <div class="prisoner-combobox form-group form-group--full" id="app-prisoner-combobox">
+          <label for="app-prisoner-search">Prisoner <span class="label-required">*</span></label>
+          <input type="hidden" id="app-prisoner" required>
+          <div class="prisoner-combobox__control">
+            <i class="bi bi-search prisoner-combobox__search-icon" aria-hidden="true"></i>
+            <input type="text" id="app-prisoner-search" class="prisoner-combobox__input" placeholder="Search by name or prisoner ID (e.g. PR-000001)…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="app-prisoner-listbox" aria-autocomplete="list">
+            <button type="button" class="prisoner-combobox__clear hidden" id="app-prisoner-clear" aria-label="Clear prisoner selection">
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          </div>
+          <ul class="prisoner-combobox__list hidden" id="app-prisoner-listbox" role="listbox"></ul>
+          <p class="field-hint prisoner-combobox__hint">Type a prisoner name or ID to search eligible records.</p>
+        </div>
+        <div id="app-status-banner" class="app-status-banner hidden" aria-live="polite"></div>
+        <div class="form-group form-group--full" id="forms-upload-area"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-close="app-modal">Close</button>
+        <button type="button" class="btn-secondary" id="btn-save-draft">Save Draft</button>
+        <button type="submit" class="btn-primary btn-primary--modal" id="btn-submit-djag">
+          <i class="bi bi-send" aria-hidden="true"></i>
+          <span>Submit to DJAG</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/workspace-shell.js"></script><script src="js/command-bar.js"></script><script src="js/id-generator.js"></script><script src="js/eligibility-engine.js"></script><script src="js/storage.js"></script><script src="js/auth.js"></script><script src="js/rbac.js"></script><script src="js/workflow.js"></script><script src="js/forms-engine.js"></script><script src="js/sidebar-nav.js"></script><script src="js/ui-shared.js"></script><script src="js/reports-engine.js"></script><script src="js/dashboard-pngcs.js"></script>
+</body>
+</html>

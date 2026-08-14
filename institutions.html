@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <script src="js/auth-guard.js"></script>
+  <title>Correctional Institutions — PMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="css/dashboard.css" rel="stylesheet">
+  <link href="css/institutions.css" rel="stylesheet">
+</head>
+<body>
+  <div class="dashboard">
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <main class="main-content institutions-main">
+      <header class="topbar command-bar inst-topbar">
+        <div class="command-bar__identity">
+          <div class="command-bar__badges" aria-hidden="true">
+            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
+            <span class="command-badge-divider"></span>
+            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+          </div>
+          <div class="command-bar__titles">
+            <h1>Correctional Institution Management</h1>
+            <p id="page-subtitle">Official registry of PNGCS correctional facilities</p>
+          </div>
+        </div>
+        <aside class="command-bar__status">
+          <div class="command-ticker"><i class="bi bi-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
+          <div class="command-status-row">
+            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
+            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
+          </div>
+        </aside>
+        <div class="inst-topbar-actions">
+          <button type="button" class="btn btn-pms-primary btn-sm d-none" id="btn-add-institution">+ Add Institution</button>
+        </div>
+      </header>
+
+      <div class="commander-restricted-note d-none" id="commander-note">
+        You are viewing your assigned institution only. Contact the System Administrator to update institution details.
+      </div>
+
+      <div class="inst-stats-row" id="stats-row">
+        <div class="inst-stat-card">
+          <span class="label">Total Institutions</span>
+          <strong id="stat-total">0</strong>
+        </div>
+        <div class="inst-stat-card inst-stat-card--green">
+          <span class="label">Active</span>
+          <strong id="stat-active">0</strong>
+        </div>
+        <div class="inst-stat-card inst-stat-card--gold">
+          <span class="label">Total Prisoners</span>
+          <strong id="stat-prisoners">0</strong>
+        </div>
+        <div class="inst-stat-card inst-stat-card--red">
+          <span class="label">Total Officers</span>
+          <strong id="stat-officers">0</strong>
+        </div>
+      </div>
+
+      <div class="inst-toolbar">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted" for="search-input">Search</label>
+            <input type="search" class="form-control" id="search-input" placeholder="Search by name, province, address, ID…">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold text-muted" for="filter-province">Province</label>
+            <select class="form-select" id="filter-province">
+              <option value="">All Provinces</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold text-muted" for="filter-status">Status</label>
+            <select class="form-select" id="filter-status">
+              <option value="">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="col-md-3 text-md-end">
+            <span class="text-muted small" id="result-count">0 institutions</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="inst-table-wrap">
+        <div class="table-responsive">
+          <table class="table table-hover inst-table mb-0" id="institutions-table">
+            <thead>
+              <tr>
+                <th data-sort="name">Institution Name <span class="sort-icon">↕</span></th>
+                <th data-sort="province">Province <span class="sort-icon">↕</span></th>
+                <th data-sort="address">Address / Location <span class="sort-icon">↕</span></th>
+                <th data-sort="commander">Jail Commander <span class="sort-icon">↕</span></th>
+                <th data-sort="phone">Contact <span class="sort-icon">↕</span></th>
+                <th data-sort="email">Email <span class="sort-icon">↕</span></th>
+                <th data-sort="officers" class="text-center">Officers <span class="sort-icon">↕</span></th>
+                <th data-sort="prisoners" class="text-center">Prisoners <span class="sort-icon">↕</span></th>
+                <th data-sort="status">Status <span class="sort-icon">↕</span></th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="institutions-tbody"></tbody>
+          </table>
+        </div>
+        <p class="empty-table-msg d-none" id="empty-msg">No institutions match your search criteria.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- View Modal -->
+  <div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header pms-modal-header">
+          <h5 class="modal-title" id="viewModalTitle">Institution Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="viewModalBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit / Add Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form id="edit-form">
+          <div class="modal-header pms-modal-header">
+            <h5 class="modal-title" id="editModalTitle">Edit Institution</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="edit-id">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" for="edit-code">Institution ID</label>
+                <input type="text" class="form-control field-auto-id" id="edit-code" readonly placeholder="Automatically Generated" tabindex="-1">
+              </div>
+              <div class="col-md-8">
+                <label class="form-label" for="edit-name">Institution Name *</label>
+                <input type="text" class="form-control" id="edit-name" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="edit-province">Province *</label>
+                <input type="text" class="form-control" id="edit-province" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="edit-address">Address / Location *</label>
+                <input type="text" class="form-control" id="edit-address" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="edit-status">Status *</label>
+                <select class="form-select" id="edit-status" required>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="edit-phone">Contact Phone</label>
+                <input type="tel" class="form-control" id="edit-phone">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="edit-email">Contact Email</label>
+                <input type="email" class="form-control" id="edit-email">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="edit-capacity">Capacity</label>
+                <input type="number" class="form-control" id="edit-capacity" min="0">
+              </div>
+              <div class="col-md-6" id="commander-field-wrap">
+                <label class="form-label" for="edit-commander">Assigned Jail Commander</label>
+                <select class="form-select" id="edit-commander">
+                  <option value="">— Unassigned —</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-pms-primary">Save Institution</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/workspace-shell.js"></script>
+  <script src="js/command-bar.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/institutions-data.js"></script>
+  <script src="js/commanders-data.js"></script>
+  <script src="js/id-generator.js"></script>
+  <script src="js/eligibility-engine.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/rbac.js"></script>
+  <script src="js/sidebar-nav.js"></script>
+  <script src="js/ui-shared.js"></script>
+  <script src="js/institutions.js"></script>
+</body>
+</html>

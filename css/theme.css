@@ -1,0 +1,631 @@
+/**
+ * PMS Design System — PNG Parole Management System
+ * PNG Correctional Service (PNGCS) + Department of Justice & Attorney General (DJAG)
+ * Single source of truth for colors, typography, spacing, and component tokens.
+ */
+
+:root {
+  /* ── Brand: PNGCS ── */
+  --pngcs-navy: #0e2a47;
+  --pngcs-navy-mid: #163d66;
+  --pngcs-navy-deep: #081c30;
+  --pngcs-gold: #c8922a;
+  --pngcs-gold-light: #e0ad4a;
+  --pngcs-gold-soft: rgb(200 146 42 / 0.12);
+
+  /* ── Brand: DJAG ── */
+  --djag-purple: #4b2e83;
+  --djag-purple-light: #6b4fa8;
+  --djag-maroon: #6a1b3d;
+  --djag-maroon-deep: #4a1228;
+
+  /* ── Semantic colors (WCAG-friendly on white/light grey) ── */
+  --color-primary: var(--pngcs-navy);
+  --color-primary-hover: var(--pngcs-navy-mid);
+  --color-primary-active: var(--pngcs-navy-deep);
+  --color-secondary: var(--djag-purple);
+  --color-accent: var(--pngcs-gold);
+  --color-success: #0f6e4a;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #a7f3d0;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-info: #0369a1;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+
+  /* ── Surfaces & backgrounds ── */
+  --color-white: #ffffff;
+  --color-bg: #eef2f7;
+  --color-bg-subtle: #e2e8f0;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #f8fafc;
+  --color-surface-muted: #f1f5f9;
+  --color-parchment: #fafbfc;
+  --color-table-header: #f1f5f9;
+  --color-table-row-hover: #f1f5f9;
+  --color-border: #cbd5e1;
+  --color-border-strong: #94a3b8;
+
+  /* ── Typography colors (contrast on light surfaces) ── */
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-text-subtle: #64748b;
+  --color-text-inverse: #ffffff;
+  --color-heading: var(--pngcs-navy);
+  --color-link: var(--pngcs-navy-mid);
+  --color-link-hover: var(--pngcs-navy-deep);
+
+  /* ── Sidebar (dark nav — light text) ── */
+  --sidebar-bg: linear-gradient(180deg, var(--pngcs-navy-deep) 0%, var(--pngcs-navy) 55%, var(--pngcs-navy-mid) 100%);
+  --sidebar-border: rgb(200 146 42 / 0.22);
+  --sidebar-text: #f8fafc;
+  --sidebar-text-muted: #cbd5e1;
+  --sidebar-label: var(--pngcs-gold-light);
+  --sidebar-hover: rgb(255 255 255 / 0.08);
+  --sidebar-active: rgb(255 255 255 / 0.12);
+  --sidebar-accent: var(--pngcs-gold);
+
+  /* ── Legacy aliases (keep dashboards working) ── */
+  --color-navy: var(--pngcs-navy);
+  --color-navy-hover: var(--pngcs-navy-mid);
+  --color-gold: var(--pngcs-gold);
+  --color-gold-light: var(--pngcs-gold-light);
+  --color-red: var(--color-danger);
+  --color-green: var(--color-success);
+  --color-error: var(--color-danger);
+  --color-error-bg: var(--color-danger-bg);
+  --color-brand-bg: var(--pngcs-navy-deep);
+  --color-burgundy: var(--djag-maroon);
+  --color-burgundy-deep: var(--djag-maroon-deep);
+  --color-burgundy-light: #8b2848;
+  --pngcs-slate: #64748b;
+  --djag-silver: #94a3b8;
+
+  /* ── Buttons ── */
+  --btn-primary-bg: var(--pngcs-navy);
+  --btn-primary-hover: var(--pngcs-navy-mid);
+  --btn-primary-active: var(--pngcs-navy-deep);
+  --btn-primary-text: var(--color-text-inverse);
+  --btn-primary-border: var(--pngcs-navy-deep);
+  --btn-secondary-bg: var(--color-surface);
+  --btn-secondary-hover-bg: var(--pngcs-navy);
+  --btn-secondary-text: var(--pngcs-navy);
+  --btn-secondary-hover-text: var(--color-text-inverse);
+  --btn-secondary-border: var(--pngcs-navy);
+  --btn-danger-bg: var(--color-surface);
+  --btn-danger-text: var(--color-danger);
+  --btn-danger-border: var(--color-danger);
+  --btn-danger-hover-bg: var(--color-danger);
+  --btn-danger-hover-text: var(--color-text-inverse);
+  --btn-disabled-bg: var(--color-surface-muted);
+  --btn-disabled-text: var(--color-text-subtle);
+  --btn-disabled-border: var(--color-border);
+
+  /* ── Typography ── */
+  --font-display: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ── Layout & spacing ── */
+  --sidebar-width: 272px;
+  --sidebar-collapsed-width: 80px;
+  --workspace-header-height: auto;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* ── Radius & elevation ── */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --shadow-sm: 0 1px 2px rgb(14 42 71 / 0.05);
+  --shadow: 0 1px 3px rgb(14 42 71 / 0.08);
+  --shadow-card: 0 2px 8px rgb(14 42 71 / 0.08), 0 1px 2px rgb(14 42 71 / 0.04);
+  --shadow-lg: 0 8px 24px rgb(14 42 71 / 0.1);
+  --shadow-hover: 0 4px 16px rgb(14 42 71 / 0.12);
+  --shadow-glow-gold: 0 0 0 1px rgb(200 146 42 / 0.25);
+  --focus-ring: 0 0 0 3px rgb(200 146 42 / 0.35);
+
+  /* ── Inputs ── */
+  --input-bg: var(--color-surface);
+  --input-border: var(--color-border);
+  --input-text: var(--color-text);
+  --input-placeholder: var(--color-text-subtle);
+  --input-focus-border: var(--pngcs-navy);
+  --input-readonly-bg: #eef2f7;
+  --input-readonly-border: #e2e8f0;
+
+  /* ── Modal (light theme) ── */
+  --modal-bg: #ffffff;
+  --modal-header-bg: #f8fafc;
+  --modal-header-border: #e2e8f0;
+  --modal-input-bg: #f8fafc;
+  --modal-input-border: #e2e8f0;
+  --modal-focus-ring: 0 0 0 3px rgb(59 130 246 / 0.2);
+  --modal-backdrop: rgb(15 23 42 / 0.45);
+
+  /* ── Role accent (subtle differentiation, same design system) ── */
+  --role-accent: var(--pngcs-navy);
+  --role-accent-soft: rgb(14 42 71 / 0.08);
+  --role-gradient: linear-gradient(135deg, var(--pngcs-navy) 0%, var(--pngcs-navy-mid) 100%);
+
+  /* ── National emblem / header logo ── */
+  --header-logo-max-height: 48px;
+}
+
+/* Role themes — accent only; layout & surfaces stay identical */
+body.theme-admin {
+  --role-accent: var(--pngcs-navy);
+  --role-accent-soft: rgb(14 42 71 / 0.08);
+  --role-gradient: linear-gradient(135deg, var(--pngcs-navy) 0%, var(--pngcs-navy-mid) 100%);
+}
+
+body.theme-corrections {
+  --role-accent: var(--pngcs-navy);
+  --role-accent-soft: rgb(14 42 71 / 0.08);
+  --role-gradient: linear-gradient(135deg, var(--pngcs-navy-deep) 0%, #0f766e 100%);
+}
+
+body.theme-djag {
+  --role-accent: var(--djag-purple);
+  --role-accent-soft: rgb(75 46 131 / 0.1);
+  --role-gradient: linear-gradient(135deg, var(--djag-purple) 0%, var(--djag-maroon) 100%);
+}
+
+body.theme-board {
+  --role-accent: var(--djag-maroon);
+  --role-accent-soft: rgb(106 27 61 / 0.1);
+  --role-gradient: linear-gradient(135deg, var(--djag-maroon) 0%, var(--djag-purple) 100%);
+}
+
+/* ── Shared component primitives (all pages) ── */
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  color: var(--color-heading);
+  font-weight: var(--font-weight-semibold);
+}
+
+a {
+  color: var(--color-link);
+}
+
+a:hover {
+  color: var(--color-link-hover);
+}
+
+.header-logo {
+  max-height: var(--header-logo-max-height, 48px);
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.5rem 1rem;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: 1px solid var(--btn-primary-border);
+  border-radius: var(--radius);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--btn-primary-active);
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  background: var(--btn-disabled-bg);
+  color: var(--btn-disabled-text);
+  border-color: var(--btn-disabled-border);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.5rem 1rem;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: var(--radius);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--btn-secondary-hover-bg);
+  color: var(--btn-secondary-hover-text);
+}
+
+.btn-secondary:disabled {
+  background: var(--btn-disabled-bg);
+  color: var(--btn-disabled-text);
+  border-color: var(--btn-disabled-border);
+  cursor: not-allowed;
+}
+
+/* Bootstrap / page aliases — shared across forms, institutions, dashboards */
+.btn-pms-primary,
+.btn.btn-pms-primary {
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-border);
+  color: var(--btn-primary-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.btn-pms-primary:hover,
+.btn.btn-pms-primary:hover {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
+  color: var(--btn-primary-text);
+}
+
+.btn-pms-gold,
+.btn.btn-pms-gold {
+  background: var(--pngcs-gold);
+  border-color: var(--pngcs-gold);
+  color: var(--pngcs-navy-deep);
+  font-weight: var(--font-weight-semibold);
+}
+
+.btn-pms-gold:hover,
+.btn.btn-pms-gold:hover {
+  background: var(--pngcs-gold-light);
+  border-color: var(--pngcs-gold-light);
+  color: var(--pngcs-navy-deep);
+}
+
+.btn-pms-outline,
+.btn.btn-pms-outline {
+  background: transparent;
+  border-color: var(--pngcs-navy);
+  color: var(--pngcs-navy);
+}
+
+.btn-pms-outline:hover,
+.btn.btn-pms-outline:hover {
+  background: var(--pngcs-navy);
+  border-color: var(--pngcs-navy);
+  color: var(--color-text-inverse);
+}
+
+.btn-pms-danger,
+.btn.btn-pms-danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+
+.btn-pms-success,
+.btn.btn-pms-success {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.btn-outline-secondary {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+
+.btn-outline-secondary:hover {
+  background: var(--color-surface-muted);
+  border-color: var(--pngcs-navy);
+  color: var(--pngcs-navy);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-link);
+  font-family: var(--font-ui);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-link:hover {
+  color: var(--color-link-hover);
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3125rem 0.625rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-icon:hover {
+  background: var(--color-surface-muted);
+  border-color: var(--pngcs-navy);
+  color: var(--pngcs-navy);
+}
+
+.btn-icon--danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+}
+
+.btn-icon--danger:hover {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+}
+
+.search-input,
+.filter-select,
+.form-group input,
+.form-group select,
+.form-group textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+}
+
+.search-input::placeholder,
+.form-group input::placeholder {
+  color: var(--input-placeholder);
+}
+
+.search-input:focus,
+.filter-select:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--input-focus-border);
+  box-shadow: var(--focus-ring);
+}
+
+.form-group label {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--text-sm);
+}
+
+.data-table th {
+  color: var(--color-heading);
+  background: var(--color-table-header);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.data-table td {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table tbody tr:hover td {
+  background: var(--color-table-row-hover);
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.card-header {
+  background: var(--color-surface-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.card-header h2 {
+  color: var(--color-heading);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.card-body {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.empty-state {
+  color: var(--color-text-muted);
+}
+
+.readonly-field,
+.field-auto-id {
+  background: var(--input-readonly-bg) !important;
+  color: var(--color-text-muted) !important;
+}
+
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.modal-actions {
+  background: var(--color-surface-elevated);
+  border-top: 1px solid var(--color-border);
+}
+
+.modal-header h2 {
+  color: var(--color-heading);
+}
+
+.status-pill {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Access denied page */
+.access-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  background: var(--color-bg);
+}
+
+.access-card {
+  max-width: 32rem;
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.access-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-5);
+}
+
+.access-card h1 {
+  font-size: var(--text-xl);
+  color: var(--color-heading);
+  margin-bottom: var(--space-3);
+}
+
+.access-card p {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-6);
+  line-height: 1.6;
+}
+
+.access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+.audit-action--access-denied {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.row-denied {
+  background: var(--color-danger-bg);
+}
+
+/* Toast notifications (API save feedback) */
+.pms-toast-host {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.pms-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 280px;
+  max-width: 420px;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  font-size: 0.9375rem;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.pms-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pms-toast--success {
+  border-left: 4px solid #16a34a;
+}
+
+.pms-toast--success .bi {
+  color: #16a34a;
+}
+
+.pms-toast--error {
+  border-left: 4px solid #dc2626;
+}
+
+.pms-toast--error .bi {
+  color: #dc2626;
+}

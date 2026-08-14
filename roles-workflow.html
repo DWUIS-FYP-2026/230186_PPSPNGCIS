@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <script src="js/auth-guard.js"></script>
+  <title>PMS — Roles, Workflow & Official Forms Reference</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="css/dashboard.css" rel="stylesheet">
+  <link href="css/forms.css" rel="stylesheet">
+  <style>
+    body { background: var(--color-bg); }
+    .ref-header { background: linear-gradient(135deg, var(--pngcs-navy-deep) 0%, var(--pngcs-navy) 55%, var(--pngcs-navy-mid) 100%); color: var(--color-text-inverse); padding: 2rem 0; border-bottom: 4px solid var(--pngcs-gold); }
+    .ref-header h1 { font-size: 1.5rem; margin: 0; color: var(--color-text-inverse); }
+    .ref-nav { position: sticky; top: 0; background: var(--color-surface); border-bottom: 1px solid var(--color-border); z-index: 100; padding: 0.75rem 0; box-shadow: var(--shadow-sm); }
+    .ref-nav a { color: var(--pngcs-navy); text-decoration: none; margin-right: 1.25rem; font-size: 0.875rem; font-weight: 500; }
+    .ref-nav a:hover { color: var(--djag-maroon); }
+    .role-card { border-left: 4px solid var(--pngcs-gold); }
+    .step-table td:first-child { font-weight: 600; color: var(--color-heading); white-space: nowrap; }
+    .status-chip { display: inline-block; background: var(--pngcs-gold-soft); border: 1px solid var(--pngcs-gold); padding: .15rem .5rem; border-radius: 999px; font-size: .75rem; color: var(--pngcs-navy); }
+  </style>
+</head>
+<body>
+  <header class="ref-header">
+    <div class="container">
+      <div class="brand-line">PNG Correctional Service · Department of Justice & Attorney General</div>
+      <h1>Parole Management System — Roles, Workflow & Forms Reference</h1>
+      <p class="mb-0 mt-2 opacity-75">Official process guide for all PMS user roles</p>
+    </div>
+  </header>
+  <nav class="ref-nav"><div class="container">
+    <a href="#roles">User Roles</a>
+    <a href="#workflow">Parole Workflow</a>
+    <a href="#forms">Official Forms</a>
+    <a href="#statuses">Application Statuses</a>
+    <a href="#theme">UI Theme</a>
+    <a href="index.html">← Back to Login</a>
+  </div></nav>
+
+  <main class="container py-4">
+    <section id="roles" class="mb-5">
+      <h2 class="text-navy border-bottom border-gold pb-2 mb-4">1. User Roles & Responsibilities</h2>
+
+      <div class="card role-card mb-4"><div class="card-body">
+        <h3>System Administrator</h3>
+        <p><strong>Purpose:</strong> Maintains the PMS platform, user accounts, institutions, system settings, and audit integrity across PNGCS and DJAG.</p>
+        <div class="row g-3">
+          <div class="col-md-6"><strong>Modules:</strong> Overview, Users, Institutions, Prisoners, Applications, Notifications, Audit Log, Settings, Reports, All Forms (view/edit)</div>
+          <div class="col-md-6"><strong>CRUD:</strong> Full create/read/update/delete on users, institutions, prisoners, and applications (all institutions)</div>
+          <div class="col-md-6"><strong>Notifications:</strong> Parole eligibility alerts (system-wide), application events</div>
+          <div class="col-md-6"><strong>Reports:</strong> System, operational, audit, institutional, board statistics</div>
+        </div>
+        <p class="mt-2 mb-0"><strong>Restrictions:</strong> Does not participate in parole decisions unless acting as override; all actions are audit-logged.</p>
+      </div></div>
+
+      <div class="card role-card mb-4"><div class="card-body">
+        <h3>PNGCS Parole Clerk</h3>
+        <p><strong>Purpose:</strong> Registers prisoners, monitors eligibility, prepares Forms 1–2, coordinates Form 3, and submits complete application packages to DJAG.</p>
+        <div class="row g-3">
+          <div class="col-md-6"><strong>Modules:</strong> Overview, Prisoners, Eligibility, Applications, Notifications, Reports, Forms 1–2 (edit), Forms 3–5 (view)</div>
+          <div class="col-md-6"><strong>Tasks:</strong> Prisoner registration (SSD/SED), eligibility verification, Form 1 & 2 completion, submit to DJAG, resubmit after correction</div>
+          <div class="col-md-6"><strong>Notifications:</strong> Parole eligibility alerts, application returned for correction, application status</div>
+          <div class="col-md-6"><strong>Reports:</strong> Operational, prisoner, application statistics (institution-scoped)</div>
+        </div>
+        <p class="mt-2 mb-0"><strong>Scope:</strong> Institution-scoped prisoner and application data only.</p>
+      </div></div>
+
+      <div class="card role-card mb-4"><div class="card-body">
+        <h3>DJAG Parole Clerk</h3>
+        <p><strong>Purpose:</strong> Reviews submitted applications, conducts pre-parole investigation (Form 4), schedules hearings, and forwards cases to the Parole Board.</p>
+        <div class="row g-3">
+          <div class="col-md-6"><strong>Modules:</strong> Overview, Applications, Pre-Parole Reports, Hearings, Notifications, Form 4 (edit), Forms 1–3 & 5 (view)</div>
+          <div class="col-md-6"><strong>Tasks:</strong> Accept/review submissions, return for correction, complete Form 4, schedule hearings, send to board</div>
+          <div class="col-md-6"><strong>Notifications:</strong> New application submitted, hearing scheduled</div>
+          <div class="col-md-6"><strong>Reports:</strong> Application pipeline, pre-parole, hearing schedules</div>
+        </div>
+      </div></div>
+
+      <div class="card role-card mb-4"><div class="card-body">
+        <h3>Jail Commander</h3>
+        <p><strong>Purpose:</strong> Provides institutional oversight and completes Form 3 (Institutional Report) for prisoners at their correctional facility.</p>
+        <div class="row g-3">
+          <div class="col-md-6"><strong>Modules:</strong> Overview, Prisoners, Applications, Officers, Notifications, Reports, Form 3 (edit)</div>
+          <div class="col-md-6"><strong>Tasks:</strong> Monitor eligible prisoners, complete/approve Form 3, review institutional parole pipeline</div>
+          <div class="col-md-6"><strong>Notifications:</strong> Eligibility alerts, new applications, institutional reports due</div>
+          <div class="col-md-6"><strong>Reports:</strong> Institutional statistics, approval records</div>
+        </div>
+        <p class="mt-2 mb-0"><strong>Scope:</strong> Assigned institution only; access denied without institution assignment.</p>
+      </div></div>
+
+      <div class="card role-card mb-4"><div class="card-body">
+        <h3>Parole Board Members</h3>
+        <p>The Board comprises three members who collectively review applications and record the final parole decision on Form 5.</p>
+        <ul>
+          <li><strong>Chairperson (Secretary, DJAG)</strong> — Presides over hearings, records official decision, signs Form 5</li>
+          <li><strong>Commissioner, PNG Correctional Service (PNGCS)</strong> — Provides correctional perspective on conduct and rehabilitation</li>
+          <li><strong>Medical Member (Doctor)</strong> — Assesses medical and mental health suitability for parole</li>
+        </ul>
+        <div class="row g-3">
+          <div class="col-md-6"><strong>Modules:</strong> Overview, Applications, Hearings, Decisions, History, Reports, Form 5 (edit)</div>
+          <div class="col-md-6"><strong>Decisions:</strong> Approved · Deferred · Refused (with conditions and deliberation notes)</div>
+        </div>
+      </div></div>
+    </section>
+
+    <section id="workflow" class="mb-5">
+      <h2 class="text-navy border-bottom border-gold pb-2 mb-4">2. Complete Parole Workflow</h2>
+      <div class="table-responsive"><table class="table table-bordered bg-white step-table">
+        <thead class="table-light"><tr><th>Step</th><th>Action</th><th>Status</th><th>Responsible Role</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Prisoner registration (Prisoner Number, SSD, SED, offense, institution)</td><td>—</td><td>PNGCS Parole Clerk</td></tr>
+          <tr><td>2</td><td>Automatic eligibility calculation (one-third / 1/3 of sentence from SSD)</td><td>Eligible for Parole</td><td>System (Automated)</td></tr>
+          <tr><td>3</td><td>Eligibility notification to PNGCS Clerk, Jail Commander, System Administrator</td><td>—</td><td>System (Automated)</td></tr>
+          <tr><td>4</td><td>Prepare Form 1 (Application) and Form 2 (Personal Particulars)</td><td>Draft</td><td>PNGCS Parole Clerk</td></tr>
+          <tr><td>5</td><td>Complete Form 3 (Institutional Report)</td><td>Draft</td><td>Jail Commander</td></tr>
+          <tr><td>6</td><td>Submit complete application package to DJAG</td><td>Submitted</td><td>PNGCS Parole Clerk</td></tr>
+          <tr><td>7</td><td>Review documentation and verify forms</td><td>Under DJAG Review</td><td>DJAG Parole Clerk</td></tr>
+          <tr><td>8</td><td>Return for correction (if incomplete)</td><td>Returned for Correction</td><td>DJAG Parole Clerk</td></tr>
+          <tr><td>9</td><td>Complete Form 4 (Pre-Parole Investigation Report)</td><td>Pre-Parole Report Prepared</td><td>DJAG Parole Clerk</td></tr>
+          <tr><td>10</td><td>Schedule parole hearing and notify Board</td><td>Hearing Scheduled</td><td>DJAG Parole Clerk</td></tr>
+          <tr><td>11–12</td><td>Board review and deliberation at hearing</td><td>Pending Board Review</td><td>Parole Board</td></tr>
+          <tr><td>13</td><td>Record decision on Form 5</td><td>Approved / Deferred / Refused</td><td>Parole Board (Chairperson records)</td></tr>
+          <tr><td>14</td><td>Audit logging and stakeholder notifications</td><td>—</td><td>System (Automated)</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="forms" class="mb-5">
+      <h2 class="text-navy border-bottom border-gold pb-2 mb-4">3. Official Parole Forms</h2>
+      <div class="row g-3">
+        <div class="col-md-6"><div class="card h-100"><div class="card-body">
+          <h5>Form 1 — Parole Eligibility Screening</h5>
+          <p class="small">PNGCS Parole Clerk · Step 4 · Eligibility assessment against PMS criteria before Forms 2–5</p>
+          <a href="forms/form1.html" class="btn btn-sm btn-pms-outline disabled">Requires application ID</a>
+        </div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body">
+          <h5>Form 2 — Personal Particulars of Offender</h5>
+          <p class="small">PNGCS Parole Clerk · Step 4 · Next of kin, background, medical history</p>
+        </div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body">
+          <h5>Form 3 — Institutional Report</h5>
+          <p class="small">Jail Commander · Step 5 · Conduct, programs, commander recommendation</p>
+        </div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body">
+          <h5>Form 4 — Pre-Parole Investigation Report</h5>
+          <p class="small">DJAG Parole Clerk · Step 9 · Community support, risk assessment, investigation summary</p>
+        </div></div></div>
+        <div class="col-12"><div class="card"><div class="card-body">
+          <h5>Form 5 — Parole Board Decision Record</h5>
+          <p class="small">Parole Board · Step 13 · Deliberation, decision (Approved/Deferred/Refused), conditions, signatures</p>
+          <p class="mb-0 small text-muted">Open forms from your role dashboard after creating or selecting an application.</p>
+        </div></div></div>
+      </div>
+    </section>
+
+    <section id="statuses" class="mb-5">
+      <h2 class="text-navy border-bottom border-gold pb-2 mb-4">4. Application Statuses</h2>
+      <p>
+        <span class="status-chip">Draft</span>
+        <span class="status-chip">Submitted</span>
+        <span class="status-chip">Under DJAG Review</span>
+        <span class="status-chip">Returned for Correction</span>
+        <span class="status-chip">Pre-Parole Report Prepared</span>
+        <span class="status-chip">Hearing Scheduled</span>
+        <span class="status-chip">Pending Board Review</span>
+        <span class="status-chip">Approved</span>
+        <span class="status-chip">Deferred</span>
+        <span class="status-chip">Refused</span>
+      </p>
+    </section>
+
+    <section id="theme" class="mb-5">
+      <h2 class="text-navy border-bottom border-gold pb-2 mb-4">5. Government UI Theme</h2>
+      <div class="d-flex flex-wrap gap-3">
+        <div class="p-3 rounded text-white" style="background:#0A1D3A;min-width:140px">Navy #0A1D3A</div>
+        <div class="p-3 rounded" style="background:#F6C445;min-width:140px">Gold #F6C445</div>
+        <div class="p-3 rounded text-white" style="background:#C8102E;min-width:140px">Red #C8102E</div>
+        <div class="p-3 rounded text-white" style="background:#0F5E3F;min-width:140px">Green #0F5E3F</div>
+        <div class="p-3 rounded border" style="background:#F5F1E6;min-width:140px">Sand #F5F1E6</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

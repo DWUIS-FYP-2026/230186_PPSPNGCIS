@@ -1,0 +1,9 @@
+{
+  "name": "pms",
+  "private": true,
+  "description": "Parole Management System — start the app at the login page",
+  "scripts": {
+    "start": "npm start --prefix server",
+    "dev": "npm run dev --prefix server"
+  }
+}

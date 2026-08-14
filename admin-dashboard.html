@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <script src="js/auth-guard.js"></script>
+  <title>System Administrator — PMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="dashboard">
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <main class="main-content">
+      <header class="topbar command-bar">
+        <div class="command-bar__identity">
+          <div class="command-bar__badges" aria-hidden="true">
+            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
+            <span class="command-badge-divider"></span>
+            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+          </div>
+          <div class="command-bar__titles">
+            <h1 id="panel-title">Dashboard Overview</h1>
+            <p id="panel-subtitle">Parole Management System — Central Administration</p>
+          </div>
+        </div>
+        <aside class="command-bar__status">
+          <div class="command-ticker">
+            <i class="bi bi-clock" aria-hidden="true"></i>
+            <time id="command-datetime">—</time>
+          </div>
+          <div class="command-status-row">
+            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
+            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
+          </div>
+        </aside>
+      </header>
+
+      <!-- Overview -->
+      <section class="panel active" id="panel-overview">
+        <div class="highlight-row">
+          <article class="highlight-panel highlight-panel--apps">
+            <div class="highlight-panel__strip"></div>
+            <div class="highlight-panel__pattern" aria-hidden="true"></div>
+            <div class="highlight-panel__body">
+              <span class="highlight-panel__icon"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+              <div>
+                <span class="highlight-panel__label">Applications</span>
+                <strong class="highlight-panel__value" id="stat-applications">0</strong>
+                <span class="highlight-panel__trend"><i class="bi bi-arrow-up-right" aria-hidden="true"></i> Active pipeline</span>
+              </div>
+            </div>
+          </article>
+          <article class="highlight-panel highlight-panel--hearings">
+            <div class="highlight-panel__strip"></div>
+            <div class="highlight-panel__pattern" aria-hidden="true"></div>
+            <div class="highlight-panel__body">
+              <span class="highlight-panel__icon"><i class="bi bi-calendar-event" aria-hidden="true"></i></span>
+              <div>
+                <span class="highlight-panel__label">Hearings</span>
+                <strong class="highlight-panel__value" id="stat-hearings">0</strong>
+                <span class="highlight-panel__trend"><i class="bi bi-clock" aria-hidden="true"></i> Scheduled</span>
+              </div>
+            </div>
+          </article>
+          <article class="highlight-panel highlight-panel--decisions">
+            <div class="highlight-panel__strip"></div>
+            <div class="highlight-panel__pattern" aria-hidden="true"></div>
+            <div class="highlight-panel__body">
+              <span class="highlight-panel__icon"><i class="bi bi-hammer" aria-hidden="true"></i></span>
+              <div>
+                <span class="highlight-panel__label">Pending Decisions</span>
+                <strong class="highlight-panel__value" id="stat-pending-decisions">0</strong>
+                <span class="highlight-panel__trend"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> Board review</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="metrics-strip">
+          <div class="metric-chip"><strong id="stat-users">0</strong><span>Users</span></div>
+          <div class="metric-chip"><strong id="stat-officers">0</strong><span>Officers</span></div>
+          <div class="metric-chip"><strong id="stat-prisoners">0</strong><span>Prisoners</span></div>
+          <div class="metric-chip"><strong id="stat-institutions">0</strong><span>Institutions</span></div>
+          <div class="metric-chip"><strong id="stat-eligible">0</strong><span>Eligible</span></div>
+          <div class="metric-chip"><strong id="stat-notifications">0</strong><span>Alerts</span></div>
+        </div>
+
+        <div class="workspace-split">
+          <div class="workspace-charts">
+            <div class="chart-grid">
+              <div class="chart-panel">
+                <div class="chart-panel__header">Application Status</div>
+                <div class="chart-panel__body"><canvas id="chart-donut-applications" aria-label="Application status chart"></canvas></div>
+              </div>
+              <div class="chart-panel">
+                <div class="chart-panel__header">Monthly Submissions</div>
+                <div class="chart-panel__body"><canvas id="chart-line-monthly" aria-label="Monthly trends chart"></canvas></div>
+              </div>
+              <div class="chart-panel chart-panel--wide">
+                <div class="chart-panel__header">Prisoners by Institution</div>
+                <div class="chart-panel__body chart-body" id="chart-institutions"></div>
+              </div>
+              <div class="chart-panel">
+                <div class="chart-panel__header">Parole Pipeline</div>
+                <div class="chart-panel__body chart-body" id="chart-applications"></div>
+              </div>
+              <div class="chart-panel">
+                <div class="chart-panel__header">Prisoner Status</div>
+                <div class="chart-panel__body chart-body" id="chart-prisoner-status"></div>
+              </div>
+            </div>
+          </div>
+          <aside class="activity-feed">
+            <div class="activity-feed__header">
+              System Activity
+              <span class="activity-feed__live">Audit</span>
+            </div>
+            <div class="activity-feed__list" id="live-activity-feed"></div>
+          </aside>
+        </div>
+
+        <div class="workspace-lists">
+          <div class="inbox-panel">
+            <div class="inbox-panel__header"><h2>Applications Waiting Review</h2><span class="inbox-panel__count" id="inbox-review-count">0</span></div>
+            <div class="inbox-list" id="inbox-review"></div>
+          </div>
+          <div class="inbox-panel">
+            <div class="inbox-panel__header"><h2>Board Hearings Today</h2><span class="inbox-panel__count" id="inbox-hearings-count">0</span></div>
+            <div class="inbox-list" id="inbox-hearings"></div>
+          </div>
+          <div class="inbox-panel">
+            <div class="inbox-panel__header"><h2>Prisoners Eligible</h2><span class="inbox-panel__count" id="inbox-eligible-count">0</span></div>
+            <div class="inbox-list" id="inbox-eligible"></div>
+          </div>
+          <div class="inbox-panel">
+            <div class="inbox-panel__header"><h2>Recent Decisions</h2><span class="inbox-panel__count" id="inbox-decisions-count">0</span></div>
+            <div class="inbox-list" id="inbox-decisions"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Users -->
+      <section class="panel" id="panel-users">
+        <div class="panel-toolbar">
+          <div class="filter-group">
+            <select id="user-role-filter" class="filter-select">
+              <option value="">All Roles</option>
+            </select>
+            <select id="user-status-filter" class="filter-select">
+              <option value="">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+            <input type="search" class="search-input" id="user-search" placeholder="Search users…">
+          </div>
+          <button type="button" class="btn-primary" id="add-user-btn">+ Create User</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>User Accounts</h2><span class="badge" id="users-count">0</span></div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Username</th><th>Name</th><th>Role</th><th>Institution</th><th>Position</th><th>Contact</th><th>Status</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body"></tbody>
+            </table>
+          </div>
+          <p class="empty-state hidden" id="users-empty">No users found.</p>
+        </div>
+      </section>
+
+      <!-- Institutions (summary — full module at institutions.html) -->
+      <section class="panel" id="panel-institutions">
+        <div class="panel-toolbar">
+          <p class="toolbar-note">Manage all 19 official PNGCS correctional facilities.</p>
+          <a href="institutions.html" class="btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;">Open Institution Management →</a>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>Registered Institutions</h2><span class="badge" id="inst-summary-count">0</span></div>
+          <div class="card-body" id="inst-summary-list"></div>
+        </div>
+      </section>
+
+      <!-- Prisoners -->
+      <section class="panel" id="panel-prisoners">
+        <div class="panel-toolbar">
+          <div class="filter-group">
+            <select id="prisoner-institution-filter" class="filter-select"><option value="">All Institutions</option></select>
+            <select id="prisoner-status-filter" class="filter-select"><option value="">All Statuses</option></select>
+            <input type="search" class="search-input" id="prisoner-search" placeholder="Search prisoners…">
+          </div>
+          <p class="toolbar-note">Read-only. Prisoner records are maintained by PNGCS Parole Clerks.</p>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>Prisoner Records</h2><span class="badge" id="prisoners-count">0</span></div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Prisoner No.</th><th>Name</th><th>Institution</th><th>SSD</th><th>SED</th><th>Duration</th><th>Progress</th><th>Eligibility</th><th>Status</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="prisoners-table-body"></tbody>
+            </table>
+          </div>
+          <p class="empty-state hidden" id="prisoners-empty">No prisoner records found.</p>
+        </div>
+      </section>
+
+      <!-- Notifications -->
+      <section class="panel" id="panel-notifications">
+        <div class="panel-toolbar">
+          <p class="toolbar-note" id="eligibility-rule-note"></p>
+          <div class="toolbar-actions">
+            <button type="button" class="btn-secondary" id="mark-all-read-btn">Mark all read</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>Parole Eligibility Notifications</h2><span class="badge badge--alert" id="notifications-count">0 pending</span></div>
+          <div class="notification-list" id="notification-list"></div>
+          <p class="empty-state hidden" id="notifications-empty">No notifications.</p>
+        </div>
+      </section>
+
+      <!-- Audit -->
+      <section class="panel" id="panel-audit">
+        <div class="panel-toolbar">
+          <select id="audit-entity-filter" class="filter-select">
+            <option value="">All Entities</option>
+            <option value="User">User</option>
+            <option value="Institution">Institution</option>
+            <option value="Prisoner">Prisoner</option>
+            <option value="ParoleApplication">Parole Application</option>
+            <option value="Hearing">Hearing</option>
+            <option value="Document">Document</option>
+            <option value="Settings">Settings</option>
+          </select>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>System Activity &amp; Audit Log</h2></div>
+          <div class="table-wrap">
+            <table class="data-table data-table--audit">
+              <thead>
+                <tr>
+                  <th>Date &amp; Time</th><th>User</th><th>User Role</th><th>Action</th><th>Module</th><th>IP Address</th><th>Status</th><th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="audit-table-body"></tbody>
+            </table>
+          </div>
+          <p class="empty-state hidden" id="audit-empty">No audit records.</p>
+        </div>
+      </section>
+
+      <!-- Reports -->
+      <section class="panel" id="panel-reports">
+        <div class="card">
+          <div class="card-header"><h2>Management Reports &amp; Analytics</h2></div>
+          <div class="card-body">
+            <div id="reports-filter-bar"></div>
+            <div id="admin-reports-body"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="panel" id="panel-settings">
+        <div class="card settings-card">
+          <div class="card-header"><h2>Parole Eligibility Rules</h2></div>
+          <form id="settings-form" class="settings-form">
+            <div class="form-group">
+              <label for="eligibility-fraction">Eligibility threshold (fraction of total sentence served)</label>
+              <select id="eligibility-fraction">
+                <option value="0.333333">One-third (1/3) — Legal default</option>
+                <option value="0.5">One-half (1/2)</option>
+                <option value="0.666667">Two-thirds (2/3)</option>
+              </select>
+              <p class="field-hint">Alerts are generated when a prisoner reaches this threshold from Sentence Start Date (SSD).</p>
+            </div>
+            <div class="form-group">
+              <label for="system-name">System Name</label>
+              <input type="text" id="system-name">
+            </div>
+            <button type="submit" class="btn-primary">Save Settings</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- User Modal -->
+  <dialog class="modal modal--light" id="user-modal">
+    <form id="user-form" class="modal-form">
+      <div class="modal-header">
+        <h2 id="user-modal-title">Create User</h2>
+        <button type="button" class="modal-close" data-close="user-modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="user-id">
+        <div class="form-grid form-grid--modal">
+          <div class="form-group form-group--full" id="user-id-display-group">
+            <label for="user-display-id">User ID</label>
+            <input type="text" id="user-display-id" readonly class="field-auto-id" placeholder="Automatically Generated" tabindex="-1">
+          </div>
+          <div class="form-group"><label for="user-username">Username <span class="label-required">*</span></label><input type="text" id="user-username" required autocomplete="off"></div>
+          <div class="form-group"><label for="user-email">Email <span class="label-required">*</span></label><input type="email" id="user-email" required autocomplete="off"></div>
+          <div class="form-group"><label for="user-first-name">First Name <span class="label-required">*</span></label><input type="text" id="user-first-name" required></div>
+          <div class="form-group"><label for="user-last-name">Last Name <span class="label-required">*</span></label><input type="text" id="user-last-name" required></div>
+          <div class="form-group"><label for="user-role-select">Role <span class="label-required">*</span></label><select id="user-role-select" required></select></div>
+          <div class="form-group"><label for="user-institution">Institution</label><select id="user-institution"><option value="">— None —</option></select></div>
+          <div class="form-group"><label for="user-position">Position</label><input type="text" id="user-position"></div>
+          <div class="form-group"><label for="user-phone">Phone</label><input type="tel" id="user-phone" autocomplete="tel"></div>
+          <div class="form-group" id="password-group"><label for="user-password">Password <span class="label-required">*</span></label><input type="password" id="user-password" minlength="6" autocomplete="new-password"></div>
+          <div class="form-group"><label for="user-status">Status</label><select id="user-status"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-close="user-modal">Cancel</button>
+        <button type="submit" class="btn-primary btn-primary--modal" id="user-submit-btn">
+          <i class="bi bi-person-plus" aria-hidden="true"></i>
+          <span>Create User</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Reset Password Modal -->
+  <dialog class="modal modal--light modal--sm" id="reset-password-modal">
+    <form id="reset-password-form" class="modal-form">
+      <div class="modal-header">
+        <h2>Reset Password</h2>
+        <button type="button" class="modal-close" data-close="reset-password-modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="reset-user-id">
+        <p class="modal-note" id="reset-user-label"></p>
+        <div class="form-group"><label for="reset-password">New Password <span class="label-required">*</span></label><input type="password" id="reset-password" minlength="6" required autocomplete="new-password"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-close="reset-password-modal">Cancel</button>
+        <button type="submit" class="btn-primary btn-primary--modal"><i class="bi bi-key" aria-hidden="true"></i><span>Reset Password</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Institution Modal -->
+  <dialog class="modal" id="institution-modal">
+    <form id="institution-form" class="modal-form">
+      <div class="modal-header"><h2 id="institution-modal-title">Add Institution</h2><button type="button" class="modal-close" data-close="institution-modal">&times;</button></div>
+      <input type="hidden" id="institution-id">
+      <div class="form-grid">
+        <div class="form-group"><label for="institution-code">Institution ID</label><input type="text" id="institution-code" readonly class="field-auto-id" placeholder="Automatically Generated" tabindex="-1"></div>
+        <div class="form-group"><label for="institution-name">Institution Name *</label><input type="text" id="institution-name" required></div>
+        <div class="form-group form-group--full"><label for="institution-location">Location *</label><input type="text" id="institution-location" required></div>
+        <div class="form-group"><label for="institution-capacity">Capacity</label><input type="number" id="institution-capacity" min="0"></div>
+        <div class="form-group"><label for="institution-phone">Contact Phone</label><input type="tel" id="institution-phone"></div>
+        <div class="form-group form-group--full"><label for="institution-email">Contact Email</label><input type="email" id="institution-email"></div>
+        <div class="form-group"><label for="institution-status">Status</label><select id="institution-status"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn-secondary" data-close="institution-modal">Cancel</button><button type="submit" class="btn-primary">Save Institution</button></div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="js/workspace-shell.js"></script>
+  <script src="js/dashboard-charts.js"></script>
+  <script src="js/command-bar.js"></script>
+  <script src="js/id-generator.js"></script>
+  <script src="js/eligibility-engine.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/rbac.js"></script>
+  <script src="js/ui-shared.js"></script>
+  <script src="js/reports-engine.js"></script>
+  <script src="js/sidebar-nav.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

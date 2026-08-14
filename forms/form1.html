@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
+  <script src="../js/auth-guard.js"></script>
+  <title>Form 1 — Parole Eligibility Screening | PMS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../css/forms.css" rel="stylesheet">
+</head>
+<body class="form-page form-page--integrated">
+  <header class="form-page-header">
+    <div class="container">
+      <div class="brand-line">Parole Management System (PMS) · PNG Correctional Service</div>
+      <h1>Form 1 — Parole Eligibility Screening</h1>
+      <small>Completed by: PNGCS Parole Clerk · Workflow Step 4</small>
+    </div>
+  </header>
+
+  <main class="container pb-5">
+    <div id="f1-validation-errors" class="form-validation-errors hidden" role="alert"></div>
+
+    <!-- Prisoner selection (when no application linked yet) -->
+    <section id="f1-selection-panel" class="form-card">
+      <div class="form-card-header">Select Prisoner for Eligibility Screening</div>
+      <div class="form-card-body">
+        <p class="form-help-text">Search and select an existing prisoner record from the PMS database. Form 1 cannot be submitted without a valid prisoner record.</p>
+        <div class="prisoner-combobox" id="prisoner-combobox">
+          <label class="form-label" for="prisoner-combobox-input">Prisoner Search</label>
+          <div class="prisoner-combobox__control">
+            <input type="hidden" id="prisoner-combobox-value">
+            <input type="search" id="prisoner-combobox-input" class="prisoner-combobox__input form-control" placeholder="Search by name or prisoner ID (e.g. PR-000001)…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="prisoner-combobox-listbox">
+            <button type="button" class="prisoner-combobox__clear hidden" id="prisoner-combobox-clear" aria-label="Clear selection"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <ul id="prisoner-combobox-listbox" class="prisoner-combobox__list hidden" role="listbox"></ul>
+        </div>
+      </div>
+    </section>
+
+    <div id="f1-selected-prisoner" class="selected-prisoner-banner hidden" aria-live="polite"></div>
+
+    <div id="f1-form-sections" class="hidden">
+      <form id="parole-form" novalidate>
+        <!-- Section A — Detainee Identification -->
+        <div class="form-card">
+          <div class="form-card-header">Section A — Detainee Identification <span class="field-source field-source--system">Database</span></div>
+          <div class="form-card-body">
+            <div class="readonly-grid">
+              <div class="readonly-field-row"><span class="readonly-label">Full Name</span><span class="readonly-value" id="f1-full-name">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Prisoner ID</span><span class="readonly-value" id="f1-prisoner-id">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Date of Birth</span><span class="readonly-value" id="f1-dob">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Gender</span><span class="readonly-value" id="f1-gender">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Current Facility</span><span class="readonly-value" id="f1-facility">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Province</span><span class="readonly-value" id="f1-province">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Housing Unit / Cell</span><span class="readonly-value" id="f1-housing">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section B — Current Sentence Details -->
+        <div class="form-card">
+          <div class="form-card-header">Section B — Current Sentence Details <span class="field-source field-source--system">Database / Calculated</span></div>
+          <div class="form-card-body">
+            <div class="readonly-grid">
+              <div class="readonly-field-row"><span class="readonly-label">Controlling Offence</span><span class="readonly-value" id="f1-offence">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Statute / Offence Code</span><span class="readonly-value" id="f1-statute">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Sentencing Court</span><span class="readonly-value" id="f1-court">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Sentencing Date</span><span class="readonly-value" id="f1-sentencing-date">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Sentence Length</span><span class="readonly-value" id="f1-sentence-length">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Sentence Type</span><span class="readonly-value" id="f1-sentence-type">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Sentence Start Date (SSD)</span><span class="readonly-value" id="f1-ssd">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Sentence End Date (SED)</span><span class="readonly-value" id="f1-sed">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Maximum Expiration Date</span><span class="readonly-value" id="f1-max-expiration">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Parole Eligibility Date</span><span class="readonly-value" id="f1-eligibility-date">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Eligibility Rule</span><span class="readonly-value" id="f1-eligibility-rule">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Time Served</span><span class="readonly-value" id="f1-served-pct">—</span></div>
+              <div class="readonly-field-row"><span class="readonly-label">Computed Status</span><span class="readonly-value"><span class="official-status-badge" id="f1-computed-status">—</span></span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section C — Eligibility Checklist -->
+        <div class="form-card">
+          <div class="form-card-header">Section C — Eligibility Checklist</div>
+          <div class="form-card-body table-responsive">
+            <table class="table table-bordered table-sm checklist-table">
+              <thead class="table-light">
+                <tr>
+                  <th>Criterion</th>
+                  <th>Result</th>
+                  <th>Verification / Source</th>
+                  <th>Verifying Officer</th>
+                  <th>Comments</th>
+                </tr>
+              </thead>
+              <tbody id="f1-checklist-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section D — Statutory Exemption -->
+        <div class="form-card">
+          <div class="form-card-header">Section D — Statutory Exemption <span class="field-source field-source--officer">Officer Entry</span></div>
+          <div class="form-card-body row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Exemption Applicable?</label>
+              <select class="form-select" data-field="statutoryExemptionApplicable">
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Exemption Type</label>
+              <input type="text" class="form-control" data-field="statutoryExemptionType" placeholder="If applicable">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Supporting Document Reference</label>
+              <input type="text" class="form-control" data-field="statutoryExemptionDocument" placeholder="Document ID or reference">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Reason / Details</label>
+              <textarea class="form-control" rows="2" data-field="statutoryExemptionReason" placeholder="Provide statutory exemption details if applicable…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section E — Victim Notification -->
+        <div class="form-card">
+          <div class="form-card-header">Section E — Victim Notification <span class="field-source field-source--officer">Officer Entry</span></div>
+          <div class="form-card-body row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Victim Notification Required?</label>
+              <select class="form-select" data-field="victimNotificationRequired">
+                <option value="">Select…</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+                <option value="unknown">To be confirmed</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Contact Verification Status</label>
+              <select class="form-select" data-field="victimContactVerification">
+                <option value="">Select…</option>
+                <option value="verified">Verified</option>
+                <option value="pending">Pending</option>
+                <option value="not_applicable">Not applicable</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Notification Status</label>
+              <select class="form-select" data-field="victimNotificationStatus">
+                <option value="">Select…</option>
+                <option value="notified">Notified</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="pending">Pending</option>
+                <option value="not_required">Not required</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Do Not Release Status</label>
+              <select class="form-select" data-field="doNotReleaseStatus">
+                <option value="">Select…</option>
+                <option value="none">None recorded</option>
+                <option value="active">Active hold</option>
+                <option value="cleared">Cleared</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Notes</label>
+              <input type="text" class="form-control" data-field="victimNotificationNotes" placeholder="Reference existing PMS notification records where applicable">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section F — Officer Recommendation -->
+        <div class="form-card">
+          <div class="form-card-header">Section F — Officer Recommendation <span class="field-source field-source--officer">Officer Entry</span></div>
+          <div class="form-card-body row g-3">
+            <div class="col-12">
+              <label class="form-label">Eligibility Recommendation *</label>
+              <div class="official-checkbox-group">
+                <label class="official-check-option">
+                  <input type="radio" name="eligibilityOutcome" data-field="eligibilityOutcome" value="eligible" required>
+                  <span class="official-check-box"><i class="bi bi-check-lg official-check-icon" aria-hidden="true"></i></span>
+                  <span class="official-check-text">Eligible to proceed to next parole stage</span>
+                </label>
+                <label class="official-check-option">
+                  <input type="radio" name="eligibilityOutcome" data-field="eligibilityOutcome" value="not_eligible">
+                  <span class="official-check-box"><i class="bi bi-check-lg official-check-icon" aria-hidden="true"></i></span>
+                  <span class="official-check-text">Not eligible at this time</span>
+                </label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Reason / Reason Code *</label>
+              <input type="text" class="form-control" data-field="recommendationReason" required placeholder="Brief reason for recommendation">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Screening Date *</label>
+              <input type="date" class="form-control" data-field="screeningDate" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Officer Name *</label>
+              <input type="text" class="form-control readonly-field" data-field="officerName" readonly required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Officer ID *</label>
+              <input type="text" class="form-control readonly-field" data-field="officerId" readonly required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Rank / Position</label>
+              <input type="text" class="form-control readonly-field" data-field="officerRank" readonly>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Officer Comments</label>
+              <textarea class="form-control" rows="3" data-field="officerComments" placeholder="Additional screening notes…"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Prisoner Acknowledgement (signature)</label>
+              <input type="text" class="form-control" data-field="prisonerSignature" placeholder="Prisoner signature">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Prisoner Signature Date</label>
+              <input type="date" class="form-control" data-field="prisonerSignatureDate">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section G — Supervisory Review -->
+        <div class="form-card" id="f1-section-g">
+          <div class="form-card-header">Section G — Supervisory Review <span class="field-source field-source--review">Supervisor</span></div>
+          <div class="form-card-body row g-3">
+            <p class="form-help-text col-12">Jail Commander or System Administrator may record supervisory review after Form 1 is submitted.</p>
+            <div class="col-md-4">
+              <label class="form-label">Supervisor Name</label>
+              <input type="text" class="form-control" data-field="supervisorName">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Supervisor ID</label>
+              <input type="text" class="form-control" data-field="supervisorId">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Review Decision</label>
+              <select class="form-select" data-field="supervisorDecision">
+                <option value="">Select…</option>
+                <option value="approved">Approved</option>
+                <option value="returned">Returned for correction</option>
+                <option value="denied">Denied</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Review Comments</label>
+              <textarea class="form-control" rows="2" data-field="supervisorComments" placeholder="Supervisory review notes…"></textarea>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="form-actions-bar no-print">
+      <div class="container d-flex flex-wrap gap-2 align-items-center">
+        <button type="button" class="btn btn-pms-outline" id="btn-save-draft"><i class="bi bi-save"></i> Save Draft</button>
+        <button type="button" class="btn btn-pms-primary" id="btn-submit-f1"><i class="bi bi-send-check"></i> Submit Form 1</button>
+        <button type="button" class="btn btn-pms-outline" id="btn-save-supervisor"><i class="bi bi-shield-check"></i> Save Supervisor Review</button>
+        <button type="button" class="btn btn-pms-outline" id="btn-print"><i class="bi bi-printer"></i> Print</button>
+        <button type="button" class="btn btn-outline-secondary" id="btn-back">Back to Dashboard</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/api-client.js"></script>
+  <script src="../js/id-generator.js"></script>
+  <script src="../js/eligibility-engine.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/rbac.js"></script>
+  <script src="../js/ui-shared.js"></script>
+  <script src="../js/workflow.js"></script>
+  <script src="../js/form1-validation.js"></script>
+  <script src="../js/prisoner-combobox.js"></script>
+  <script src="../js/forms-engine.js"></script>
+  <script src="../js/form1-screening.js"></script>
+  <script>
+    (async () => {
+      await PMSStorage.ensureLoaded();
+      const ctx = PMSForms.init(1);
+      if (!ctx) return;
+      await PMSForm1Screening.mount(ctx);
+    })();
+  </script>
+</body>
+</html>

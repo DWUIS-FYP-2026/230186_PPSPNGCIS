@@ -1,0 +1,22 @@
+{
+  "name": "pms-api",
+  "version": "1.0.0",
+  "description": "PMS backend API — MySQL (WampServer)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/migrate.js",
+    "seed": "node src/seed.js",
+    "sync": "node src/sync-all.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mysql2": "^3.12.0"
+  }
+}

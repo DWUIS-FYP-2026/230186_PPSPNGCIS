@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <script src="js/auth-guard.js"></script>
+  <title>Parole Board — PMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="dashboard">
+    <aside class="sidebar" id="app-sidebar"></aside>
+    <main class="main-content">
+      <header class="topbar command-bar">
+        <div class="command-bar__identity">
+          <div class="command-bar__badges" aria-hidden="true">
+            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
+            <span class="command-badge-divider"></span>
+            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+          </div>
+          <div class="command-bar__titles">
+            <h1 id="panel-title">Overview</h1>
+            <p id="panel-subtitle">Parole Board Dashboard</p>
+          </div>
+        </div>
+        <aside class="command-bar__status">
+          <div class="command-ticker"><i class="bi bi-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
+          <div class="command-status-row">
+            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
+            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
+          </div>
+        </aside>
+      </header>
+
+      <div class="board-members-banner" id="board-banner"></div>
+
+      <section class="panel active" id="panel-overview">
+        <div class="stats-grid stats-grid--4">
+          <article class="stat-card stat-card--alert stat-card--featured"><span class="stat-label">Awaiting Decision</span><strong class="stat-value" id="stat-awaiting">0</strong></article>
+          <article class="stat-card"><span class="stat-label">Pending Review</span><strong class="stat-value" id="stat-pending">0</strong></article>
+          <article class="stat-card"><span class="stat-label">Scheduled Hearings</span><strong class="stat-value" id="stat-hearings">0</strong></article>
+          <article class="stat-card"><span class="stat-label">Decisions Recorded</span><strong class="stat-value" id="stat-decided">0</strong></article>
+        </div>
+        <div class="overview-grid">
+          <div class="card"><div class="card-header"><h2>Upcoming Hearings</h2></div><div class="card-body" id="overview-hearings"></div></div>
+          <div class="card"><div class="card-header"><h2>Decision Summary</h2></div><div class="card-body chart-body" id="chart-decisions"></div></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-prisoners">
+        <div class="panel-toolbar">
+          <input type="search" class="search-input" id="board-prisoner-search" placeholder="Search prisoners by name or ID…">
+          <p class="toolbar-note">Official case files — read-only for Parole Board members.</p>
+        </div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Institution</th><th>Status</th><th>Eligibility</th><th></th></tr></thead><tbody id="board-prisoners-tbody"></tbody></table></div></div>
+      </section>
+
+      <section class="panel" id="panel-applications">
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Institution</th><th>Sentence</th><th>Pre-Parole Report</th><th>Forms</th><th></th></tr></thead><tbody id="apps-tbody"></tbody></table></div></div>
+      </section>
+
+      <section class="panel" id="panel-hearings">
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Prisoner</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody id="hearings-tbody"></tbody></table></div></div>
+      </section>
+
+      <section class="panel" id="panel-decisions">
+        <div class="card"><div class="card-header"><h2>Record Board Decision</h2></div>
+          <div class="card-body" id="decisions-list"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-history">
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Decision</th><th>Conditions</th><th>Decided By</th><th>Date</th></tr></thead><tbody id="history-tbody"></tbody></table></div></div>
+      </section>
+
+      <section class="panel" id="panel-reports">
+        <div class="card"><div class="card-header"><h2>Board Meeting Summary</h2><button type="button" class="btn-secondary" id="btn-print-summary">Print Summary</button></div>
+          <div class="card-body" id="meeting-summary"></div>
+        </div>
+        <div class="card" style="margin-top:1rem"><div class="card-header"><h2>Board Analytics</h2></div>
+          <div class="card-body"><div id="reports-filter-bar"></div><div id="reports-body"></div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="modal modal--lg" id="decision-modal"><form id="decision-form" class="modal-form">
+    <div class="modal-header"><h2>Record Parole Decision</h2><button type="button" class="modal-close" data-close="decision-modal">&times;</button></div>
+    <input type="hidden" id="dec-app-id">
+    <div class="form-grid">
+      <div class="form-group form-group--full" id="dec-prisoner-info"></div>
+      <div class="form-group form-group--full"><label>Pre-Parole Report</label><div class="calc-fields" id="dec-report"></div></div>
+      <div class="form-group form-group--full"><label>Supporting Documents</label><ul class="doc-list" id="dec-docs"></ul></div>
+      <div class="form-group"><label>Decision *</label><select id="dec-outcome" required><option value="Approved">Approve Parole</option><option value="Deferred">Defer</option><option value="Refused">Refuse Parole</option></select></div>
+      <div class="form-group form-group--full"><label>Parole Conditions</label><textarea id="dec-conditions" rows="3" placeholder="Conditions of parole if approved…"></textarea></div>
+      <div class="form-group form-group--full"><label>Hearing Deliberation Notes</label><textarea id="dec-deliberation" rows="4" placeholder="Record board deliberations…"></textarea></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn-secondary" data-close="decision-modal">Cancel</button><button type="submit" class="btn-primary">Record Decision (Form 5)</button></div>
+  </form>  </dialog>
+
+  <script src="js/workspace-shell.js"></script><script src="js/command-bar.js"></script><script src="js/id-generator.js"></script><script src="js/eligibility-engine.js"></script><script src="js/storage.js"></script><script src="js/auth.js"></script><script src="js/rbac.js"></script><script src="js/workflow.js"></script><script src="js/forms-engine.js"></script><script src="js/sidebar-nav.js"></script><script src="js/ui-shared.js"></script><script src="js/reports-engine.js"></script><script src="js/dashboard-board.js"></script>
+</body>
+</html>

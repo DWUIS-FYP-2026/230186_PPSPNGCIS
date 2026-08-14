@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <title>Sign In — Parole Management System (PMS)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="pms-login">
+  <div class="login-bg" aria-hidden="true" style="background-image: url('images/login background.png')"></div>
+  <div class="login-overlay" aria-hidden="true"></div>
+
+  <div class="login-wrapper">
+    <header class="login-top-brand">
+      <div class="login-top-logos">
+        <figure class="login-logo login-logo--pngcs">
+          <div class="login-logo-image">
+            <img src="images/PNG CS Logo.jpg" alt="Papua New Guinea Correctional Service emblem">
+          </div>
+          <figcaption class="login-logo-caption">PNG Correctional Services</figcaption>
+        </figure>
+        <div class="login-logo-divider" aria-hidden="true"></div>
+        <figure class="login-logo login-logo--djag">
+          <div class="login-logo-image">
+            <img src="images/djag.png" alt="Department of Justice and Attorney General emblem">
+          </div>
+          <figcaption class="login-logo-caption">Department of Justice &amp; Attorney General</figcaption>
+        </figure>
+      </div>
+    </header>
+
+    <main class="login-card">
+      <div class="login-card-inner">
+        <header class="login-card-header">
+          <h1>Parole Management System <span class="login-title-abbr">(PMS)</span></h1>
+          <div class="login-card-subtitle">
+            <i class="bi bi-scales" aria-hidden="true"></i>
+            <span>PNG Correctional Service &amp; Department of Justice and Attorney General</span>
+          </div>
+        </header>
+
+        <form id="login-form" class="login-form" novalidate>
+          <div class="form-group">
+            <label for="email">Username</label>
+            <div class="input-icon-wrap">
+              <i class="bi bi-person input-icon" aria-hidden="true"></i>
+              <input
+                type="text"
+                id="email"
+                name="email"
+                placeholder="Enter your username"
+                autocomplete="username"
+                required
+              >
+            </div>
+            <span class="error-message" id="email-error"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="input-icon-wrap password-field">
+              <i class="bi bi-lock input-icon" aria-hidden="true"></i>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password"
+                autocomplete="current-password"
+                required
+              >
+              <button type="button" class="toggle-password" aria-label="Show password">
+                <i class="bi bi-eye icon-eye" aria-hidden="true"></i>
+                <i class="bi bi-eye-slash icon-eye-off hidden" aria-hidden="true"></i>
+              </button>
+            </div>
+            <span class="error-message" id="password-error"></span>
+          </div>
+
+          <div class="form-options">
+            <label class="checkbox-label">
+              <input type="checkbox" id="remember" name="remember">
+              <span>Remember Me</span>
+            </label>
+            <a href="#" class="forgot-link">Forgot Password?</a>
+          </div>
+
+          <button type="submit" class="btn-login" id="submit-btn">
+            <i class="bi bi-arrow-right-circle btn-login-icon" aria-hidden="true"></i>
+            <span class="btn-text">Login</span>
+            <span class="btn-spinner hidden" aria-hidden="true"></span>
+          </button>
+
+          <p class="security-notice">
+            <i class="bi bi-shield-lock" aria-hidden="true"></i>
+            Secure access for authorized personnel only.
+          </p>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api-client.js"></script>
+  <script src="js/id-generator.js"></script>
+  <script src="js/eligibility-engine.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

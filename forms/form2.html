@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
+  <script src="../js/auth-guard.js"></script>
+  <title>Form 2 — Personal Particulars | PMS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../css/forms.css" rel="stylesheet">
+</head>
+<body class="form-page">
+  <header class="form-page-header">
+    <div class="container">
+      <div class="brand-line">PNG Correctional Service · Department of Justice & Attorney General</div>
+      <h1>Form 2 — Personal Particulars of Offender</h1>
+      <small>Completed by: PNGCS Parole Clerk · Workflow Step 4</small>
+    </div>
+  </header>
+  <main class="container pb-5">
+    <div class="form-meta-bar" id="form-meta"></div>
+    <form id="parole-form" novalidate>
+      <div class="form-card">
+        <div class="form-card-header">Section A — Personal Details</div>
+        <div class="form-card-body row g-3">
+          <div class="col-md-4"><label class="form-label">Prisoner Number</label><input class="form-control readonly-field" data-readonly-prisoner="prisonerNumber" readonly></div>
+          <div class="col-md-4"><label class="form-label">Surname</label><input class="form-control readonly-field" data-readonly-prisoner="lastName" readonly></div>
+          <div class="col-md-4"><label class="form-label">Given Name(s)</label><input class="form-control readonly-field" data-readonly-prisoner="firstName" readonly></div>
+          <div class="col-md-3"><label class="form-label">Date of Birth *</label><input type="date" class="form-control" data-field="dateOfBirth" required></div>
+          <div class="col-md-3"><label class="form-label">Place of Birth *</label><input class="form-control" data-field="placeOfBirth" required></div>
+          <div class="col-md-3"><label class="form-label">Nationality *</label><input class="form-control" data-field="nationality" required value="Papua New Guinean"></div>
+          <div class="col-md-3"><label class="form-label">Gender *</label><select class="form-select" data-field="gender" required><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+          <div class="col-md-4"><label class="form-label">Marital Status</label><select class="form-select" data-field="maritalStatus"><option value="">Select…</option><option>Single</option><option>Married</option><option>De Facto</option><option>Divorced</option><option>Widowed</option></select></div>
+          <div class="col-md-8"><label class="form-label">Residential Address Before Conviction</label><input class="form-control" data-field="residentialAddress"></div>
+        </div>
+      </div>
+      <div class="form-card">
+        <div class="form-card-header">Section B — Next of Kin / Contact *</div>
+        <div class="form-card-body row g-3">
+          <div class="col-md-4"><label class="form-label">Next of Kin Name *</label><input class="form-control" data-field="nextOfKinName" required></div>
+          <div class="col-md-4"><label class="form-label">Relationship *</label><input class="form-control" data-field="nextOfKinRelationship" required></div>
+          <div class="col-md-4"><label class="form-label">Contact Phone *</label><input class="form-control" data-field="nextOfKinPhone" required></div>
+          <div class="col-12"><label class="form-label">Next of Kin Address</label><textarea class="form-control" rows="2" data-field="nextOfKinAddress"></textarea></div>
+        </div>
+      </div>
+      <div class="form-card">
+        <div class="form-card-header">Section C — Background</div>
+        <div class="form-card-body row g-3">
+          <div class="col-md-4"><label class="form-label">Education Level</label><input class="form-control" data-field="educationLevel"></div>
+          <div class="col-md-4"><label class="form-label">Languages Spoken</label><input class="form-control" data-field="languagesSpoken" placeholder="e.g. Tok Pisin, English"></div>
+          <div class="col-md-4"><label class="form-label">Employment History</label><input class="form-control" data-field="employmentHistory"></div>
+          <div class="col-md-6"><label class="form-label">Medical Conditions</label><textarea class="form-control" rows="2" data-field="medicalConditions"></textarea></div>
+          <div class="col-md-6"><label class="form-label">Substance Abuse History</label><textarea class="form-control" rows="2" data-field="substanceAbuseHistory"></textarea></div>
+        </div>
+      </div>
+    </form>
+    <div class="form-actions-bar no-print">
+      <div class="container d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-pms-primary" id="btn-save">Save Form</button>
+        <button type="button" class="btn btn-pms-outline" id="btn-print">Print</button>
+        <button type="button" class="btn btn-pms-outline" id="btn-export">Export PDF</button>
+        <button type="button" class="btn btn-outline-secondary" id="btn-back">Back to Dashboard</button>
+      </div>
+    </div>
+  </main>
+  <script src="../js/id-generator.js"></script><script src="../js/eligibility-engine.js"></script><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/rbac.js"></script><script src="../js/ui-shared.js"></script><script src="../js/workflow.js"></script><script src="../js/forms-engine.js"></script>
+  <script>
+    const ctx = PMSForms.init(2);
+    if (ctx) {
+      PMSForms.populateMeta(ctx);
+      PMSForms.loadIntoForm('form2', ctx.app.formData?.form2, ctx.prisoner);
+      PMSForms.setReadOnlyIfViewOnly(ctx, 2);
+      PMSForms.bindCommonActions(ctx, 'form2');
+    }
+  </script>
+</body>
+</html>
