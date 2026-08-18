@@ -2,113 +2,230 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
-  <title>Sign In — Parole Management System (PMS)</title>
+  <title>Parole Management System — PNG Correctional Service &amp; DJAG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="pms-login">
-  <div class="login-bg" aria-hidden="true" style="background-image: url('images/login background.png')"></div>
-  <div class="login-overlay" aria-hidden="true"></div>
+<body class="pms-home">
+  <div class="home-bg" aria-hidden="true" style="background-image: url('images/login background.png')"></div>
+  <div class="home-overlay" aria-hidden="true"></div>
 
-  <div class="login-wrapper">
-    <header class="login-top-brand">
-      <div class="login-top-logos">
-        <figure class="login-logo login-logo--pngcs">
-          <div class="login-logo-image">
-            <img src="images/PNG CS Logo.jpg" alt="Papua New Guinea Correctional Service emblem">
+  <div class="home-page">
+    <!-- Top bar: branding + login -->
+    <header class="home-header">
+      <div class="home-header-inner">
+        <div class="home-brand">
+          <div class="home-brand-logos">
+            <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service" class="home-logo home-logo--pngcs">
+            <span class="home-brand-divider" aria-hidden="true"></span>
+            <img src="images/djag.png" alt="Department of Justice and Attorney General" class="home-logo home-logo--djag">
           </div>
-          <figcaption class="login-logo-caption">PNG Correctional Services</figcaption>
-        </figure>
-        <div class="login-logo-divider" aria-hidden="true"></div>
-        <figure class="login-logo login-logo--djag">
-          <div class="login-logo-image">
-            <img src="images/djag.png" alt="Department of Justice and Attorney General emblem">
+          <div class="home-brand-text">
+            <span class="home-brand-title">Parole Management System</span>
+            <span class="home-brand-abbr">(PMS)</span>
           </div>
-          <figcaption class="login-logo-caption">Department of Justice &amp; Attorney General</figcaption>
-        </figure>
+        </div>
+
+        <div class="home-login-panel">
+          <p class="home-login-label"><i class="fi fi-rr-lock" aria-hidden="true"></i> Authorized User Sign In</p>
+          <form id="login-form" class="home-login-form" novalidate>
+            <div class="home-login-fields">
+              <div class="form-group home-login-field">
+                <label for="email" class="visually-hidden">Username</label>
+                <div class="input-icon-wrap">
+                  <i class="fi fi-rr-user input-icon" aria-hidden="true"></i>
+                  <input type="text" id="email" name="email" placeholder="Username" autocomplete="username" required>
+                </div>
+                <span class="error-message" id="email-error"></span>
+              </div>
+              <div class="form-group home-login-field">
+                <label for="password" class="visually-hidden">Password</label>
+                <div class="input-icon-wrap password-field">
+                  <i class="fi fi-rr-lock input-icon" aria-hidden="true"></i>
+                  <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" required>
+                  <button type="button" class="toggle-password" aria-label="Show password">
+                    <i class="fi fi-rr-eye icon-eye" aria-hidden="true"></i>
+                    <i class="fi fi-rr-eye-crossed icon-eye-off hidden" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <span class="error-message" id="password-error"></span>
+              </div>
+              <button type="submit" class="btn-home-login" id="submit-btn">
+                <span class="btn-text">Login</span>
+                <span class="btn-spinner hidden" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="home-login-options">
+              <label class="checkbox-label">
+                <input type="checkbox" id="remember" name="remember">
+                <span>Remember me</span>
+              </label>
+              <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+          </form>
+        </div>
       </div>
     </header>
 
-    <main class="login-card">
-      <div class="login-card-inner">
-        <header class="login-card-header">
-          <h1>Parole Management System <span class="login-title-abbr">(PMS)</span></h1>
-          <div class="login-card-subtitle">
-            <i class="bi bi-scales" aria-hidden="true"></i>
-            <span>PNG Correctional Service &amp; Department of Justice and Attorney General</span>
-          </div>
-        </header>
-
-        <form id="login-form" class="login-form" novalidate>
-          <div class="form-group">
-            <label for="email">Username</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-person input-icon" aria-hidden="true"></i>
-              <input
-                type="text"
-                id="email"
-                name="email"
-                placeholder="Enter your username"
-                autocomplete="username"
-                required
-              >
-            </div>
-            <span class="error-message" id="email-error"></span>
-          </div>
-
-          <div class="form-group">
-            <label for="password">Password</label>
-            <div class="input-icon-wrap password-field">
-              <i class="bi bi-lock input-icon" aria-hidden="true"></i>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                placeholder="Enter your password"
-                autocomplete="current-password"
-                required
-              >
-              <button type="button" class="toggle-password" aria-label="Show password">
-                <i class="bi bi-eye icon-eye" aria-hidden="true"></i>
-                <i class="bi bi-eye-slash icon-eye-off hidden" aria-hidden="true"></i>
-              </button>
-            </div>
-            <span class="error-message" id="password-error"></span>
-          </div>
-
-          <div class="form-options">
-            <label class="checkbox-label">
-              <input type="checkbox" id="remember" name="remember">
-              <span>Remember Me</span>
-            </label>
-            <a href="#" class="forgot-link">Forgot Password?</a>
-          </div>
-
-          <button type="submit" class="btn-login" id="submit-btn">
-            <i class="bi bi-arrow-right-circle btn-login-icon" aria-hidden="true"></i>
-            <span class="btn-text">Login</span>
-            <span class="btn-spinner hidden" aria-hidden="true"></span>
-          </button>
-
-          <p class="security-notice">
-            <i class="bi bi-shield-lock" aria-hidden="true"></i>
-            Secure access for authorized personnel only.
+    <main class="home-main">
+      <!-- Welcome hero -->
+      <section class="home-hero" aria-labelledby="home-welcome-heading">
+        <div class="home-hero-inner">
+          <p class="home-hero-eyebrow"><i class="fi fi-rr-scale" aria-hidden="true"></i> Papua New Guinea</p>
+          <h1 id="home-welcome-heading">Welcome to the Parole Management System</h1>
+          <p class="home-hero-lead">
+            A secure digital platform supporting the fair, transparent, and accountable administration
+            of parole across correctional institutions nationwide.
           </p>
-        </form>
-      </div>
+        </div>
+      </section>
+
+      <!-- About the parole system -->
+      <section class="home-section" aria-labelledby="about-parole-heading">
+        <div class="home-section-inner">
+          <h2 id="about-parole-heading">About the Parole System</h2>
+          <div class="home-prose">
+            <p>
+              Parole is a structured reintegration pathway that allows eligible offenders to serve the
+              remainder of their sentence under community supervision, subject to conditions set by the
+              Parole Board. The process balances public safety with rehabilitation and the opportunity
+              for offenders to rebuild their lives responsibly.
+            </p>
+            <p>
+              The Parole Management System (PMS) digitizes the end-to-end parole workflow — from
+              eligibility screening and application submission through institutional reporting, legal
+              review, board hearings, and final decisions. It provides role-based access for correctional
+              officers, legal staff, jail commanders, and board members at every stage of the process.
+            </p>
+          </div>
+          <ul class="home-feature-list">
+            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Eligibility screening and automated notifications</li>
+            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Structured Forms 1–5 workflow and audit trail</li>
+            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Hearing scheduling and board decision records</li>
+            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Institution-scoped access for commanders nationwide</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Partner agencies -->
+      <section class="home-section home-section--agencies" aria-labelledby="agencies-heading">
+        <div class="home-section-inner">
+          <h2 id="agencies-heading">Our Partner Agencies</h2>
+          <p class="home-section-intro">
+            Parole administration in Papua New Guinea is a collaborative effort between correctional
+            services and the justice sector. Both agencies work together through PMS to ensure every
+            application is processed thoroughly and in accordance with the law.
+          </p>
+
+          <div class="home-agency-grid">
+            <article class="home-agency-card home-agency-card--pngcs">
+              <div class="home-agency-card-header">
+                <img src="images/PNG CS Logo.jpg" alt="" class="home-agency-logo">
+                <h3>PNG Correctional Service</h3>
+                <span class="home-agency-tag">PNGCS</span>
+              </div>
+              <p>
+                PNGCS manages correctional institutions across the country, overseeing the custody,
+                welfare, and rehabilitation of offenders. Through PMS, PNGCS parole clerks and jail
+                commanders initiate eligibility screening, manage detainee records, and prepare
+                institutional reports that inform parole decisions.
+              </p>
+              <ul class="home-agency-roles">
+                <li>Parole eligibility screening (Form 1)</li>
+                <li>Offender particulars and applications (Form 2)</li>
+                <li>Institutional conduct reports (Form 3)</li>
+                <li>Jail commander oversight at every facility</li>
+              </ul>
+            </article>
+
+            <article class="home-agency-card home-agency-card--djag">
+              <div class="home-agency-card-header">
+                <img src="images/djag.png" alt="" class="home-agency-logo">
+                <h3>Department of Justice &amp; Attorney General</h3>
+                <span class="home-agency-tag">DJAG</span>
+              </div>
+              <p>
+                DJAG provides legal oversight of the parole process, ensuring applications meet
+                statutory requirements before they proceed to the Parole Board. DJAG parole clerks
+                review submissions, coordinate pre-parole investigations, and support hearing
+                administration and board deliberations.
+              </p>
+              <ul class="home-agency-roles">
+                <li>Legal review of submitted applications</li>
+                <li>Pre-parole investigation reports (Form 4)</li>
+                <li>Hearing scheduling and case coordination</li>
+                <li>Parole Board decision records (Form 5)</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Collaboration -->
+      <section class="home-section home-section--collab" aria-labelledby="collab-heading">
+        <div class="home-section-inner">
+          <h2 id="collab-heading">Working Together for Safer Communities</h2>
+          <p class="home-section-intro">
+            From the moment an offender becomes eligible for parole, PNGCS and DJAG collaborate
+            through a defined workflow — each agency contributing its expertise at the right stage
+            until the Parole Board reaches a final decision.
+          </p>
+          <ol class="home-workflow-steps">
+            <li>
+              <span class="home-step-num">1</span>
+              <div>
+                <strong>PNGCS — Eligibility &amp; Application</strong>
+                <p>Screen detainees, notify stakeholders, and submit parole applications with offender particulars.</p>
+              </div>
+            </li>
+            <li>
+              <span class="home-step-num">2</span>
+              <div>
+                <strong>PNGCS — Institutional Report</strong>
+                <p>Jail commanders provide conduct, program participation, and commander recommendations.</p>
+              </div>
+            </li>
+            <li>
+              <span class="home-step-num">3</span>
+              <div>
+                <strong>DJAG — Legal Review &amp; Investigation</strong>
+                <p>Review applications for compliance and prepare pre-parole investigation reports.</p>
+              </div>
+            </li>
+            <li>
+              <span class="home-step-num">4</span>
+              <div>
+                <strong>Parole Board — Hearing &amp; Decision</strong>
+                <p>Board members deliberate and record approved, deferred, or refused outcomes.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
     </main>
+
+    <footer class="home-footer">
+      <p>
+        <i class="fi fi-rr-shield" aria-hidden="true"></i>
+        Secure access for authorized personnel only.
+        &copy; Papua New Guinea Correctional Service &amp; Department of Justice and Attorney General.
+      </p>
+      <p class="pms-icon-attribution pms-icon-attribution--home">Icons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noopener noreferrer">Flaticon</a></p>
+    </footer>
   </div>
 
   <script src="js/api-client.js"></script>
   <script src="js/id-generator.js"></script>
   <script src="js/eligibility-engine.js"></script>
+  <script src="js/commanders-data.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/login.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
