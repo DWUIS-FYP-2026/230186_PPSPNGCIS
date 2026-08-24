@@ -5,6 +5,9 @@
 
   let pendingDocs = [];
   let prisonerDocsExisting = [];
+  let usersOfficersOnly = false;
+  const usersPager = PMSUI.createPaginator({ pageSize: 12, onPageChange: () => renderUsers(usersOfficersOnly) });
+  const prisonersPager = PMSUI.createPaginator({ pageSize: 15, onPageChange: renderPrisoners });
 
   const panelTitles = {
     overview: ['Dashboard Overview', 'Central administration panel for the Parole Management System'],
@@ -85,7 +88,7 @@
 
   function renderActivityItem(icon, title, meta, time) {
     return `<div class="activity-item">
-      <span class="activity-item__icon"><i class="bi ${icon}" aria-hidden="true"></i></span>
+      <span class="activity-item__icon"><i class="${icon}" aria-hidden="true"></i></span>
       <div class="activity-item__body">
         <div class="activity-item__title">${title}</div>
         <div class="activity-item__meta">${meta}</div>
@@ -173,6 +176,12 @@
     setStat('stat-institutions', stats.totalInstitutions);
     setStat('stat-applications', stats.activeParoleApplications);
     setStat('stat-eligible', stats.eligiblePrisoners);
+    setStat('stat-overdue', stats.overdueCases);
+    setStat('stat-granted', stats.grantedParole);
+    setStat('stat-refused', stats.refusedParole);
+    setStat('stat-released', stats.releasedPrisoners);
+    setStat('stat-board-active', stats.activeBoardMembers);
+    setStat('stat-board-expired', stats.expiredBoardMembers);
     setStat('stat-notifications', stats.pendingNotifications);
 
     const statHearings = document.getElementById('stat-hearings');
@@ -248,17 +257,25 @@
         }).join('');
     }
 
-    const decisions = apps.filter((a) => ['Approved', 'Refused', 'Deferred'].includes(a.status));
+    const decisions = apps.filter((a) => ['Approved', 'Refused', 'Deferred', 'Parole Granted', 'Parole Refused'].includes(a.status));
     const decisionsEl = document.getElementById('inbox-decisions');
     if (decisionsEl) {
       document.getElementById('inbox-decisions-count').textContent = decisions.length;
       decisionsEl.innerHTML = decisions.length === 0 ? '<p class="empty-state">No decisions recorded.</p>' :
         decisions.slice(0, 6).map((a) => {
           const p = PMSStorage.getPrisonerById(a.prisonerId);
-          return renderInboxItem(a.status === 'Approved' ? 'low' : 'medium',
+          return renderInboxItem(a.status === 'Approved' || a.status === 'Parole Granted' ? 'low' : 'medium',
             `${esc(p?.firstName || '')} ${esc(p?.lastName || '')}`.trim(),
             esc(a.status), fmtDate(a.updatedAt || a.submittedAt));
         }).join('');
+    }
+
+    const overdueItems = stats.escalations?.filter((e) => e.severity === 'high' || e.type === 'hearing_overdue') || [];
+    const overdueEl = document.getElementById('inbox-overdue');
+    if (overdueEl) {
+      document.getElementById('inbox-overdue-count').textContent = overdueItems.length;
+      overdueEl.innerHTML = overdueItems.length === 0 ? '<p class="empty-state">No overdue cases.</p>' :
+        overdueItems.slice(0, 6).map((e) => renderInboxItem('high', esc(e.caseNumber || 'Case'), esc(e.message), 'Overdue')).join('');
     }
 
     updateBadge();
@@ -266,6 +283,7 @@
 
   /* ---- Users ---- */
   function renderUsers(officersOnly = false) {
+    usersOfficersOnly = officersOnly;
     let users = PMSStorage.getUsers();
     if (officersOnly) users = users.filter((u) => u.role !== 'System Administrator');
     const roleF = document.getElementById('user-role-filter').value;
@@ -279,9 +297,11 @@
     document.getElementById('users-count').textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
     const tbody = document.getElementById('users-table-body');
     const empty = document.getElementById('users-empty');
-    if (!users.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    if (!users.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); usersPager.renderControls('users-pagination', 0); return; }
     empty.classList.add('hidden');
-    tbody.innerHTML = users.map((u) => `<tr>
+    const pageRows = usersPager.setRows(users);
+    usersPager.renderControls('users-pagination', users.length);
+    tbody.innerHTML = pageRows.map((u) => `<tr>
       <td><strong>${esc(u.username)}</strong></td>
       <td>${esc(u.firstName)} ${esc(u.lastName)}</td>
       <td>${esc(u.role)}</td>
@@ -296,6 +316,18 @@
         ${u.role !== 'System Administrator' ? `<button type="button" class="btn-icon btn-icon--danger" data-delete-user="${u.id}">Delete</button>` : ''}
       </td>
     </tr>`).join('');
+  }
+
+  function toggleBoardFields(role) {
+    const boardRoles = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
+    const show = boardRoles.includes(role);
+    ['board-position-group', 'contract-start-group', 'contract-expiry-group'].forEach((id) => {
+      document.getElementById(id)?.classList.toggle('hidden', !show);
+    });
+    const posSel = document.getElementById('user-board-position');
+    if (posSel && show) {
+      populateSelect(posSel, [['', '— None —'], ...PMSStorage.BOARD_POSITIONS.map((p) => [p, p])], posSel.value);
+    }
   }
 
   function openUserModal(user = null) {
@@ -313,6 +345,10 @@
     document.getElementById('user-position').value = user?.position || '';
     document.getElementById('user-phone').value = user?.phone || '';
     document.getElementById('user-status').value = user?.status || 'Active';
+    document.getElementById('user-board-position').value = user?.boardPosition || '';
+    document.getElementById('user-contract-start').value = user?.contractStartDate || '';
+    document.getElementById('user-contract-expiry').value = user?.contractExpiryDate || '';
+    toggleBoardFields(user?.role || PMSStorage.OFFICER_ROLES[0]);
     document.getElementById('user-password').value = '';
     document.getElementById('user-password').required = !user;
     const pwLabel = document.getElementById('password-group').querySelector('label');
@@ -322,8 +358,8 @@
     const submitBtn = document.getElementById('user-submit-btn');
     if (submitBtn) {
       submitBtn.innerHTML = user
-        ? '<i class="bi bi-check-lg" aria-hidden="true"></i><span>Save Changes</span>'
-        : '<i class="bi bi-person-plus" aria-hidden="true"></i><span>Create User</span>';
+        ? '<i class="fi fi-rr-check" aria-hidden="true"></i><span>Save Changes</span>'
+        : '<i class="fi fi-rr-user-add" aria-hidden="true"></i><span>Create User</span>';
     }
     populateInstitutionSelects();
     if (user) document.getElementById('user-role-select').value = user.role;
@@ -361,9 +397,11 @@
     document.getElementById('prisoners-count').textContent = `${prisoners.length} record${prisoners.length !== 1 ? 's' : ''}`;
     const tbody = document.getElementById('prisoners-table-body');
     const empty = document.getElementById('prisoners-empty');
-    if (!prisoners.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    if (!prisoners.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); prisonersPager.renderControls('prisoners-pagination', 0); return; }
     empty.classList.add('hidden');
-    tbody.innerHTML = prisoners.map((p) => {
+    const pageRows = prisonersPager.setRows(prisoners);
+    prisonersPager.renderControls('prisoners-pagination', prisoners.length);
+    tbody.innerHTML = pageRows.map((p) => {
       const prog = PMSStorage.getPrisonerProgress(p);
       const months = PMSStorage.getSentenceDurationMonths(p);
       const rowClass = prog.eligible ? 'row-eligible' : '';
@@ -565,6 +603,9 @@
         position: document.getElementById('user-position').value.trim(),
         phone: document.getElementById('user-phone').value.trim(),
         status: document.getElementById('user-status').value,
+        boardPosition: document.getElementById('user-board-position').value || null,
+        contractStartDate: document.getElementById('user-contract-start').value || null,
+        contractExpiryDate: document.getElementById('user-contract-expiry').value || null,
         password: pw || undefined,
       }, actor);
       document.getElementById('user-modal').close();
@@ -642,5 +683,6 @@
 
   populateRoleSelects();
   populateInstitutionSelects();
+  document.getElementById('user-role-select')?.addEventListener('change', (e) => toggleBoardFields(e.target.value));
   if (!PMSUI.applyDeepLinkNav((panel, navId) => switchPanel(panel, navId))) switchPanel('overview');
 })();

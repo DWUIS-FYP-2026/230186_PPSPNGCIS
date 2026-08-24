@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
   <script src="js/auth-guard.js"></script>
+  <script src="js/page-zoom.js"></script>
   <title>Correctional Institutions — PMS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link href="css/dashboard.css" rel="stylesheet">
   <link href="css/institutions.css" rel="stylesheet">
 </head>
@@ -31,7 +31,7 @@
           </div>
         </div>
         <aside class="command-bar__status">
-          <div class="command-ticker"><i class="bi bi-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
+          <div class="command-ticker"><i class="fi fi-rr-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
           <div class="command-status-row">
             <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
             <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>

@@ -4,108 +4,195 @@
 const PMSSidebar = (() => {
   const BREAKPOINT = 1024;
   const STORAGE_KEY = 'pms_sidebar_collapsed';
-  const SECTIONS_KEY = 'pms_sidebar_sections';
-
-  const QUICK_ACCESS = {
-    'System Administrator': ['overview', 'prisoners', 'reports'],
-    'PNGCS Parole Clerk': ['overview', 'prisoners', 'applications'],
-    'DJAG Parole Clerk': ['overview', 'applications', 'hearings'],
-    'Jail Commander': ['overview', 'prisoners', 'notifications'],
-    'Parole Board Member': ['overview', 'hearings', 'decisions'],
-  };
 
   const ROLE_BRAND = {
     'System Administrator': { logo: 'images/PNG CS Logo.jpg', subtitle: 'System Administrator', wide: false },
+    'CS Parole Officer': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Parole Officer', wide: false },
     'PNGCS Parole Clerk': { logo: 'images/PNG CS Logo.jpg', subtitle: 'PNGCS Parole Clerk', wide: false },
     'DJAG Parole Clerk': { logo: 'images/djag.png', subtitle: 'DJAG Parole Clerk', wide: true },
     'Jail Commander': { logo: 'images/PNG CS Logo.jpg', subtitle: 'Jail Commander', wide: false },
+    'DJAG Secretary': { logo: 'images/djag.png', subtitle: 'DJAG Secretary', wide: true },
+    'Doctor': { logo: 'images/djag.png', subtitle: 'Board Medical Assessor', wide: true },
+    'CS Commissioner': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Commissioner', wide: false },
     'Parole Board Member': { logo: 'images/djag.png', subtitle: 'Parole Board', wide: true },
   };
 
   /** Menu sections for grouped navigation */
   const NAV_SECTIONS = {
     'System Administrator': [
-      { label: 'Main', ids: ['overview'] },
-      { label: 'Case Management', ids: ['prisoners', 'notifications'] },
-      { label: 'Reports', ids: ['reports', 'audit'] },
-      { label: 'Administration', ids: ['users', 'officers', 'institutions'] },
-      { label: 'System', ids: ['settings', 'profile'] },
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Parole Management', ids: ['cases', 'eligibility', 'form1', 'form2', 'form3', 'form4', 'form5'] },
+      { label: 'Prisoners', ids: ['prisoners'] },
+      { label: 'Hearings', ids: ['hearings-upcoming', 'hearings-completed'] },
+      { label: 'Release', ids: ['release-pending', 'release-done'] },
+      { label: 'Operations', ids: ['guarantors', 'documents', 'notifications'] },
+      { label: 'Reports & Analytics', ids: ['reports', 'analytics', 'audit'] },
+      { label: 'Administration', ids: ['users', 'board-members', 'institutions', 'settings', 'profile'] },
     ],
     'PNGCS Parole Clerk': [
-      { label: 'Main', ids: ['overview'] },
-      { label: 'Case Management', ids: ['prisoners', 'applications', 'eligibility', 'forms'] },
-      { label: 'Reports', ids: ['reports', 'notifications', 'profile'] },
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1', 'form2', 'form3'] },
+      { label: 'Prisoners', ids: ['prisoners'] },
+      { label: 'Operations', ids: ['guarantors', 'documents', 'notifications'] },
+      { label: 'Reports', ids: ['reports', 'profile'] },
+    ],
+    'CS Parole Officer': [
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1'] },
+      { label: 'Prisoners', ids: ['prisoners'] },
+      { label: 'Operations', ids: ['notifications'] },
+      { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'DJAG Parole Clerk': [
-      { label: 'Main', ids: ['overview'] },
-      { label: 'Case Management', ids: ['prisoners', 'applications', 'pre-parole', 'hearings', 'forms'] },
-      { label: 'Reports', ids: ['reports', 'notifications', 'profile'] },
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Parole Management', ids: ['applications', 'form2', 'form4'] },
+      { label: 'Prisoners', ids: ['prisoners'] },
+      { label: 'Hearings', ids: ['hearings', 'hearings-upcoming'] },
+      { label: 'Operations', ids: ['documents', 'notifications'] },
+      { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'Jail Commander': [
-      { label: 'Main', ids: ['overview', 'institution'] },
-      { label: 'Operations', ids: ['prisoners', 'officers', 'notifications'] },
+      { label: 'Dashboard', ids: ['overview', 'institution'] },
+      { label: 'Parole Management', ids: ['applications', 'form3'] },
+      { label: 'Prisoners', ids: ['prisoners'] },
+      { label: 'Release', ids: ['release-pending', 'release-done'] },
+      { label: 'Operations', ids: ['officers', 'notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
+    'DJAG Secretary': [
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Hearings', ids: ['hearings', 'hearings-upcoming'] },
+      { label: 'Board', ids: ['decisions'] },
+      { label: 'Operations', ids: ['notifications', 'profile'] },
+    ],
+    'Doctor': [
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Board', ids: ['decisions'] },
+      { label: 'Operations', ids: ['notifications', 'profile'] },
+    ],
+    'CS Commissioner': [
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Board', ids: ['decisions'] },
+      { label: 'Reports', ids: ['reports', 'notifications', 'profile'] },
+    ],
     'Parole Board Member': [
-      { label: 'Main', ids: ['overview'] },
-      { label: 'Board', ids: ['prisoners', 'hearings', 'applications', 'decisions', 'history'] },
-      { label: 'Reports', ids: ['reports', 'profile'] },
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Parole Management', ids: ['applications', 'form4', 'form5'] },
+      { label: 'Board', ids: ['prisoners', 'hearings', 'decisions', 'history'] },
+      { label: 'Reports', ids: ['reports', 'notifications', 'profile'] },
     ],
   };
 
   /** Menu definitions — filtered by PMSRBAC.canAccessModule */
   const MENUS = {
     'System Administrator': [
-      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'bi-speedometer2' },
-      { id: 'users', module: 'users', panel: 'users', label: 'User Management', icon: 'bi-people' },
-      { id: 'officers', module: 'users', panel: 'officers', label: 'Officer Management', icon: 'bi-person-badge' },
-      { id: 'institutions', module: 'institutions', href: 'institutions.html', label: 'Correctional Institutions', icon: 'bi-building' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'bi-person-lock' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'bi-bell', badge: true },
-      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'bi-bar-chart-line' },
-      { id: 'audit', module: 'audit', panel: 'audit', label: 'Audit Logs', icon: 'bi-journal-text' },
-      { id: 'settings', module: 'settings', panel: 'settings', label: 'System Settings', icon: 'bi-gear' },
-      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'bi-person-circle' },
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'cases', module: 'cases', panel: 'prisoners', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'eligibility', module: 'eligibility', panel: 'prisoners', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
+      { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
+      { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
+      { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
+      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
+      { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-user-lock' },
+      { id: 'hearings-upcoming', module: 'hearings', href: 'dashboard-djag.html?panel=hearings', label: 'Upcoming Hearings', icon: 'fi fi-rr-calendar' },
+      { id: 'hearings-completed', module: 'hearings', href: 'dashboard-djag.html?panel=hearings', label: 'Completed Hearings', icon: 'fi fi-rr-calendar-check' },
+      { id: 'release-pending', module: 'release', panel: 'prisoners', label: 'Pending Release', icon: 'fi fi-rr-hourglass' },
+      { id: 'release-done', module: 'release', panel: 'prisoners', label: 'Released Prisoners', icon: 'fi fi-rr-door-open' },
+      { id: 'guarantors', module: 'guarantors', panel: 'prisoners', label: 'Guarantors', icon: 'fi fi-rr-users' },
+      { id: 'documents', module: 'documents', panel: 'prisoners', label: 'Documents', icon: 'fi fi-rr-folder-open' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
+      { id: 'analytics', module: 'analytics', panel: 'reports', label: 'Analytics', icon: 'fi fi-rr-chart-pie' },
+      { id: 'audit', module: 'audit', panel: 'audit', label: 'Audit Trail', icon: 'fi fi-rr-journal' },
+      { id: 'users', module: 'users', panel: 'users', label: 'User Management', icon: 'fi fi-rr-users' },
+      { id: 'board-members', module: 'board_members', panel: 'users', label: 'Board Members', icon: 'fi fi-rr-id-badge' },
+      { id: 'institutions', module: 'institutions', href: 'institutions.html', label: 'Institutions', icon: 'fi fi-rr-building' },
+      { id: 'settings', module: 'settings', panel: 'settings', label: 'System Settings', icon: 'fi fi-rr-settings' },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'PNGCS Parole Clerk': [
-      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'bi-speedometer2' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'bi-person-vcard' },
-      { id: 'applications', module: 'applications', panel: 'applications', label: 'Parole Applications', icon: 'bi-file-earmark-text' },
-      { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility Verification', icon: 'bi-check-circle' },
-      { id: 'forms', module: 'forms', panel: 'applications', label: 'Forms 1–5', icon: 'bi-files' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'bi-bell', badge: true },
-      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'bi-bar-chart-line' },
-      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'bi-person-circle' },
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
+      { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
+      { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
+      { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
+      { id: 'guarantors', module: 'guarantors', panel: 'applications', label: 'Guarantors', icon: 'fi fi-rr-users' },
+      { id: 'documents', module: 'documents', panel: 'prisoners', label: 'Documents', icon: 'fi fi-rr-folder-open' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'DJAG Parole Clerk': [
-      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'bi-speedometer2' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Search', icon: 'bi-search' },
-      { id: 'applications', module: 'applications', panel: 'applications', label: 'Application Review', icon: 'bi-file-earmark-check' },
-      { id: 'pre-parole', module: 'reports', panel: 'reports', label: 'Pre-Parole Reports', icon: 'bi-file-medical' },
-      { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Schedule', icon: 'bi-calendar-event' },
-      { id: 'forms', module: 'forms', panel: 'applications', label: 'Forms', icon: 'bi-files' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'bi-bell', badge: true },
-      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'bi-bar-chart-line' },
-      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'bi-person-circle' },
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
+      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Search', icon: 'fi fi-rr-search' },
+      { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
+      { id: 'hearings-upcoming', module: 'hearings', panel: 'hearings', label: 'Upcoming Hearings', icon: 'fi fi-rr-clock' },
+      { id: 'documents', module: 'documents', panel: 'prisoners', label: 'Documents', icon: 'fi fi-rr-folder-open' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'Jail Commander': [
-      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'bi-speedometer2' },
-      { id: 'institution', module: 'institutions', href: 'institutions.html', label: 'Institution Overview', icon: 'bi-building' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'bi-person-vcard' },
-      { id: 'officers', module: 'officers', panel: 'officers', label: 'Officer Management', icon: 'bi-person-badge' },
-      { id: 'reports', module: 'reports', panel: 'reports', label: 'Institutional Reports', icon: 'bi-bar-chart-line' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Eligibility Notifications', icon: 'bi-bell', badge: true },
-      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'bi-person-circle' },
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'institution', module: 'institutions', href: 'institutions.html', label: 'Institution Overview', icon: 'fi fi-rr-building' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
+      { id: 'release-pending', module: 'release', panel: 'applications', label: 'Pending Release', icon: 'fi fi-rr-hourglass' },
+      { id: 'release-done', module: 'release', panel: 'prisoners', label: 'Released Prisoners', icon: 'fi fi-rr-door-open' },
+      { id: 'officers', module: 'officers', panel: 'officers', label: 'Officers', icon: 'fi fi-rr-id-badge' },
+      { id: 'reports', module: 'reports', panel: 'reports', label: 'Institutional Reports', icon: 'fi fi-rr-chart-line-up' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
+    ],
+    'CS Parole Officer': [
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
+      { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
+    ],
+    'DJAG Secretary': [
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
+      { id: 'hearings-upcoming', module: 'hearings', panel: 'hearings', label: 'Upcoming Hearings', icon: 'fi fi-rr-clock' },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Assessments', icon: 'fi fi-rr-gavel' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
+    ],
+    'Doctor': [
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Medical Assessments', icon: 'fi fi-rr-stethoscope' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
+    ],
+    'CS Commissioner': [
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Commissioner Assessments', icon: 'fi fi-rr-gavel' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'Parole Board Member': [
-      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'bi-speedometer2' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'bi-person-vcard' },
-      { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Schedule', icon: 'bi-calendar-event' },
-      { id: 'applications', module: 'applications', panel: 'applications', label: 'Parole Applications', icon: 'bi-file-earmark-text' },
-      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Decisions', icon: 'bi-hammer' },
-      { id: 'history', module: 'history', panel: 'history', label: 'Decision History', icon: 'bi-clock-history' },
-      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'bi-bar-chart-line' },
-      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'bi-person-circle' },
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
+      { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
+      { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Schedule', icon: 'fi fi-rr-calendar' },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Decisions', icon: 'fi fi-rr-gavel' },
+      { id: 'history', module: 'history', panel: 'history', label: 'Decision History', icon: 'fi fi-rr-time-past' },
+      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
   };
 
@@ -148,71 +235,38 @@ const PMSSidebar = (() => {
   function renderNavItem(item, user) {
     const active = item.id === activeNavId ? ' active' : '';
     const badge = item.badge ? '<span class="nav-badge nav-notif-badge hidden">0</span>' : '';
-    const icon = `<i class="bi ${item.icon} nav-icon" aria-hidden="true"></i>`;
+    const icon = item.icon ? `<i class="${item.icon} nav-icon" aria-hidden="true"></i>` : '';
     const label = `<span class="nav-label">${esc(item.label)}</span>`;
+    const initial = esc((item.label || '?').charAt(0));
 
     if (linkPanels && item.panel && !item.href) {
-      return `<a href="${panelLink(item, user)}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}">${icon}${label}${badge}</a>`;
+      return `<a href="${panelLink(item, user)}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}" data-initial="${initial}">${icon}${label}${badge}</a>`;
     }
 
     if (item.id === 'profile') {
       const href = profileHref(user);
       if (href) {
-        return `<a href="${href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}">${icon}${label}</a>`;
+        return `<a href="${href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}" data-initial="${initial}">${icon}${label}</a>`;
       }
-      return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="profile">${icon}${label}</button>`;
+      return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="profile" data-initial="${initial}">${icon}${label}</button>`;
     }
 
     if (item.href) {
-      return `<a href="${item.href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}">${icon}${label}</a>`;
+      return `<a href="${item.href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}" data-initial="${initial}">${icon}${label}</a>`;
     }
 
-    return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="${item.panel}">${icon}${label}${badge}</button>`;
-  }
-
-  function getCollapsedSections() {
-    try {
-      return JSON.parse(localStorage.getItem(SECTIONS_KEY) || '{}');
-    } catch {
-      return {};
-    }
-  }
-
-  function setSectionCollapsed(sectionKey, collapsed) {
-    const state = getCollapsedSections();
-    state[sectionKey] = collapsed;
-    localStorage.setItem(SECTIONS_KEY, JSON.stringify(state));
-  }
-
-  function renderQuickAccess(user) {
-    const ids = QUICK_ACCESS[user.role] || ['overview'];
-    const items = getMenuItems(user).filter((i) => ids.includes(i.id));
-    if (!items.length) return '';
-    return `<div class="nav-quick-access">
-      <div class="nav-section-label">Quick Access</div>
-      <div class="nav-quick-grid">${items.map((item) => {
-        const icon = `<i class="bi ${item.icon}" aria-hidden="true"></i>`;
-        if (linkPanels && item.panel && !item.href) {
-          return `<a href="${panelLink(item, user)}" class="nav-quick-item" data-nav-id="${item.id}">${icon}<span>${esc(item.label)}</span></a>`;
-        }
-        if (item.href) return `<a href="${item.href}" class="nav-quick-item">${icon}<span>${esc(item.label)}</span></a>`;
-        return `<button type="button" class="nav-quick-item" data-nav-id="${item.id}" data-panel="${item.panel}">${icon}<span>${esc(item.label)}</span></button>`;
-      }).join('')}</div>
-    </div>`;
+    return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="${item.panel}" data-initial="${initial}">${icon}${label}${badge}</button>`;
   }
 
   function renderGroupedNav(user) {
     const items = getMenuItems(user);
     const sections = NAV_SECTIONS[user.role] || [{ label: 'Navigation', ids: items.map((i) => i.id) }];
-    const collapsedSections = getCollapsedSections();
-    return renderQuickAccess(user) + sections.map((section, idx) => {
-      const sectionKey = `${user.role}-${idx}-${section.label}`;
+    return sections.map((section) => {
       const sectionItems = items.filter((i) => section.ids.includes(i.id));
       if (!sectionItems.length) return '';
-      const collapsed = collapsedSections[sectionKey] === true;
-      return `<div class="nav-section${collapsed ? ' nav-section--collapsed' : ''}" data-section-key="${esc(sectionKey)}">
-        ${section.label ? `<button type="button" class="nav-section-toggle" aria-expanded="${!collapsed}"><span class="nav-section-label">${esc(section.label)}</span><i class="bi bi-chevron-down nav-section-chevron" aria-hidden="true"></i></button>` : ''}
-        <div class="nav-section-items">${sectionItems.map((item) => renderNavItem(item, user)).join('')}</div>
+      return `<div class="nav-section">
+        ${section.label ? `<div class="nav-section-label">${esc(section.label)}</div>` : ''}
+        <ul class="nav-list">${sectionItems.map((item) => `<li>${renderNavItem(item, user)}</li>`).join('')}</ul>
       </div>`;
     }).join('');
   }
@@ -229,7 +283,7 @@ const PMSSidebar = (() => {
     return `
       <div class="sidebar-header">
         <button type="button" class="sidebar-collapse-btn" id="sidebar-collapse-btn" aria-label="Toggle sidebar">
-          <i class="bi bi-list" aria-hidden="true"></i>
+          <i class="fi fi-rr-menu-burger" aria-hidden="true"></i>
         </button>
         <div class="sidebar-brand">
           <img src="${brand.logo}" alt="PMS" class="${logoClass}">
@@ -245,13 +299,13 @@ const PMSSidebar = (() => {
           <span class="user-avatar" id="user-avatar">${esc(initial)}</span>
           <div class="user-details">
             <strong id="user-name">${esc(`${user.firstName} ${user.lastName}`)}</strong>
-            <span id="user-role">${esc(subtitle)}</span>
-            <span class="role-badge">${esc(user.role)}</span>
+            <span class="role-badge" id="user-role">${esc(user.role)}</span>
             ${inst ? `<span class="user-inst" id="user-institution">${esc(inst.name)}</span>` : '<span class="user-inst hidden" id="user-institution"></span>'}
             ${user.boardPosition ? `<span class="user-inst board-position" id="board-position">${esc(user.boardPosition)}</span>` : '<span class="user-inst board-position hidden" id="board-position"></span>'}
           </div>
         </div>
-        <button type="button" class="btn-logout" id="logout-btn"><i class="bi bi-box-arrow-right" aria-hidden="true"></i><span class="nav-label">Logout</span></button>
+        <button type="button" class="btn-logout" id="logout-btn" data-initial="L"><span class="nav-label">Logout</span></button>
+        <p class="pms-icon-attribution">Icons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noopener noreferrer">Flaticon</a></p>
       </div>`;
   }
 
@@ -269,17 +323,24 @@ const PMSSidebar = (() => {
   }
 
   function ensureTopbarToggle() {
-    const topbar = document.querySelector('.topbar');
-    if (!topbar || document.getElementById('sidebar-mobile-toggle')) return;
+    const header = document.querySelector('.workspace-header, .topbar, .command-bar');
+    if (!header) return;
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'sidebar-mobile-toggle';
-    btn.className = 'sidebar-mobile-toggle';
-    btn.setAttribute('aria-label', 'Open navigation menu');
-    btn.innerHTML = '<i class="bi bi-list" aria-hidden="true"></i>';
-    topbar.prepend(btn);
-    btn.addEventListener('click', () => toggleMobile(true));
+    let btn = document.getElementById('sidebar-mobile-toggle');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'sidebar-mobile-toggle';
+      btn.className = 'sidebar-mobile-toggle';
+      btn.setAttribute('aria-label', 'Open navigation menu');
+      btn.innerHTML = '<i class="fi fi-rr-menu-burger" aria-hidden="true"></i><span>Menu</span>';
+      header.prepend(btn);
+    }
+
+    if (!btn.dataset.bound) {
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', () => toggleMobile(true));
+    }
   }
 
   function ensureProfilePanel(user) {
@@ -379,26 +440,6 @@ const PMSSidebar = (() => {
       });
     });
 
-    sidebar.querySelectorAll('.sidebar-nav .nav-quick-item[data-panel]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        setActive(btn.dataset.navId, btn.dataset.panel);
-        onNavigate?.(btn.dataset.panel, { navId: btn.dataset.navId });
-        if (!isDesktop()) closeMobile();
-      });
-    });
-
-    sidebar.querySelectorAll('.nav-section-toggle').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const section = btn.closest('.nav-section');
-        const key = section?.dataset.sectionKey;
-        if (!key) return;
-        const collapsed = !section.classList.contains('nav-section--collapsed');
-        section.classList.toggle('nav-section--collapsed', collapsed);
-        btn.setAttribute('aria-expanded', String(!collapsed));
-        setSectionCollapsed(key, collapsed);
-      });
-    });
-
     sidebar.querySelectorAll('.sidebar-nav .nav-item--link').forEach((link) => {
       link.addEventListener('click', () => {
         if (link.dataset.navId) setActive(link.dataset.navId);
@@ -427,13 +468,11 @@ const PMSSidebar = (() => {
     }
 
     ensureBackdrop();
-    ensureTopbarToggle();
     if (!linkPanels) ensureProfilePanel(user);
     bindNavigation(sidebar, user, onNavigate);
     applyLayout();
 
     document.getElementById('sidebar-collapse-btn')?.addEventListener('click', toggleCollapse);
-    document.getElementById('sidebar-mobile-toggle')?.addEventListener('click', () => toggleMobile(true));
 
     document.getElementById('logout-btn')?.addEventListener('click', async () => {
       if (typeof PMSApi !== 'undefined') await PMSApi.logout().catch(() => {});
@@ -449,6 +488,7 @@ const PMSSidebar = (() => {
 
     setActive(activeNavId, activePanel);
     if (typeof PMSWorkspace !== 'undefined') PMSWorkspace.init(user);
+    ensureTopbarToggle();
   }
 
   return { init, setActive, closeMobile, toggleCollapse };

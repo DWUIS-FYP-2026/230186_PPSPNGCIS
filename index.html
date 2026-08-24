@@ -16,61 +16,61 @@
   <div class="home-overlay" aria-hidden="true"></div>
 
   <div class="home-page">
-    <!-- Top bar: branding + login -->
-    <header class="home-header">
-      <div class="home-header-inner">
-        <div class="home-brand">
-          <div class="home-brand-logos">
-            <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service" class="home-logo home-logo--pngcs">
-            <span class="home-brand-divider" aria-hidden="true"></span>
-            <img src="images/djag.png" alt="Department of Justice and Attorney General" class="home-logo home-logo--djag">
-          </div>
-          <div class="home-brand-text">
-            <span class="home-brand-title">Parole Management System</span>
-            <span class="home-brand-abbr">(PMS)</span>
-          </div>
-        </div>
+    <button type="button" class="home-login-trigger" id="home-login-open" aria-haspopup="dialog" aria-controls="home-login-floater">
+      <i class="fi fi-rr-lock" aria-hidden="true"></i>
+      <span>Login</span>
+    </button>
 
-        <div class="home-login-panel">
-          <p class="home-login-label"><i class="fi fi-rr-lock" aria-hidden="true"></i> Authorized User Sign In</p>
-          <form id="login-form" class="home-login-form" novalidate>
-            <div class="home-login-fields">
-              <div class="form-group home-login-field">
-                <label for="email" class="visually-hidden">Username</label>
-                <div class="input-icon-wrap">
-                  <i class="fi fi-rr-user input-icon" aria-hidden="true"></i>
-                  <input type="text" id="email" name="email" placeholder="Username" autocomplete="username" required>
-                </div>
-                <span class="error-message" id="email-error"></span>
-              </div>
-              <div class="form-group home-login-field">
-                <label for="password" class="visually-hidden">Password</label>
-                <div class="input-icon-wrap password-field">
-                  <i class="fi fi-rr-lock input-icon" aria-hidden="true"></i>
-                  <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" required>
-                  <button type="button" class="toggle-password" aria-label="Show password">
-                    <i class="fi fi-rr-eye icon-eye" aria-hidden="true"></i>
-                    <i class="fi fi-rr-eye-crossed icon-eye-off hidden" aria-hidden="true"></i>
-                  </button>
-                </div>
-                <span class="error-message" id="password-error"></span>
-              </div>
-              <button type="submit" class="btn-home-login" id="submit-btn">
-                <span class="btn-text">Login</span>
-                <span class="btn-spinner hidden" aria-hidden="true"></span>
-              </button>
-            </div>
-            <div class="home-login-options">
-              <label class="checkbox-label">
-                <input type="checkbox" id="remember" name="remember">
-                <span>Remember me</span>
-              </label>
-              <a href="#" class="forgot-link">Forgot password?</a>
-            </div>
-          </form>
+    <div class="home-login-floater hidden" id="home-login-floater" role="dialog" aria-modal="true" aria-labelledby="home-login-title">
+      <div class="home-login-floater-backdrop" id="home-login-backdrop" aria-hidden="true"></div>
+      <div class="home-login-floater-card">
+        <button type="button" class="home-login-floater-close" id="home-login-close" aria-label="Close login">&times;</button>
+        <div class="home-login-floater-header">
+          <div class="home-login-floater-logos">
+            <img src="images/PNG CS Logo.jpg" alt="" class="home-logo home-logo--pngcs">
+            <span class="home-brand-divider" aria-hidden="true"></span>
+            <img src="images/djag.png" alt="" class="home-logo home-logo--djag">
+          </div>
+          <h2 id="home-login-title">Authorized User Sign In</h2>
+          <p class="home-login-floater-sub">Parole Management System (PMS)</p>
         </div>
+        <form id="login-form" class="home-login-form" novalidate>
+          <div class="home-login-fields home-login-fields--stacked">
+            <div class="form-group home-login-field">
+              <label for="email" class="visually-hidden">Username</label>
+              <div class="input-icon-wrap">
+                <i class="fi fi-rr-user input-icon" aria-hidden="true"></i>
+                <input type="text" id="email" name="email" placeholder="Username" autocomplete="username" required>
+              </div>
+              <span class="error-message" id="email-error"></span>
+            </div>
+            <div class="form-group home-login-field">
+              <label for="password" class="visually-hidden">Password</label>
+              <div class="input-icon-wrap password-field">
+                <i class="fi fi-rr-lock input-icon" aria-hidden="true"></i>
+                <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" required>
+                <button type="button" class="toggle-password" aria-label="Show password">
+                  <i class="fi fi-rr-eye icon-eye" aria-hidden="true"></i>
+                  <i class="fi fi-rr-eye-crossed icon-eye-off hidden" aria-hidden="true"></i>
+                </button>
+              </div>
+              <span class="error-message" id="password-error"></span>
+            </div>
+            <button type="submit" class="btn-home-login" id="submit-btn">
+              <span class="btn-text">Login</span>
+              <span class="btn-spinner hidden" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="home-login-options">
+            <label class="checkbox-label">
+              <input type="checkbox" id="remember" name="remember">
+              <span>Remember me</span>
+            </label>
+            <a href="#" class="forgot-link">Forgot password?</a>
+          </div>
+        </form>
       </div>
-    </header>
+    </div>
 
     <main class="home-main">
       <!-- Welcome hero -->
@@ -217,6 +217,8 @@
       </p>
       <p class="pms-icon-attribution pms-icon-attribution--home">Icons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noopener noreferrer">Flaticon</a></p>
     </footer>
+
+
   </div>
 
   <script src="js/api-client.js"></script>

@@ -2,113 +2,759 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <script src="../js/auth-guard.js"></script>
-  <title>Form 5 — Parole Board Decision Record | PMS</title>
+  <script src="../js/page-zoom.js"></script>
+  <title>Form 5 – Parole Refused | PNG Parole System</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <link href="../css/forms.css" rel="stylesheet">
+  <link rel="stylesheet" href="../css/theme.css">
+  <link rel="stylesheet" href="../css/forms.css">
+  <link rel="stylesheet" href="../css/mobile.css">
+  <style>
+    :root {
+      --png-blue: #002b5c;
+      --png-blue-light: #003d7a;
+      --approval-green: #1e6b1e;
+      --approval-green-light: #2e7d32;
+      --approval-green-dark: #145214;
+      --approval-bg: #e8f5e9;
+      --approval-border: #a5d6a7;
+      --readonly-bg: #eef2f7;
+      --text: #1a2b3c;
+      --text-muted: #5a6b7d;
+      --border: #d0d8e4;
+      --white: #ffffff;
+      --warning: #ffc107;
+      --warning-hover: #e0a800;
+      --warning-text: #664d03;
+      --shadow: 0 2px 12px rgba(30, 107, 30, 0.08);
+      --radius: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f6f9;
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    a { color: var(--png-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .page-header {
+      background: linear-gradient(135deg, var(--png-blue) 0%, var(--png-blue-light) 100%);
+      color: var(--white);
+      border-bottom: 4px solid var(--approval-green);
+    }
+
+    .header-top { max-width: 1100px; margin: 0 auto; padding: 0.75rem 1.5rem; }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .back-link:hover { color: #c8e6c9; text-decoration: none; }
+
+    .header-main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .header-title h1 { font-size: 1.5rem; font-weight: 700; }
+    .header-title p { font-size: 0.8125rem; opacity: 0.85; margin-top: 0.25rem; }
+
+    .role-badge {
+      background: var(--approval-green);
+      color: var(--white);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .page-main {
+      flex: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      width: 100%;
+    }
+
+    .section {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+
+    .section-header {
+      background: var(--approval-green);
+      color: var(--white);
+      padding: 0.75rem 1.25rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      border-left: 4px solid var(--approval-green-dark);
+    }
+
+    .section-body { padding: 1.25rem; }
+
+    .field-grid { display: grid; gap: 1rem; }
+    .field-grid--3 { grid-template-columns: repeat(3, 1fr); }
+    .field-grid--2 { grid-template-columns: repeat(2, 1fr); }
+
+    @media (max-width: 768px) {
+      .field-grid--2, .field-grid--3 { grid-template-columns: 1fr; }
+    }
+
+    .field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .field--full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .readonly-field,
+    input[readonly],
+    textarea[readonly] {
+      background: var(--readonly-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.9375rem;
+      font-family: inherit;
+      width: 100%;
+      color: var(--text);
+    }
+
+    .vote-approved {
+      color: var(--approval-green) !important;
+      font-weight: 700;
+    }
+
+    select,
+    input[type="date"],
+    input[type="text"],
+    textarea {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.9375rem;
+      font-family: inherit;
+      width: 100%;
+      color: var(--text);
+      background: var(--white);
+    }
+
+    textarea { resize: vertical; }
+
+    select:focus,
+    input[type="date"]:focus,
+    input[type="text"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--approval-green);
+      box-shadow: 0 0 0 3px rgba(30, 107, 30, 0.12);
+    }
+
+    /* Approval box */
+    .approval-box {
+      background: var(--approval-bg);
+      border: 1px solid var(--approval-border);
+      border-left: 5px solid var(--approval-green);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .approval-box__title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--approval-green);
+      margin-bottom: 0.5rem;
+    }
+
+    .approval-box__text {
+      font-size: 0.9375rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* Conditions */
+    .conditions-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+      margin-bottom: 1rem;
+    }
+
+    .condition-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.875rem 1rem;
+      background: var(--approval-bg);
+      border: 1px solid var(--approval-border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .condition-item:hover { background: #dcedc8; }
+
+    .condition-item--optional {
+      background: var(--readonly-bg);
+      border-color: var(--border);
+    }
+
+    .condition-item--optional:hover { background: #e3eaf2; }
+
+    .condition-item input[type="checkbox"] {
+      width: 1.125rem;
+      height: 1.125rem;
+      margin-top: 0.15rem;
+      accent-color: var(--approval-green);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .condition-item__text {
+      font-size: 0.9375rem;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    .condition-item__tag {
+      display: inline-block;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-left: 0.35rem;
+    }
+
+    .conditions-heading {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.5rem;
+    }
+
+    .conditions-heading--optional {
+      margin-top: 1rem;
+    }
+
+    /* Actions */
+    .actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 1.25rem;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--png-blue); color: var(--white); }
+    .btn-primary:hover { background: var(--png-blue-light); box-shadow: 0 4px 12px rgba(0, 43, 92, 0.25); }
+    .btn-success { background: var(--approval-green); color: var(--white); }
+    .btn-success:hover { background: var(--approval-green-light); box-shadow: 0 4px 12px rgba(30, 107, 30, 0.3); }
+    .btn-warning { background: var(--warning); color: var(--warning-text); }
+    .btn-warning:hover { background: var(--warning-hover); }
+    .btn-secondary { background: var(--white); color: var(--png-blue); border: 2px solid var(--png-blue); }
+    .btn-secondary:hover { background: var(--readonly-bg); }
+
+    .page-footer {
+      background: var(--png-blue);
+      color: rgba(255, 255, 255, 0.85);
+      text-align: center;
+      padding: 1rem 1.5rem;
+      font-size: 0.8125rem;
+      border-top: 3px solid var(--approval-green);
+      margin-top: auto;
+    }
+
+    .issued-banner {
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--approval-bg);
+      border: 1px solid var(--approval-border);
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--approval-green);
+      margin-bottom: 1rem;
+    }
+
+    .issued-banner.show { display: flex; }
+
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--approval-green);
+      color: var(--white);
+      padding: 0.875rem 1.25rem;
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      font-size: 0.875rem;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(1rem);
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      z-index: 1000;
+      border-left: 4px solid var(--approval-green-dark);
+      max-width: 380px;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media print {
+      .back-link, .actions-bar, .toast, .issued-banner { display: none !important; }
+      body { background: white; }
+      .section { box-shadow: none; break-inside: avoid; }
+      .approval-box { break-inside: avoid; }
+      .condition-item input[type="checkbox"] { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+
+    @media print.conditions-only .section:not(#sec-conditions),
+    @media print.conditions-only .approval-box,
+    @media print.conditions-only .page-header,
+    @media print.conditions-only .page-footer { display: none !important; }
+
+    body.print-conditions .section:not(#sec-conditions) { display: none !important; }
+    body.print-conditions .page-header,
+    body.print-conditions .page-footer,
+    body.print-conditions .issued-banner,
+    body.print-conditions .actions-bar { display: none !important; }
+    body.print-conditions #sec-conditions { display: block !important; box-shadow: none; border: none; }
+    body.print-conditions #sec-conditions .section-header { background: var(--approval-green); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  </style>
 </head>
-<body class="form-page">
-  <header class="form-page-header">
-    <div class="container">
-      <div class="brand-line">PNG Correctional Service · Department of Justice & Attorney General</div>
-      <h1>Form 5 — Parole Board Decision Record</h1>
-      <small>Completed by: Parole Board (Chairperson records official decision) · Workflow Step 13</small>
+<body>
+  <header class="page-header">
+    <div class="header-top">
+      <a href="../dashboard-board.html" class="back-link">← Back to Dashboard</a>
+    </div>
+    <div class="header-main">
+      <div class="header-title">
+        <h1>Form 5 – Parole Refused</h1>
+        <p>Papua New Guinea Parole System · Official refusal record (below 80% eligibility)</p>
+      </div>
+      <span class="role-badge">Form 5</span>
     </div>
   </header>
-  <main class="container pb-5">
-    <div class="form-meta-bar" id="form-meta"></div>
-    <form id="parole-form" novalidate>
-      <div class="form-card">
-        <div class="form-card-header">Section A — Hearing Particulars</div>
-        <div class="form-card-body row g-3">
-          <div class="col-md-4"><label class="form-label">Prisoner Number</label><input class="form-control readonly-field" data-readonly-prisoner="prisonerNumber" readonly></div>
-          <div class="col-md-4"><label class="form-label">Name</label><input class="form-control readonly-field" id="prisoner-full-name" readonly></div>
-          <div class="col-md-4"><label class="form-label">Hearing Date *</label><input type="date" class="form-control" data-field="hearingDate" required></div>
-          <div class="col-12"><label class="form-label">Board Members Present *</label><textarea class="form-control" rows="2" data-field="boardMembersPresent" required placeholder="Chairperson (Secretary, DJAG); Commissioner, PNGCS; Medical Member (Doctor)…"></textarea></div>
-        </div>
+
+  <main class="page-main">
+    <form id="form5-approval" novalidate>
+      <div class="issued-banner" id="issued-banner" role="status">
+        ✅ Parole Order (Form 3) has been issued and recorded.
       </div>
-      <div class="form-card">
-        <div class="form-card-header">Section B — Deliberation *</div>
-        <div class="form-card-body">
-          <label class="form-label">Deliberation Summary *</label>
-          <textarea class="form-control" rows="5" data-field="deliberationSummary" required placeholder="Summary of board deliberations, evidence considered, and member contributions…"></textarea>
+
+      <!-- Detainee Information -->
+      <section class="section" aria-labelledby="sec-detainee">
+        <h2 class="section-header" id="sec-detainee">Detainee Information</h2>
+        <div class="section-body">
+          <div class="field-grid field-grid--3">
+            <div class="field">
+              <label for="cs-number">CS Number</label>
+              <input type="text" id="cs-number" class="readonly-field" value="CS-2024-0847" readonly>
+            </div>
+            <div class="field">
+              <label for="full-name">Full Name</label>
+              <input type="text" id="full-name" class="readonly-field" value="Michael K. Warupi" readonly>
+            </div>
+            <div class="field">
+              <label for="facility">Facility</label>
+              <input type="text" id="facility" class="readonly-field" value="Bomana Correctional Facility" readonly>
+            </div>
+            <div class="field">
+              <label for="hearing-date">Hearing Date</label>
+              <input type="text" id="hearing-date" class="readonly-field" value="25/08/2026" readonly>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="form-card">
-        <div class="form-card-header">Section C — Board Decision *</div>
-        <div class="form-card-body row g-3">
-          <div class="col-md-4"><label class="form-label">Decision *</label><select class="form-select" data-field="boardDecision" required><option value="">Select…</option><option>Approved</option><option>Deferred</option><option>Refused</option></select></div>
-          <div class="col-md-4"><label class="form-label">Effective Date</label><input type="date" class="form-control" data-field="effectiveDate"></div>
-          <div class="col-12"><label class="form-label">Parole Conditions (if Approved)</label><textarea class="form-control" rows="3" data-field="paroleConditions" placeholder="Reporting requirements, residence, employment, curfew, etc."></textarea></div>
+      </section>
+
+      <!-- Parole Order (Approval) -->
+      <section class="section" aria-labelledby="sec-order">
+        <h2 class="section-header" id="sec-order">Parole Order (Approval)</h2>
+        <div class="section-body">
+          <div class="approval-box">
+            <div class="approval-box__title">✅ Parole Application Approved</div>
+            <p class="approval-box__text">
+              The Parole Board has reviewed the application, hearing proceedings, and all supporting
+              documentation and has determined that parole shall be granted. This Parole Order is issued
+              in accordance with the <em>Parole Act 1991</em> and PNG Parole Regulation. The detainee
+              is hereby ordered to be released on parole subject to the conditions specified below.
+            </p>
+          </div>
+
+          <div class="field-grid field-grid--3">
+            <div class="field">
+              <label for="release-date">Release Date</label>
+              <input type="date" id="release-date" required>
+            </div>
+            <div class="field">
+              <label for="parole-duration">Parole Duration</label>
+              <select id="parole-duration" required>
+                <option value="">Select duration…</option>
+                <option value="6">6 Months</option>
+                <option value="12" selected>12 Months</option>
+                <option value="18">18 Months</option>
+                <option value="24">24 Months</option>
+                <option value="remainder">Remainder of Sentence</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="supervision-level">Supervision Level</label>
+              <select id="supervision-level" required>
+                <option value="">Select level…</option>
+                <option value="standard" selected>Standard Supervision</option>
+                <option value="intensive">Intensive Supervision</option>
+                <option value="minimum">Minimum Supervision</option>
+              </select>
+            </div>
+            <div class="field field--full">
+              <label for="release-address">Release Address</label>
+              <input type="text" id="release-address" value="Lot 14, Section 42, Gerehu Stage 6, National Capital District" required>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="form-card">
-        <div class="form-card-header">Section D — Signatures</div>
-        <div class="form-card-body row g-3">
-          <div class="col-md-4"><label class="form-label">Chairperson (Secretary, DJAG)</label><input class="form-control" data-field="chairpersonSignature"></div>
-          <div class="col-md-4"><label class="form-label">Commissioner, PNGCS</label><input class="form-control" data-field="commissionerSignature"></div>
-          <div class="col-md-4"><label class="form-label">Medical Member (Doctor)</label><input class="form-control" data-field="medicalMemberSignature"></div>
-          <div class="col-md-4"><label class="form-label">Decision Recorded By</label><input class="form-control readonly-field" id="recorder-name" readonly></div>
-          <div class="col-md-4"><label class="form-label">Board Position</label><input class="form-control readonly-field" id="recorder-position" readonly></div>
-          <div class="col-md-4"><label class="form-label">Record Date *</label><input type="date" class="form-control" data-field="recordDate" required></div>
+      </section>
+
+      <!-- Parole Conditions -->
+      <section class="section" aria-labelledby="sec-conditions">
+        <h2 class="section-header" id="sec-conditions">Parole Conditions</h2>
+        <div class="section-body">
+          <p class="conditions-heading">Standard Conditions (Required)</p>
+          <ul class="conditions-list" id="required-conditions">
+            <li class="condition-item">
+              <input type="checkbox" id="cond-weekly" checked data-required="true">
+              <label class="condition-item__text" for="cond-weekly">Report to Community Based Corrections officer weekly.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-reside" checked data-required="true">
+              <label class="condition-item__text" for="cond-reside">Reside at approved address at all times.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-curfew" checked data-required="true">
+              <label class="condition-item__text" for="cond-curfew">Observe curfew: 9:00 PM – 6:00 AM.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-offences" checked data-required="true">
+              <label class="condition-item__text" for="cond-offences">Not commit any further offences.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-ncd" checked data-required="true">
+              <label class="condition-item__text" for="cond-ncd">Not leave the National Capital District without prior written permission.</label>
+            </li>
+          </ul>
+
+          <p class="conditions-heading conditions-heading--optional">Additional Optional Conditions</p>
+          <ul class="conditions-list" id="optional-conditions">
+            <li class="condition-item condition-item--optional">
+              <input type="checkbox" id="cond-anger">
+              <label class="condition-item__text" for="cond-anger">
+                Complete anger management and rehabilitation program.
+                <span class="condition-item__tag">Optional</span>
+              </label>
+            </li>
+            <li class="condition-item condition-item--optional">
+              <input type="checkbox" id="cond-testing">
+              <label class="condition-item__text" for="cond-testing">
+                Submit to random drug and alcohol testing.
+                <span class="condition-item__tag">Optional</span>
+              </label>
+            </li>
+          </ul>
+
+          <div class="field field--full" style="margin-top: 1rem;">
+            <label for="additional-conditions">Additional Conditions</label>
+            <textarea id="additional-conditions" rows="2" placeholder="Enter any additional parole conditions not listed above…"></textarea>
+          </div>
         </div>
+      </section>
+
+      <!-- Board Decision Details -->
+      <section class="section" aria-labelledby="sec-decision">
+        <h2 class="section-header" id="sec-decision">Board Decision Details</h2>
+        <div class="section-body">
+          <div class="field-grid field-grid--3">
+            <div class="field">
+              <label for="decision-date">Decision Date</label>
+              <input type="text" id="decision-date" class="readonly-field" value="25/08/2026" readonly>
+            </div>
+            <div class="field">
+              <label for="decision-by">Decision By</label>
+              <input type="text" id="decision-by" class="readonly-field" value="Hon. Justice David K. Cannings" readonly>
+            </div>
+            <div class="field">
+              <label for="board-vote">Board Vote</label>
+              <input type="text" id="board-vote" class="readonly-field vote-approved" value="5 – Approve | 0 – Refuse" readonly>
+            </div>
+            <div class="field field--full">
+              <label for="order-recipients">Official Order Sent To</label>
+              <textarea id="order-recipients" class="readonly-field" rows="4" readonly>Michael K. Warupi (Detainee) – Bomana Correctional Facility
+Superintendent, Bomana Correctional Facility
+Community Based Corrections – NCD Regional Office
+Department of Justice & Attorney General – Parole Secretariat
+Correctional Services HQ – Parole Records Unit</textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="actions-bar">
+        <button type="button" class="btn btn-danger" id="btn-issue">Record Parole Refusal (Form 5)</button>
+        <button type="button" class="btn btn-primary" id="btn-save">Save Record</button>
+        <button type="button" class="btn btn-warning" id="btn-print-conditions">Print Parole Conditions</button>
+        <button type="button" class="btn btn-secondary" id="btn-print">Print Form 3</button>
       </div>
     </form>
-    <div class="form-actions-bar no-print">
-      <div class="container d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-pms-primary" id="btn-save">Save Draft</button>
-        <button type="button" class="btn btn-pms-success" id="btn-submit-decision">Submit Final Decision</button>
-        <button type="button" class="btn btn-pms-outline" id="btn-print">Print</button>
-        <button type="button" class="btn btn-pms-outline" id="btn-export">Export PDF</button>
-        <button type="button" class="btn btn-outline-secondary" id="btn-back">Back to Dashboard</button>
-      </div>
-    </div>
   </main>
-  <script src="../js/id-generator.js"></script><script src="../js/eligibility-engine.js"></script><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/rbac.js"></script><script src="../js/ui-shared.js"></script><script src="../js/workflow.js"></script><script src="../js/forms-engine.js"></script>
+
+  <footer class="page-footer">
+    PNG Parole Regulation – Form 3 (Parole Order) · Parole Act 1991
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="../js/id-generator.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/rbac.js"></script>
+  <script src="../js/form-workflow.js"></script>
   <script>
-    const ctx = PMSForms.init(5);
-    if (ctx) {
-      PMSForms.populateMeta(ctx);
-      document.getElementById('prisoner-full-name').value = `${ctx.prisoner.firstName} ${ctx.prisoner.lastName}`;
-      document.getElementById('recorder-name').value = `${ctx.user.firstName} ${ctx.user.lastName}`;
-      document.getElementById('recorder-position').value = ctx.user.boardPosition || ctx.user.position || 'Parole Board Member';
-      PMSForms.loadIntoForm('form5', ctx.app.formData?.form5, ctx.prisoner);
-      const hearing = PMSStorage.getHearings().find((h) => h.applicationId === ctx.appId);
-      const hDate = document.querySelector('[data-field="hearingDate"]');
-      const rDate = document.querySelector('[data-field="recordDate"]');
-      if (!hDate.value && hearing?.scheduledDate) hDate.value = hearing.scheduledDate;
-      if (!rDate.value) rDate.value = new Date().toISOString().split('T')[0];
-      if (!document.querySelector('[data-field="boardMembersPresent"]').value) {
-        const members = PMSStorage.getUsers().filter((u) => u.role === 'Parole Board Member' && u.status === 'Active');
-        document.querySelector('[data-field="boardMembersPresent"]').value = members.map((m) => `${m.boardPosition}: ${m.firstName} ${m.lastName}`).join('; ');
+    (async function () {
+      await PMSStorage.ensureLoaded();
+      const actor = PMSAuth.requireRole(['Parole Board Member', 'System Administrator']);
+      if (!actor) return;
+
+      var wf = PMSFormWorkflow.initPage(5);
+      if (wf.blocked) return;
+
+      const appId = wf.appId;
+      const app = appId && appId !== '_default' ? PMSStorage.getApplicationById(appId) : null;
+      const prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
+      const institution = prisoner ? PMSStorage.getInstitutionById(prisoner.institutionId) : null;
+      const hearing = app ? (PMSStorage.getHearingsByApplication(app.id)[0] || null) : null;
+
+      if (prisoner) {
+        document.getElementById('cs-number').value = prisoner.prisonerNumber || prisoner.id;
+        document.getElementById('full-name').value = [prisoner.firstName, prisoner.middleName, prisoner.lastName].filter(Boolean).join(' ');
+        document.getElementById('facility').value = institution?.name || '—';
+        if (hearing) {
+          document.getElementById('hearing-date').value = hearing.scheduledDate
+            ? new Date(hearing.scheduledDate).toLocaleDateString('en-GB')
+            : '—';
+        }
       }
-      if (ctx.app.boardDecision?.outcome) document.querySelector('[data-field="boardDecision"]').value = ctx.app.boardDecision.outcome;
-      PMSForms.setReadOnlyIfViewOnly(ctx, 5);
-      PMSForms.bindCommonActions(ctx, 'form5');
-      document.getElementById('btn-submit-decision')?.addEventListener('click', () => {
-        if (!document.getElementById('parole-form').checkValidity()) { document.getElementById('parole-form').reportValidity(); return; }
-        const outcome = document.querySelector('[data-field="boardDecision"]').value;
-        if (!['Approved', 'Deferred', 'Refused'].includes(outcome)) { alert('Select a valid board decision.'); return; }
-        if (!confirm(`Record final decision: ${outcome}?`)) return;
-        PMSForms.save('form5', ctx);
-        try {
-          if (ctx.app.status === 'Hearing Scheduled') {
-            PMSStorage.transitionApplication(ctx.appId, 'Pending Board Review', ctx.user, 'Application moved to board review');
+      document.getElementById('decision-by').value = `${actor.firstName} ${actor.lastName}${actor.boardPosition ? ` (${actor.boardPosition})` : ''}`;
+      document.getElementById('decision-date').value = new Date().toLocaleDateString('en-GB');
+
+      var STORAGE_KEY = wf.getDataKey();
+      var issued = false;
+
+      var releaseDate = document.getElementById('release-date');
+      var paroleDuration = document.getElementById('parole-duration');
+      var supervisionLevel = document.getElementById('supervision-level');
+      var releaseAddress = document.getElementById('release-address');
+      var additionalConditions = document.getElementById('additional-conditions');
+      var issuedBanner = document.getElementById('issued-banner');
+      var toast = document.getElementById('toast');
+
+      var conditionIds = [
+        'cond-weekly', 'cond-reside', 'cond-curfew', 'cond-offences', 'cond-ncd',
+        'cond-anger', 'cond-testing'
+      ];
+
+      releaseDate.value = '2026-09-15';
+
+      function showToast(msg) {
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(function () { toast.classList.remove('show'); }, 3500);
+      }
+
+      function getConditionsState() {
+        var state = {};
+        conditionIds.forEach(function (id) {
+          state[id] = document.getElementById(id).checked;
+        });
+        return state;
+      }
+
+      function applyConditionsState(state) {
+        if (!state) return;
+        conditionIds.forEach(function (id) {
+          if (state.hasOwnProperty(id)) {
+            document.getElementById(id).checked = state[id];
           }
-          PMSStorage.recordBoardDecision(ctx.appId, {
-            outcome,
-            conditions: document.querySelector('[data-field="paroleConditions"]').value.trim(),
-            deliberationNotes: document.querySelector('[data-field="deliberationSummary"]').value.trim(),
-          }, ctx.user);
-          alert(`Parole decision recorded: ${outcome}`);
-          window.location.href = PMSAuth.getDashboardForRole(ctx.user.role);
-        } catch (e) { alert(e.message); }
+        });
+      }
+
+      function validateForm() {
+        if (!releaseDate.value) {
+          showToast('Please set the release date.');
+          releaseDate.focus();
+          return false;
+        }
+        if (!paroleDuration.value) {
+          showToast('Please select parole duration.');
+          paroleDuration.focus();
+          return false;
+        }
+        if (!supervisionLevel.value) {
+          showToast('Please select supervision level.');
+          supervisionLevel.focus();
+          return false;
+        }
+        if (!releaseAddress.value.trim()) {
+          showToast('Please enter the release address.');
+          releaseAddress.focus();
+          return false;
+        }
+        var requiredMissing = conditionIds.filter(function (id) {
+          var el = document.getElementById(id);
+          return el.dataset.required === 'true' && !el.checked;
+        });
+        if (requiredMissing.length) {
+          showToast('All standard parole conditions must remain checked.');
+          return false;
+        }
+        return true;
+      }
+
+      function getState() {
+        return {
+          releaseDate: releaseDate.value,
+          paroleDuration: paroleDuration.value,
+          supervisionLevel: supervisionLevel.value,
+          releaseAddress: releaseAddress.value,
+          additionalConditions: additionalConditions.value,
+          conditions: getConditionsState(),
+          issued: issued
+        };
+      }
+
+      function applyState(data) {
+        if (!data) return;
+        if (data.releaseDate) releaseDate.value = data.releaseDate;
+        if (data.paroleDuration) paroleDuration.value = data.paroleDuration;
+        if (data.supervisionLevel) supervisionLevel.value = data.supervisionLevel;
+        if (data.releaseAddress) releaseAddress.value = data.releaseAddress;
+        if (data.additionalConditions) additionalConditions.value = data.additionalConditions;
+        applyConditionsState(data.conditions);
+        issued = !!data.issued;
+        issuedBanner.classList.toggle('show', issued);
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(getState()));
+      }
+
+      function loadState() {
+        try {
+          var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+          applyState(data);
+        } catch (e) { /* ignore */ }
+      }
+
+      document.getElementById('btn-save').addEventListener('click', function () {
+        if (!validateForm()) return;
+        saveState();
+        showToast('Parole approval record saved successfully.');
       });
-    }
+
+      document.getElementById('btn-issue').addEventListener('click', async function () {
+        if (!validateForm()) return;
+        if (!app || !prisoner) {
+          showToast('Application context is required.');
+          return;
+        }
+        const score = PMSStorage.calculateParoleScore(app);
+        if (score.meetsThreshold) {
+          showToast(`Score ${score.percent}% meets 80% threshold. Use Form 4 for parole grant.`);
+          return;
+        }
+        if (!window.confirm('Record official Parole Refusal based on the calculated score?')) return;
+        try {
+          PMSStorage.routeParoleOutcome(app.id, actor);
+          issued = true;
+          saveState();
+          wf.markCompleteAndAdvance({ issued: true });
+          issuedBanner.classList.add('show');
+          showToast('Form 5 — Parole Refused recorded.');
+        } catch (err) {
+          showToast(err.message || 'Could not record refusal.');
+        }
+      });
+
+      document.getElementById('btn-print-conditions').addEventListener('click', function () {
+        document.body.classList.add('print-conditions');
+        window.print();
+        window.addEventListener('afterprint', function cleanup() {
+          document.body.classList.remove('print-conditions');
+          window.removeEventListener('afterprint', cleanup);
+        });
+      });
+
+      document.getElementById('btn-print').addEventListener('click', function () {
+        if (!validateForm()) return;
+        window.print();
+      });
+
+      loadState();
+    })();
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1,28 +1,35 @@
 const form = document.getElementById('login-form');
-
-
-
 const emailInput = document.getElementById('email');
-
-
-
 const passwordInput = document.getElementById('password');
-
-
-
 const emailError = document.getElementById('email-error');
-
-
-
 const passwordError = document.getElementById('password-error');
-
-
-
 const submitBtn = document.getElementById('submit-btn');
-
-
-
 const togglePasswordBtn = document.querySelector('.toggle-password');
+const loginFloater = document.getElementById('home-login-floater');
+const loginOpenBtn = document.getElementById('home-login-open');
+const loginCloseBtn = document.getElementById('home-login-close');
+const loginBackdrop = document.getElementById('home-login-backdrop');
+
+function openLoginFloater() {
+  loginFloater?.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => emailInput?.focus(), 100);
+}
+
+function closeLoginFloater() {
+  loginFloater?.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+loginOpenBtn?.addEventListener('click', openLoginFloater);
+loginCloseBtn?.addEventListener('click', closeLoginFloater);
+loginBackdrop?.addEventListener('click', closeLoginFloater);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && loginFloater && !loginFloater.classList.contains('hidden')) {
+    closeLoginFloater();
+  }
+});
 
 
 

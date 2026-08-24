@@ -31,7 +31,7 @@ const PMSForms = (() => {
         </div>
         <div class="form-app-bar__meta">
           <span class="status-pill status-pill--${PMSUI?.statusClass?.(ctx.app.status) || 'pending'}">${esc(ctx.app.status)}</span>
-          <button type="button" class="btn-secondary btn-sm" id="form-bar-back"><i class="bi bi-arrow-left"></i> Dashboard</button>
+          <button type="button" class="btn-secondary btn-sm" id="form-bar-back"><i class="fi fi-rr-arrow-left"></i> Dashboard</button>
         </div>
       </div>`;
     document.body.insertBefore(bar, document.body.firstChild);
@@ -179,6 +179,10 @@ const PMSForms = (() => {
   }
 
   function openForm(formNumber, appId) {
+    if (typeof PMSFormWorkflow !== 'undefined') {
+      PMSFormWorkflow.openForm(formNumber, appId);
+      return;
+    }
     window.location.href = `${FORM_PATHS[formNumber]}?appId=${appId}`;
   }
 

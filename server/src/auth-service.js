@@ -24,6 +24,20 @@ async function cleanupExpiredSessions() {
   await query('DELETE FROM api_sessions WHERE expires_at < NOW()');
 }
 
+function hashPassword(password) {
+  let h = 5381;
+  for (let i = 0; i < password.length; i += 1) {
+    h = ((h << 5) + h) ^ password.charCodeAt(i);
+  }
+  return `sha1:${(h >>> 0).toString(16)}`;
+}
+
+function verifyPassword(stored, password) {
+  if (!stored) return false;
+  if (stored.startsWith('sha1:')) return stored === hashPassword(password);
+  return stored === password;
+}
+
 async function login(identifier, password) {
   const loginId = identifier.trim().toLowerCase();
   const rows = await query(
@@ -39,7 +53,7 @@ async function login(identifier, password) {
   if (!rows.length) return null;
   const row = rows[0];
   if (row.employment_status === 'Inactive' || row.account_status === 'Suspended') return null;
-  if (row.credential_password !== password) return null;
+  if (!verifyPassword(row.credential_password, password)) return null;
 
   await cleanupExpiredSessions();
   const token = createToken();

@@ -49,11 +49,11 @@
   }
 
   const FORM_WORKFLOW = [
-    { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', owner: 'PNGCS Parole Clerk', prereqs: [] },
-    { n: 2, key: 'form2', label: 'Form 2 — Personal Particulars', owner: 'PNGCS Parole Clerk', prereqs: [] },
+    { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', owner: 'CS Parole Officer', prereqs: [] },
+    { n: 2, key: 'form2', label: 'Form 2 — Personal Particulars', owner: 'PNGCS Parole Clerk', prereqs: ['form1'] },
     { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', owner: 'Jail Commander', prereqs: ['form1', 'form2'] },
-    { n: 4, key: 'form4', label: 'Form 4 — Pre-Parole Report', owner: 'DJAG Parole Clerk', prereqs: ['form1', 'form2', 'form3'] },
-    { n: 5, key: 'form5', label: 'Form 5 — Board Decision', owner: 'Parole Board', prereqs: ['form1', 'form2', 'form3', 'form4'] },
+    { n: 4, key: 'form4', label: 'Form 4 — Parole Granted', owner: 'Parole Board Member', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', owner: 'Parole Board Member', prereqs: ['form1', 'form2', 'form3'] },
   ];
 
   let comboboxPrisoners = [];
@@ -197,21 +197,21 @@
     const prereqsOk = prereqsMet(checks, formDef.prereqs);
 
     if (done) {
-      return { state: 'completed', badge: 'Completed', icon: 'bi-check-circle-fill', clickable: canView || canEdit, reason: 'Completed' };
+      return { state: 'completed', badge: 'Completed', icon: 'fi fi-rr-check-circle', clickable: canView || canEdit, reason: 'Completed' };
     }
     if (!prereqsOk) {
-      return { state: 'locked', badge: 'Locked', icon: 'bi-lock-fill', clickable: false, reason: 'Complete prior forms first' };
+      return { state: 'locked', badge: 'Locked', icon: 'fi fi-rr-lock', clickable: false, reason: 'Complete prior forms first' };
     }
     if (!canEdit && !canView) {
-      return { state: 'locked', badge: 'Restricted', icon: 'bi-shield-lock', clickable: false, reason: `Restricted to ${formDef.owner}` };
+      return { state: 'locked', badge: 'Restricted', icon: 'fi fi-rr-shield', clickable: false, reason: `Restricted to ${formDef.owner}` };
     }
     if (!canEdit && canView) {
-      return { state: 'pending', badge: 'Pending', icon: 'bi-hourglass-split', clickable: true, reason: `Awaiting ${formDef.owner}` };
+      return { state: 'pending', badge: 'Pending', icon: 'fi fi-rr-hourglass', clickable: true, reason: `Awaiting ${formDef.owner}` };
     }
     if (formDef.n === activeFormNumber) {
-      return { state: 'active', badge: 'In Progress', icon: 'bi-pencil-square', clickable: true, reason: 'Continue this form' };
+      return { state: 'active', badge: 'In Progress', icon: 'fi fi-rr-edit', clickable: true, reason: 'Continue this form' };
     }
-    return { state: 'pending', badge: 'Ready', icon: 'bi-circle', clickable: true, reason: 'Available to complete' };
+    return { state: 'pending', badge: 'Ready', icon: 'fi fi-rr-circle', clickable: true, reason: 'Available to complete' };
   }
 
   function getActiveFormNumber(checks) {
@@ -234,13 +234,44 @@
     const p = PMSStorage.getPrisonerById(prisonerId);
     if (app) {
       banner.classList.remove('hidden');
-      banner.innerHTML = `<i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+      banner.innerHTML = `<i class="fi fi-rr-document" aria-hidden="true"></i>
         <span>Application <strong>${PMSUI.esc(app.id)}</strong> · Status: <strong>${PMSUI.esc(app.status)}</strong>${p ? ` · ${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : ''}</span>`;
       return;
     }
     banner.classList.remove('hidden');
-    banner.innerHTML = `<i class="bi bi-info-circle" aria-hidden="true"></i>
+    banner.innerHTML = `<i class="fi fi-rr-info" aria-hidden="true"></i>
       <span>No draft application yet for <strong>${PMSUI.esc(p?.firstName || '')} ${PMSUI.esc(p?.lastName || '')}</strong>. Saving or opening a form will create a draft.</span>`;
+  }
+
+  function updateForm1Actions(prisonerId, app) {
+    const canStart = !!prisonerId;
+    const form1Done = app?.id ? PMSStorage.getFormCompletionSummary(app).checks.form1 : false;
+    document.getElementById('form1-start-panel')?.classList.toggle('hidden', !canStart || form1Done);
+    const startBtn = document.getElementById('btn-start-form1');
+    const startFooterBtn = document.getElementById('btn-start-form1-footer');
+    if (startBtn) startBtn.disabled = !canStart;
+    if (startFooterBtn) {
+      startFooterBtn.disabled = !canStart;
+      startFooterBtn.querySelector('span').textContent = form1Done ? 'View Form 1' : 'Open Form 1';
+    }
+  }
+
+  function openNewApplication(prisonerId = null) {
+    const url = prisonerId
+      ? `forms/form1.html?prisonerId=${encodeURIComponent(prisonerId)}`
+      : 'forms/form1.html';
+    window.location.href = url;
+  }
+
+  function startForm1() {
+    const pid = document.getElementById('app-prisoner').value;
+    if (!pid) {
+      alert('Please select a detainee first.');
+      return;
+    }
+    const appId = ensureAppId();
+    document.getElementById('app-modal').close();
+    PMSForms.openForm(1, appId);
   }
 
   function onPrisonerSelected(prisonerId) {
@@ -248,6 +279,7 @@
       document.getElementById('app-id').value = '';
       renderFormsPanel(null);
       updateAppStatusBanner(null, '');
+      updateForm1Actions('', null);
       document.getElementById('btn-submit-djag').disabled = true;
       return;
     }
@@ -255,8 +287,13 @@
     document.getElementById('app-id').value = existing?.id || '';
     renderFormsPanel(existing);
     updateAppStatusBanner(existing, prisonerId);
+    updateForm1Actions(prisonerId, existing);
     const app = existing || { prisonerId, formData: {} };
-    document.getElementById('btn-submit-djag').disabled = app?.status && !['Draft', 'Returned for Correction'].includes(app.status);
+    const summary = app?.id ? PMSStorage.getFormCompletionSummary(app) : { checks: {} };
+    document.getElementById('btn-submit-djag').disabled = !app?.id
+      || !summary.checks.form1
+      || !summary.checks.form2
+      || (app?.status && !['Draft', 'Returned for Correction'].includes(app.status));
   }
 
 
@@ -285,17 +322,18 @@
 
     document.getElementById('stat-eligible').textContent = prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible).length;
 
-    document.getElementById('stat-drafts').textContent = apps.filter((a) => a.status === 'Draft').length;
+    const form1Pending = apps.filter((a) => !PMSStorage.isForm1Complete(a.formData?.form1)).length;
+    document.getElementById('stat-drafts').textContent = form1Pending;
 
     document.getElementById('stat-notifications').textContent = PMSStorage.getUnreadCountForUser(actor);
 
     const notifs = PMSStorage.getNotificationsForUser(actor).slice(0, 5);
 
-    document.getElementById('overview-notifications').innerHTML = notifs.length
-
-      ? notifs.map((n) => `<div class="overview-row"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('')
-
-      : '<p class="empty-state">No notifications.</p>';
+    document.getElementById('overview-notifications').innerHTML = `
+      <div class="overview-row"><strong>Form 1 completed</strong><span class="meta">${apps.filter((a) => PMSStorage.isForm1Complete(a.formData?.form1)).length} cases</span></div>
+      <div class="overview-row"><strong>Active cases</strong><span class="meta">${apps.filter((a) => !['Approved', 'Refused', 'Released', 'Draft'].includes(a.status)).length}</span></div>
+      <div class="overview-row"><strong>Requiring action</strong><span class="meta">${apps.filter((a) => ['Draft', 'Returned for Correction', 'Pending Commander Review'].includes(a.status)).length}</span></div>
+      ${notifs.length ? notifs.map((n) => `<div class="overview-row"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('') : ''}`;
 
   }
 
@@ -359,7 +397,7 @@
 
     if (!prisonerId) {
 
-      area.innerHTML = `<div class="form-workflow-empty"><i class="bi bi-person-lines-fill"></i> Select a prisoner to view form progress and next actions.</div>`;
+      area.innerHTML = `<div class="form-workflow-empty"><i class="fi fi-rr-address-card"></i> Select a prisoner to view form progress and next actions.</div>`;
 
       return;
 
@@ -395,7 +433,7 @@
 
       return `<div class="${rowClass}" ${attrs}>
 
-        <div class="form-workflow-row__icon"><i class="bi ${rowState.icon}" aria-hidden="true"></i></div>
+        <div class="form-workflow-row__icon"><i class="${rowState.icon}" aria-hidden="true"></i></div>
 
         <div class="form-workflow-row__body">
 
@@ -407,7 +445,7 @@
 
         <span class="form-workflow-badge form-workflow-badge--${rowState.state}">${PMSUI.esc(rowState.badge)}</span>
 
-        <i class="bi bi-chevron-right form-workflow-row__chevron" aria-hidden="true"></i>
+        <i class="fi fi-rr-angle-right form-workflow-row__chevron" aria-hidden="true"></i>
 
       </div>`;
 
@@ -490,8 +528,13 @@
     renderFormsPanel(initialApp);
 
     updateAppStatusBanner(initialApp, selectedId);
+    updateForm1Actions(selectedId, initialApp);
 
-    document.getElementById('btn-submit-djag').disabled = initialApp?.status && !['Draft', 'Returned for Correction'].includes(initialApp.status);
+    const summary = initialApp?.id ? PMSStorage.getFormCompletionSummary(initialApp) : { checks: {} };
+    document.getElementById('btn-submit-djag').disabled = !initialApp?.id
+      || !summary.checks.form1
+      || !summary.checks.form2
+      || (initialApp?.status && !['Draft', 'Returned for Correction'].includes(initialApp.status));
 
     document.getElementById('app-modal').showModal();
 
@@ -546,7 +589,10 @@
 
   });
 
-  document.getElementById('btn-new-app').addEventListener('click', () => openAppModal());
+  document.getElementById('btn-new-app').addEventListener('click', () => openNewApplication());
+  document.getElementById('btn-new-app-overview')?.addEventListener('click', () => openNewApplication());
+  document.getElementById('btn-start-form1')?.addEventListener('click', startForm1);
+  document.getElementById('btn-start-form1-footer')?.addEventListener('click', startForm1);
 
   document.getElementById('prisoner-search').addEventListener('input', () => renderPrisoners());
 
@@ -598,7 +644,7 @@
 
   document.addEventListener('click', (e) => {
 
-    if (e.target.closest('[data-start-app]')) openAppModal(null, e.target.closest('[data-start-app]').dataset.startApp);
+    if (e.target.closest('[data-start-app]')) openNewApplication(e.target.closest('[data-start-app]').dataset.startApp);
 
     if (e.target.closest('[data-edit-app]')) openAppModal(PMSStorage.getApplicationById(e.target.closest('[data-edit-app]').dataset.editApp));
 

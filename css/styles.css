@@ -530,13 +530,139 @@ body {
   flex-direction: column;
 }
 
-/* Header with login */
-.home-header {
-  background: rgb(8 28 48 / 0.92);
-  border-bottom: 2px solid rgb(200 146 42 / 0.45);
+/* Floating login trigger */
+.home-login-trigger {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border: 1px solid rgb(200 146 42 / 0.55);
+  border-radius: 999px;
+  background: rgb(8 28 48 / 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 24px rgb(0 0 0 / 0.25);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 0.35);
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.home-login-trigger:hover {
+  background: rgb(14 42 71 / 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.4);
+}
+
+.home-login-trigger .fi {
+  color: var(--color-gold);
+}
+
+/* Login floater overlay */
+.home-login-floater {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.home-login-floater.hidden {
+  display: none;
+}
+
+.home-login-floater-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(8 20 35 / 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.home-login-floater-card {
+  position: relative;
+  width: min(100%, 420px);
+  padding: 1.75rem 1.5rem 1.5rem;
+  border-radius: var(--login-card-radius);
+  background: rgb(255 255 255 / 0.97);
+  border: 1px solid rgb(255 255 255 / 0.5);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(200 146 42 / 0.2);
+  animation: home-login-float-in 0.25s ease-out;
+}
+
+@keyframes home-login-float-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.home-login-floater-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 50%;
+  background: rgb(14 42 71 / 0.08);
+  color: var(--color-navy);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.home-login-floater-close:hover {
+  background: rgb(14 42 71 / 0.15);
+}
+
+.home-login-floater-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.home-login-floater-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.home-login-floater-header h2 {
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  margin: 0 0 0.25rem;
+}
+
+.home-login-floater-sub {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted, #64748b);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home-login-fields--stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.home-login-fields--stacked .btn-home-login {
+  width: 100%;
+}
+
+/* Legacy header styles kept for reference — top bar removed from home page */
+.home-header {
+  display: none;
 }
 
 .home-header-inner {
@@ -686,6 +812,18 @@ body {
 .btn-home-login:disabled {
   opacity: 0.75;
   cursor: not-allowed;
+}
+
+.home-login-floater-card .home-login-options .checkbox-label {
+  color: var(--color-text-muted, #64748b);
+}
+
+.home-login-floater-card .home-login-options .forgot-link {
+  color: var(--color-navy);
+}
+
+.home-login-floater-card .home-login-options .forgot-link:hover {
+  color: var(--pngcs-gold);
 }
 
 .home-login-options {
@@ -1015,13 +1153,16 @@ body {
 }
 
 @media (max-width: 768px) {
-  .home-header-inner {
-    flex-direction: column;
-    align-items: stretch;
+  .home-login-trigger {
+    top: auto;
+    bottom: 1.25rem;
+    right: 1rem;
   }
 
-  .home-login-panel {
-    max-width: none;
+  .home-login-floater-card {
+    width: 100%;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
   }
 
   .home-login-fields {
@@ -1031,15 +1172,6 @@ body {
   .btn-home-login {
     width: 100%;
     align-self: stretch;
-  }
-
-  .home-brand {
-    justify-content: center;
-    text-align: center;
-  }
-
-  .home-brand-text {
-    align-items: center;
   }
 }
 

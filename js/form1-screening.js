@@ -198,7 +198,7 @@ const PMSForm1Screening = (() => {
     banner.classList.remove('hidden');
     banner.innerHTML = `
       <div class="selected-prisoner-banner__inner">
-        <i class="bi bi-person-badge" aria-hidden="true"></i>
+        <i class="fi fi-rr-id-badge" aria-hidden="true"></i>
         <div>
           <strong>${esc(prisoner.firstName)} ${esc(prisoner.lastName)}</strong>
           <span class="selected-prisoner-banner__meta">Prisoner ID: ${esc(prisoner.prisonerNumber || prisoner.id)} · Application: ${esc(app?.id || '—')}</span>

@@ -57,7 +57,7 @@ router.get('/', requireAuth({ optional: true }), async (req, res) => {
 
 /** PUT /api/bootstrap — persist full dataset snapshot */
 
-router.put('/', requireAuth(), async (req, res) => {
+router.put('/', requireAuth(), requireRole(ADMIN_ROLES), async (req, res) => {
 
   try {
 

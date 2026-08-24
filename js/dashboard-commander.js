@@ -12,7 +12,7 @@
   const panelTitles = {
     overview: ['Institutional Overview', `${inst?.name || 'Institution'} — Jail Commander Dashboard`],
     prisoners: ['Prisoners', 'Institutional prisoner records'],
-    applications: ['Parole Applications', 'Applications originating from this institution'],
+    applications: ['Parole Applications', 'Verify Form 1, complete Form 3, and authorize release'],
     officers: ['Officers', 'Officers assigned to this institution'],
     notifications: ['Notifications', 'Eligibility and institutional alerts'],
     reports: ['Institution Reports', 'Statistics and report approval'],
@@ -32,12 +32,15 @@
   function renderOverview() {
     document.getElementById('inst-banner').innerHTML = `<strong>${PMSUI.esc(inst.name)}</strong> · ${PMSUI.esc(inst.location)} · Code: ${PMSUI.esc(inst.code)}`;
     const prisoners = instPrisoners();
+    const apps = instApps();
     document.getElementById('stat-prisoners').textContent = prisoners.length;
     document.getElementById('stat-approaching').textContent = prisoners.filter((p) => {
       const prog = PMSStorage.getPrisonerProgress(p);
       return prog.percent >= 25 && !prog.eligible;
     }).length;
-    document.getElementById('stat-apps').textContent = instApps().filter((a) => !['Approved', 'Refused'].includes(a.status)).length;
+    document.getElementById('stat-verify').textContent = apps.filter((a) => a.status === 'Pending Commander Review').length;
+    document.getElementById('stat-release-pending').textContent = apps.filter((a) => ['Approved', 'Pending Approval', 'Parole Granted'].includes(a.status)).length;
+    document.getElementById('stat-released').textContent = prisoners.filter((p) => p.status === 'Released on Parole').length;
     document.getElementById('stat-notifications').textContent = PMSStorage.getUnreadCountForUser(actor);
 
     const eligible = prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible);
@@ -45,7 +48,11 @@
       ? eligible.map((p) => { const prog = PMSStorage.getPrisonerProgress(p); return `<div class="overview-row overview-row--highlight"><strong>${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</strong><span class="meta">Eligible ${PMSUI.fmtDate(prog.eligibilityDate)} · ${prog.percent.toFixed(0)}% served</span></div>`; }).join('')
       : '<p class="empty-state">No eligible prisoners currently.</p>';
 
-    const apps = instApps();
+    const escalations = PMSStorage.getEscalations(actor.institutionId).slice(0, 6);
+    document.getElementById('overview-escalations').innerHTML = escalations.length
+      ? escalations.map((e) => `<div class="overview-row overview-row--warn"><strong>${PMSUI.esc(e.caseNumber || e.message)}</strong><span class="meta">${PMSUI.esc(e.message)}</span></div>`).join('')
+      : '<p class="empty-state">No escalations at this institution.</p>';
+
     PMSUI.renderBarChart('chart-apps', PMSStorage.APPLICATION_STATUSES.filter((s) => s !== 'Draft').map((s) => ({
       label: s, value: apps.filter((a) => a.status === s).length,
     })).filter((d) => d.value > 0));
@@ -65,9 +72,26 @@
     document.getElementById('apps-tbody').innerHTML = instApps().map((a) => {
       const p = PMSStorage.getPrisonerById(a.prisonerId);
       const s = PMSStorage.getFormCompletionSummary(a);
-      const f3 = s.checks.form3 ? '✓ Form 3 complete' : `<button type="button" class="btn-icon" data-open-form="3" data-app="${a.id}">Complete Form 3</button>`;
-      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td>${f3}</td><td>${s.completed}/5 forms</td></tr>`;
-    }).join('') || '<tr><td colspan="5" class="empty-state">No applications.</td></tr>';
+      const f1Submitted = a.formData?.form1?.status === 'submitted' || a.formData?.form1?.status === 'verified';
+      const verified = PMSStorage.isCommanderVerified(a);
+      const needsReview = a.status === 'Pending Commander Review';
+      const verifyCell = needsReview
+        ? `<button type="button" class="btn-icon" data-commander-review="${a.id}">Review Case</button>`
+        : verified
+          ? '✓ Verified'
+          : f1Submitted
+            ? `<button type="button" class="btn-icon" data-verify-f1="${a.id}">Verify Form 1</button>`
+            : 'Pending Form 1';
+      const f3 = s.checks.form3
+        ? '✓ Form 3 complete'
+        : `<button type="button" class="btn-icon" data-open-form="3" data-app="${a.id}">Complete Form 3</button>`;
+      const releaseCell = a.status === 'Released' || p?.status === 'Released on Parole'
+        ? 'Released on Parole'
+        : ['Approved', 'Pending Approval', 'Parole Granted'].includes(a.status)
+          ? `<button type="button" class="btn-icon" data-release="${a.id}">Authorize Release</button>`
+          : '—';
+      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}<br><span class="meta">${PMSUI.esc(a.caseNumber || a.id)}</span></td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td>${verifyCell}</td><td>${f3}</td><td>${releaseCell}</td><td>${s.completed}/5 forms</td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="empty-state">No applications.</td></tr>';
   }
 
   function renderOfficers() {
@@ -93,6 +117,47 @@
   });
   PMSUI.initShell(actor);
   PMSUI.bindNotificationPanel('notification-list', actor, () => refresh('notifications'));
+  PMSUI.bindModalClose();
+  document.querySelectorAll('[data-close-modal]').forEach((btn) => {
+    btn.addEventListener('click', () => document.getElementById(btn.dataset.closeModal)?.classList.add('hidden'));
+  });
+
+  let pendingReleaseAppId = null;
+
+  function openReleaseModal(appId) {
+    const app = PMSStorage.getApplicationById(appId);
+    const p = PMSStorage.getPrisonerById(app?.prisonerId);
+    const inst = PMSStorage.getInstitutionById(app?.institutionId);
+    if (!app || !p) return;
+    pendingReleaseAppId = appId;
+    const reqs = PMSStorage.getReleaseRequirements(app);
+    document.getElementById('release-modal-body').innerHTML = `
+      <div class="case-fields">
+        <div class="case-field"><span class="case-field__label">Prisoner</span><span class="case-field__value"><strong>${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</strong> (${PMSUI.esc(p.prisonerNumber)})</span></div>
+        <div class="case-field"><span class="case-field__label">Case</span><span class="case-field__value">${PMSUI.esc(app.caseNumber || app.id)}</span></div>
+        <div class="case-field"><span class="case-field__label">Institution</span><span class="case-field__value">${PMSUI.esc(inst?.name)}</span></div>
+        <div class="case-field"><span class="case-field__label">Final Approval</span><span class="case-field__value">${PMSStorage.requiredApprovalsComplete(app) || app.status === 'Approved' ? '✓ Verified' : 'Pending'}</span></div>
+      </div>
+      <h3 class="case-subheading">Release Requirements</h3>
+      <ul class="release-req-list">${reqs.map((r) => `<li class="release-req${r.met ? ' release-req--met' : ''}">${r.met ? '✓' : '○'} ${PMSUI.esc(r.label)}</li>`).join('')}</ul>
+      <label class="form-field" style="margin-top:1rem;display:block">Release Date<input type="date" id="release-date-input" value="${new Date().toISOString().slice(0, 10)}" class="form-control"></label>
+      <label class="form-field" style="margin-top:0.75rem;display:block">Authorization Notes<textarea id="release-notes-input" class="form-control" rows="3" placeholder="Release authorization notes"></textarea></label>
+      <p class="meta">Final status will be recorded as <strong>RELEASED ON PAROLE</strong>. Case history is preserved.</p>`;
+    document.getElementById('release-modal').classList.remove('hidden');
+  }
+
+  document.getElementById('btn-confirm-release').addEventListener('click', () => {
+    if (!pendingReleaseAppId) return;
+    const releaseDate = document.getElementById('release-date-input')?.value;
+    const notes = document.getElementById('release-notes-input')?.value || '';
+    try {
+      PMSStorage.authorizeRelease(pendingReleaseAppId, { releaseDate, notes }, actor);
+      document.getElementById('release-modal').classList.add('hidden');
+      pendingReleaseAppId = null;
+      refresh('applications');
+      alert('Prisoner release on parole authorized.');
+    } catch (err) { alert(err.message); }
+  });
 
   document.getElementById('pr-search').addEventListener('input', renderPrisoners);
   document.getElementById('btn-approve-report').addEventListener('click', () => {
@@ -105,12 +170,45 @@
     alert('Institutional report approved and recorded in audit log.');
   });
 
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     if (e.target.closest('[data-open-form]')) {
       const btn = e.target.closest('[data-open-form]');
       PMSForms.openForm(parseInt(btn.dataset.openForm, 10), btn.dataset.app);
+      return;
     }
-    if (e.target.closest('[data-read]')) return;
+    if (e.target.closest('[data-commander-review]')) {
+      const appId = e.target.closest('[data-commander-review]').dataset.commanderReview;
+      const comments = prompt('Commander comments (optional):', '') || '';
+      const decision = prompt('Decision: Verified, Returned for Correction, or Rejected', 'Verified');
+      if (!decision) return;
+      try {
+        PMSStorage.saveCommanderCaseReview(appId, { decision, comments }, actor);
+        refresh('applications');
+        alert(`Case review recorded: ${decision}`);
+      } catch (err) { alert(err.message); }
+      return;
+    }
+    if (e.target.closest('[data-verify-f1]')) {
+      const appId = e.target.closest('[data-verify-f1]').dataset.verifyF1;
+      const app = PMSStorage.getApplicationById(appId);
+      if (!app) return;
+      try {
+        await PMSStorage.saveForm1Screening(appId, {
+          ...(app.formData?.form1 || {}),
+          supervisorReview: {
+            decision: 'Verified',
+            reviewComments: 'Jail Commander verified Form 1 eligibility screening.',
+            supervisorName: `${actor.firstName} ${actor.lastName}`,
+          },
+        }, actor, { supervisorReview: true });
+        refresh('applications');
+        alert('Form 1 verified. Application may proceed to DJAG submission.');
+      } catch (err) { alert(err.message); }
+      return;
+    }
+    if (e.target.closest('[data-release]')) {
+      openReleaseModal(e.target.closest('[data-release]').dataset.release);
+    }
   });
 
   if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');

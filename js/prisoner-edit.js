@@ -92,7 +92,7 @@
   }
 
   function calloutIcon(variant) {
-    return ({ success: 'bi-check-circle', warning: 'bi-exclamation-triangle', info: 'bi-info-circle' })[variant] || 'bi-info-circle';
+    return ({ success: 'fi fi-rr-check-circle', warning: 'fi fi-rr-triangle-warning', info: 'fi fi-rr-info' })[variant] || 'fi fi-rr-info';
   }
 
   function renderSentenceMetrics(data) {
@@ -102,7 +102,7 @@
     if (data.empty) {
       el.innerHTML = `
         <div class="sentence-metrics__empty">
-          <i class="bi bi-calculator" aria-hidden="true"></i>
+          <i class="fi fi-rr-calculator" aria-hidden="true"></i>
           <p>${PMSUI.esc(data.message || 'Enter SSD and SED to calculate duration and eligibility metrics.')}</p>
         </div>`;
       return;
@@ -111,7 +111,7 @@
     if (data.error) {
       el.innerHTML = `
         <div class="sentence-metrics__callout sentence-metrics__callout--danger">
-          <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+          <i class="fi fi-rr-exclamation" aria-hidden="true"></i>
           <p>${PMSUI.esc(data.error)}</p>
         </div>`;
       return;
@@ -161,7 +161,7 @@
           </div>
         </div>
         <div class="sentence-metrics__callout sentence-metrics__callout--${variant}">
-          <i class="bi ${calloutIcon(variant)}" aria-hidden="true"></i>
+          <i class="${calloutIcon(variant)}" aria-hidden="true"></i>
           <p>${buildStatusNote(derived, prog, settings)}</p>
         </div>
       </div>`;

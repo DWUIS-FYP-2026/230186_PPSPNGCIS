@@ -1,6 +1,6 @@
 (async () => {
   await PMSStorage.ensureLoaded();
-  const actor = PMSAuth.requireRole(['DJAG Parole Clerk']);
+  const actor = PMSAuth.requireRole(['DJAG Parole Clerk', 'DJAG Secretary']);
   if (!actor) return;
 
   const panelTitles = {
@@ -42,10 +42,19 @@
 
   function renderOverview() {
     const apps = djagApps();
-    document.getElementById('stat-submitted').textContent = apps.filter((a) => a.status === 'Submitted').length;
-    document.getElementById('stat-review').textContent = apps.filter((a) => a.status === 'Under DJAG Review').length;
-    document.getElementById('stat-reports').textContent = apps.filter((a) => a.status === 'Pre-Parole Report Prepared').length;
-    document.getElementById('stat-hearings').textContent = apps.filter((a) => a.status === 'Hearing Scheduled').length;
+    const isSecretary = actor.role === 'DJAG Secretary';
+    document.getElementById('stat-submitted').textContent = isSecretary
+      ? apps.filter((a) => a.status === 'Pre-Parole Report Prepared').length
+      : apps.filter((a) => !PMSStorage.isForm2Complete(a.formData?.form2) && a.formData?.form2).length;
+    document.getElementById('stat-review').textContent = isSecretary
+      ? PMSStorage.getEscalations().filter((e) => e.type === 'hearing_overdue' || e.type === 'hearing_deadline').length
+      : apps.filter((a) => a.status === 'Submitted' || a.status === 'Under DJAG Review').length;
+    document.getElementById('stat-reports').textContent = isSecretary
+      ? apps.filter((a) => a.status === 'Pending Board Review' && !PMSStorage.requiredBoardAssessmentsComplete(a)).length
+      : apps.filter((a) => PMSStorage.isForm2Complete(a.formData?.form2)).length;
+    document.getElementById('stat-hearings').textContent = isSecretary
+      ? PMSStorage.getHearings().filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).length
+      : apps.filter((a) => a.status === 'Pending Commander Review').length;
     PMSUI.renderBarChart('chart-pipeline', [
       { label: 'Submitted', value: apps.filter((a) => a.status === 'Submitted').length },
       { label: 'Under Review', value: apps.filter((a) => a.status === 'Under DJAG Review').length },
@@ -75,10 +84,22 @@
   }
 
   function renderHearings() {
+    PMSStorage.checkHearingDeadlines(actor);
+    const highlightId = PMSUI.getDeepLinkParam('hearing');
     document.getElementById('hearings-tbody').innerHTML = PMSStorage.getHearings().map((h) => {
       const p = PMSStorage.getPrisonerById(h.prisonerId);
-      return `<tr><td>${PMSUI.fmtDate(h.scheduledDate)} ${h.scheduledTime || ''}</td><td>${PMSUI.prisonerName(h.prisonerId)}</td><td>${PMSUI.esc(h.location)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(h.status)}">${PMSUI.esc(h.status)}</span></td><td><a href="${PMSRBAC.prisonerProfileUrl(h.prisonerId)}" class="btn-icon">Case File</a> <button type="button" class="btn-icon" data-complete-hearing="${h.id}">Complete</button></td></tr>`;
-    }).join('') || '<tr><td colspan="5" class="empty-state">No hearings scheduled.</td></tr>';
+      const app = h.applicationId ? PMSStorage.getApplicationById(h.applicationId) : null;
+      const deadline = app ? PMSStorage.getHearingDeadlineInfo(app) : null;
+      const deadlineCell = deadline
+        ? `<span class="${deadline.overdue ? 'text-danger' : deadline.warning ? 'text-warning' : ''}">${deadline.scheduledDate ? PMSUI.fmtDate(deadline.scheduledDate) : `${deadline.daysRemaining}d left`}${deadline.overdue ? ' · OVERDUE' : ''}</span>`
+        : '—';
+      const appLink = h.applicationId
+        ? `<button type="button" class="btn-icon" data-review="${PMSUI.esc(h.applicationId)}">${PMSUI.esc(h.applicationId)}</button>`
+        : '—';
+      const rowClass = highlightId === h.id ? 'row-highlight' : '';
+      return `<tr data-hearing-id="${PMSUI.esc(h.id)}" class="${rowClass}"><td>${PMSUI.fmtDate(h.scheduledDate)} ${h.scheduledTime || ''}</td><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : PMSUI.prisonerName(h.prisonerId)}</td><td>${appLink}</td><td>${deadlineCell}</td><td>${PMSUI.esc(h.location)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(h.status)}">${PMSUI.esc(h.status)}</span></td><td><a href="${PMSRBAC.prisonerProfileUrl(h.prisonerId)}" class="btn-icon">Case File</a> <button type="button" class="btn-icon" data-complete-hearing="${PMSUI.esc(h.id)}">Complete</button></td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="empty-state">No hearings scheduled.</td></tr>';
+    if (highlightId) PMSUI.highlightDeepLinkRow(`[data-hearing-id="${CSS.escape(highlightId)}"]`);
   }
 
   function renderNotifications() {
@@ -123,7 +144,7 @@
   document.getElementById('djag-prisoner-search').addEventListener('input', () => renderPrisoners());
   document.getElementById('btn-schedule-hearing').addEventListener('click', () => {
     const sel = document.getElementById('h-app');
-    sel.innerHTML = djagApps().filter((a) => ['Pre-Parole Report Prepared', 'Under DJAG Review'].includes(a.status))
+    sel.innerHTML = djagApps().filter((a) => ['Pre-Parole Report Prepared'].includes(a.status))
       .map((a) => { const p = PMSStorage.getPrisonerById(a.prisonerId); return `<option value="${a.id}">${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</option>`; }).join('');
     document.getElementById('hearing-modal').showModal();
   });
@@ -193,5 +214,10 @@
     }
   });
 
-  if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');
+  if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) {
+    refresh('overview');
+  } else {
+    const appId = PMSUI.getDeepLinkParam('app');
+    if (appId) setTimeout(() => openReview(appId), 0);
+  }
 })();

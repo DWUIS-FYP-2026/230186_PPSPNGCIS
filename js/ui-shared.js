@@ -8,12 +8,12 @@ const PMSUI = (() => {
   };
 
   const NOTIF_ICONS = {
-    application: 'bi-file-earmark-text',
-    hearing: 'bi-calendar-event',
-    document: 'bi-paperclip',
-    user: 'bi-person',
-    eligibility: 'bi-check-circle',
-    system: 'bi-bell',
+    application: 'fi fi-rr-document',
+    hearing: 'fi fi-rr-calendar',
+    document: 'fi fi-rr-paperclip',
+    user: 'fi fi-rr-user',
+    eligibility: 'fi fi-rr-check-circle',
+    system: 'fi fi-rr-bell',
   };
   function esc(str) {
     const d = document.createElement('div');
@@ -161,7 +161,7 @@ const PMSUI = (() => {
     if (n.institutionId) metaParts.push(instName(n.institutionId));
     const cls = n.resolved ? ' resolved' : n.read ? '' : ' unread';
     return `<article class="notification-item${cls}">
-      <div class="notification-icon"><i class="bi ${icon}" aria-hidden="true"></i></div>
+      <div class="notification-icon"><i class="${icon}" aria-hidden="true"></i></div>
       <div class="notification-body">
         <h3>${esc(n.title)}</h3>
         <p>${esc(n.message)}</p>
@@ -235,7 +235,7 @@ const PMSUI = (() => {
     el.innerHTML = items.length === 0
       ? '<p class="empty-state">No system activity recorded.</p>'
       : items.map((l) => `<div class="activity-item activity-item--audit${l.denied ? ' activity-item--denied' : ''}">
-        <span class="activity-item__icon"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
+        <span class="activity-item__icon"><i class="fi fi-rr-book" aria-hidden="true"></i></span>
         <div class="activity-item__body">
           <div class="activity-item__title">${esc(l.userName)} <span class="meta">(${esc(l.role)})</span></div>
           <div class="activity-item__meta">${esc(l.action)} · ${esc(l.entity)}${l.entityId ? ` · ${esc(l.entityId)}` : ''}</div>
@@ -265,8 +265,8 @@ const PMSUI = (() => {
     }
     const toast = document.createElement('div');
     toast.className = `pms-toast pms-toast--${type}`;
-    const icon = type === 'error' ? 'bi-exclamation-circle' : 'bi-check-circle';
-    toast.innerHTML = `<i class="bi ${icon}" aria-hidden="true"></i><span>${esc(message)}</span>`;
+    const icon = type === 'error' ? 'fi fi-rr-exclamation' : 'fi fi-rr-check-circle';
+    toast.innerHTML = `<i class="${icon}" aria-hidden="true"></i><span>${esc(message)}</span>`;
     host.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('pms-toast--visible'));
     setTimeout(() => {
@@ -289,11 +289,123 @@ const PMSUI = (() => {
     return true;
   }
 
+  function highlightDeepLinkRow(selector) {
+    requestAnimationFrame(() => {
+      const row = document.querySelector(selector);
+      if (!row) return;
+      row.classList.add('row-highlight');
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
+  function confirmDialog(message, title = 'Confirm') {
+    return new Promise((resolve) => {
+      let overlay = document.getElementById('pms-confirm-modal');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'pms-confirm-modal';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `<div class="modal-card" role="alertdialog"><div class="modal-header"><h2 id="pms-confirm-title"></h2></div><div class="modal-body"><p id="pms-confirm-message"></p></div><div class="modal-footer"><button type="button" class="btn-secondary" data-confirm-cancel>Cancel</button><button type="button" class="btn-primary" data-confirm-ok>Confirm</button></div></div>`;
+        document.body.appendChild(overlay);
+      }
+      overlay.querySelector('#pms-confirm-title').textContent = title;
+      overlay.querySelector('#pms-confirm-message').textContent = message;
+      overlay.classList.remove('hidden');
+      const cleanup = (val) => {
+        overlay.classList.add('hidden');
+        overlay.querySelector('[data-confirm-ok]').onclick = null;
+        overlay.querySelector('[data-confirm-cancel]').onclick = null;
+        resolve(val);
+      };
+      overlay.querySelector('[data-confirm-ok]').onclick = () => cleanup(true);
+      overlay.querySelector('[data-confirm-cancel]').onclick = () => cleanup(false);
+    });
+  }
+
+  function showLoading(container, message = 'Loading…') {
+    const el = typeof container === 'string' ? document.getElementById(container) : container;
+    if (!el) return;
+    el.dataset.prevHtml = el.innerHTML;
+    el.innerHTML = `<p class="loading-state"><span class="loading-spinner" aria-hidden="true"></span> ${esc(message)}</p>`;
+  }
+
+  function hideLoading(container) {
+    const el = typeof container === 'string' ? document.getElementById(container) : container;
+    if (!el || el.dataset.prevHtml == null) return;
+    el.innerHTML = el.dataset.prevHtml;
+    delete el.dataset.prevHtml;
+  }
+
+  function createPaginator(options = {}) {
+    const { pageSize = 10, onPageChange } = options;
+    let page = 1;
+    let rows = [];
+
+    function renderControls(containerId, total) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      if (page > pages) page = pages;
+      el.innerHTML = `<div class="pagination-bar">
+        <span class="pagination-info">${total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}` : '0 records'}</span>
+        <div class="pagination-controls">
+          <button type="button" class="btn-secondary btn-sm" data-page="prev" ${page <= 1 ? 'disabled' : ''}>Previous</button>
+          <span class="pagination-page">Page ${page} / ${pages}</span>
+          <button type="button" class="btn-secondary btn-sm" data-page="next" ${page >= pages ? 'disabled' : ''}>Next</button>
+        </div>
+      </div>`;
+      el.querySelector('[data-page="prev"]')?.addEventListener('click', () => { if (page > 1) { page -= 1; onPageChange?.(getPageSlice()); renderControls(containerId, total); } });
+      el.querySelector('[data-page="next"]')?.addEventListener('click', () => { if (page < pages) { page += 1; onPageChange?.(getPageSlice()); renderControls(containerId, total); } });
+    }
+
+    function setRows(allRows) {
+      rows = allRows || [];
+      page = 1;
+      return getPageSlice();
+    }
+
+    function getPageSlice() {
+      const start = (page - 1) * pageSize;
+      return rows.slice(start, start + pageSize);
+    }
+
+    return { setRows, getPageSlice, renderControls, get page() { return page; }, get total() { return rows.length; } };
+  }
+
+  function getDeepLinkParam(name) {
+    return new URLSearchParams(window.location.search).get(name);
+  }
+
+  const TRACKER_ICONS = {
+    completed: '✓',
+    current: '●',
+    pending: '○',
+    overdue: '!',
+    returned: '↩',
+    rejected: '✕',
+  };
+
+  function renderCaseTracker(appId) {
+    const stages = PMSStorage.getCaseTracker(appId);
+    if (!stages.length) return '<p class="empty-state">No workflow stages available.</p>';
+    return `<ol class="case-tracker">${stages.map((s, i) => {
+      const next = i < stages.length - 1 ? '<span class="case-tracker__arrow" aria-hidden="true">↓</span>' : '';
+      return `<li class="case-tracker__stage case-tracker__stage--${s.status}">
+        <span class="case-tracker__icon" aria-hidden="true">${TRACKER_ICONS[s.status] || '○'}</span>
+        <span class="case-tracker__label">${esc(s.label)}</span>
+        <span class="case-tracker__status">${esc(s.status)}</span>
+        ${next}
+      </li>`;
+    }).join('')}</ol>`;
+  }
+
   return {
     esc, fmtDate, fmtDateTime, statusClass, instName, prisonerName,
     initShell, updateNotifBadge, switchPanel, bindNav, renderBarChart,
     renderAuditFeed, auditStatusLabel, auditStatusClass,
     renderNotificationPanel, bindNotificationPanel, resolveNotificationLink,
-    bindModalClose, progressBar, applyDeepLinkNav, showToast,
+    bindModalClose, progressBar, applyDeepLinkNav, highlightDeepLinkRow, getDeepLinkParam, showToast,
+    confirmDialog, showLoading, hideLoading, createPaginator,
+    renderCaseTracker,
   };
 })();

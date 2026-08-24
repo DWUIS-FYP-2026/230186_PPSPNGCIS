@@ -1,25 +1,39 @@
 /**
  * PMS Role-Based Access Control — permissions matrix aligned with official workflow.
- * Prisoner records: ONLY PNGCS Parole Clerk may create, update, or delete.
  */
 const PMSRBAC = (() => {
   const PRISONER_MODIFY_ROLE = 'PNGCS Parole Clerk';
+  const FORM_EDIT_ROLES = ['PNGCS Parole Clerk', 'CS Parole Officer'];
 
   const PERMISSIONS = {
     'System Administrator': {
-      modules: ['overview', 'users', 'institutions', 'prisoners', 'applications', 'notifications', 'audit', 'settings', 'reports', 'forms'],
+      modules: ['overview', 'users', 'institutions', 'prisoners', 'applications', 'cases', 'eligibility', 'notifications', 'audit', 'settings', 'reports', 'analytics', 'forms', 'offenses', 'hearings', 'release', 'guarantors', 'documents', 'board_members'],
       prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: true },
       applications: { create: true, read: true, update: true, delete: true, scope: 'all' },
-      forms: { 1: 'edit', 2: 'edit', 3: 'edit', 4: 'edit', 5: 'edit' },
+      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
       users: { create: true, read: true, update: true, delete: true },
       institutions: { create: true, read: true, update: true, delete: true },
       hearings: { create: true, read: true, update: true },
       decisions: { create: true, read: true },
+      assessments: { create: true, read: true },
       reports: ['system', 'operational', 'audit', 'institutional', 'board'],
       notifications: ['all'],
     },
+    'CS Parole Officer': {
+      modules: ['overview', 'prisoners', 'eligibility', 'applications', 'cases', 'notifications', 'reports', 'forms', 'guarantors', 'documents'],
+      prisoners: { create: false, read: true, update: false, delete: false, scope: 'institution', export: true },
+      applications: { create: true, read: true, update: true, delete: false, scope: 'institution' },
+      forms: { 1: 'edit', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
+      users: { create: false, read: false, update: false, delete: false },
+      institutions: { create: false, read: true, update: false, delete: false },
+      hearings: { create: false, read: true, update: false },
+      decisions: { create: false, read: true },
+      assessments: { create: false, read: true },
+      reports: ['operational', 'prisoner', 'application'],
+      notifications: ['eligibility', 'application', 'returned'],
+    },
     'PNGCS Parole Clerk': {
-      modules: ['overview', 'prisoners', 'eligibility', 'applications', 'notifications', 'reports', 'forms'],
+      modules: ['overview', 'prisoners', 'eligibility', 'applications', 'cases', 'notifications', 'reports', 'forms', 'guarantors', 'documents'],
       prisoners: { create: true, read: true, update: true, delete: false, scope: 'all', export: true },
       applications: { create: true, read: true, update: true, delete: false, scope: 'institution' },
       forms: { 1: 'edit', 2: 'edit', 3: 'view', 4: 'view', 5: 'view' },
@@ -27,11 +41,12 @@ const PMSRBAC = (() => {
       institutions: { create: false, read: true, update: false, delete: false },
       hearings: { create: false, read: true, update: false },
       decisions: { create: false, read: true },
+      assessments: { create: false, read: true },
       reports: ['operational', 'prisoner', 'application'],
-      notifications: ['parole_eligibility', 'application', 'returned'],
+      notifications: ['eligibility', 'application', 'returned'],
     },
     'DJAG Parole Clerk': {
-      modules: ['overview', 'prisoners', 'applications', 'reports', 'hearings', 'notifications', 'forms'],
+      modules: ['overview', 'prisoners', 'applications', 'cases', 'reports', 'hearings', 'notifications', 'forms', 'documents'],
       prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: true },
       applications: { create: false, read: true, update: true, delete: false, scope: 'all' },
       forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'edit', 5: 'view' },
@@ -39,11 +54,12 @@ const PMSRBAC = (() => {
       institutions: { create: false, read: true, update: false, delete: false },
       hearings: { create: true, read: true, update: true },
       decisions: { create: false, read: true },
+      assessments: { create: false, read: true },
       reports: ['application', 'pre-parole', 'hearing'],
       notifications: ['application_submitted', 'hearing'],
     },
     'Jail Commander': {
-      modules: ['overview', 'prisoners', 'applications', 'officers', 'notifications', 'reports', 'forms'],
+      modules: ['overview', 'prisoners', 'applications', 'cases', 'officers', 'notifications', 'reports', 'forms', 'release', 'hearings'],
       prisoners: { create: false, read: true, update: false, delete: false, scope: 'institution', export: true },
       applications: { create: false, read: true, update: true, delete: false, scope: 'institution' },
       forms: { 1: 'view', 2: 'view', 3: 'edit', 4: 'view', 5: 'view' },
@@ -51,11 +67,51 @@ const PMSRBAC = (() => {
       institutions: { create: false, read: true, update: false, delete: false },
       hearings: { create: false, read: true, update: false },
       decisions: { create: false, read: true },
+      assessments: { create: false, read: true },
       reports: ['institutional', 'approval'],
-      notifications: ['parole_eligibility', 'application', 'institutional'],
+      notifications: ['eligibility', 'application', 'institutional'],
+    },
+    'DJAG Secretary': {
+      modules: ['overview', 'applications', 'cases', 'hearings', 'decisions', 'notifications', 'reports', 'forms', 'analytics'],
+      prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: false },
+      applications: { create: false, read: true, update: true, delete: false, scope: 'all' },
+      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
+      users: { create: false, read: false, update: false, delete: false },
+      institutions: { create: false, read: true, update: false, delete: false },
+      hearings: { create: true, read: true, update: true },
+      decisions: { create: false, read: true },
+      assessments: { create: true, read: true },
+      reports: ['hearing', 'application'],
+      notifications: ['hearing', 'deadline'],
+    },
+    'Doctor': {
+      modules: ['overview', 'prisoners', 'applications', 'decisions', 'notifications', 'forms'],
+      prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: false },
+      applications: { create: false, read: true, update: false, delete: false, scope: 'all' },
+      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
+      users: { create: false, read: false, update: false, delete: false },
+      institutions: { create: false, read: true, update: false, delete: false },
+      hearings: { create: false, read: true, update: false },
+      decisions: { create: false, read: true },
+      assessments: { create: true, read: true },
+      reports: ['board'],
+      notifications: ['board_review'],
+    },
+    'CS Commissioner': {
+      modules: ['overview', 'prisoners', 'applications', 'decisions', 'notifications', 'reports', 'forms'],
+      prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: true },
+      applications: { create: false, read: true, update: false, delete: false, scope: 'all' },
+      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
+      users: { create: false, read: false, update: false, delete: false },
+      institutions: { create: false, read: true, update: false, delete: false },
+      hearings: { create: false, read: true, update: false },
+      decisions: { create: false, read: true },
+      assessments: { create: true, read: true },
+      reports: ['board', 'institutional'],
+      notifications: ['board_review'],
     },
     'Parole Board Member': {
-      modules: ['overview', 'prisoners', 'applications', 'hearings', 'decisions', 'history', 'reports', 'forms'],
+      modules: ['overview', 'prisoners', 'applications', 'cases', 'hearings', 'decisions', 'history', 'reports', 'notifications', 'forms', 'analytics'],
       prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: true },
       applications: { create: false, read: true, update: true, delete: false, scope: 'all' },
       forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'edit' },
@@ -63,6 +119,7 @@ const PMSRBAC = (() => {
       institutions: { create: false, read: true, update: false, delete: false },
       hearings: { create: false, read: true, update: false },
       decisions: { create: true, read: true },
+      assessments: { create: false, read: true },
       reports: ['board', 'decision', 'meeting'],
       notifications: ['board_review', 'hearing'],
     },
@@ -97,7 +154,6 @@ const PMSRBAC = (() => {
     return r[action] === true;
   }
 
-  /** Only CS (PNGCS) Parole Clerk may modify prisoner records. */
   function canModifyPrisoner(user) {
     return normalizeRole(user?.role) === PRISONER_MODIFY_ROLE;
   }
@@ -181,12 +237,26 @@ const PMSRBAC = (() => {
     return true;
   }
 
+  function canEditForms(user) {
+    return FORM_EDIT_ROLES.includes(normalizeRole(user?.role));
+  }
+
+  function canSubmitAssessment(user) {
+    return ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(normalizeRole(user?.role));
+  }
+
   function canAccessForm(user, formNumber, mode = 'view') {
     const p = getPermissions(user);
     if (!p || !p.forms) return false;
     const access = p.forms[formNumber];
-    if (access === 'edit') return true;
-    return mode === 'view' && access === 'view';
+    if (mode === 'edit') {
+      if (formNumber === 1) return canEditForms(user);
+      if (formNumber === 3) return normalizeRole(user?.role) === 'Jail Commander';
+      if (formNumber === 4) return normalizeRole(user?.role) === 'DJAG Parole Clerk';
+      if (formNumber === 5) return normalizeRole(user?.role) === 'Parole Board Member';
+      return access === 'edit';
+    }
+    return access === 'view' || access === 'edit';
   }
 
   function canAccessModule(user, module) {
@@ -215,6 +285,7 @@ const PMSRBAC = (() => {
   return {
     PERMISSIONS,
     PRISONER_MODIFY_ROLE,
+    FORM_EDIT_ROLES,
     normalizeRole,
     getPermissions,
     can,
@@ -228,6 +299,8 @@ const PMSRBAC = (() => {
     prisonerEditUrl,
     requirePrisonerView,
     requirePrisonerModify,
+    canEditForms,
+    canSubmitAssessment,
     canAccessForm,
     canAccessModule,
     scopeFilter,

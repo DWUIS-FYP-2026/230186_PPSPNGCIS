@@ -2,6 +2,24 @@
  * PMS Reports & Analytics — operational and executive reporting engine.
  */
 const PMSReports = (() => {
+  const REPORT_TYPES = [
+    { id: 'analytics', label: 'Analytics Dashboard' },
+    { id: 'prisoner', label: 'Prisoner Report' },
+    { id: 'parole_application', label: 'Parole Application Report' },
+    { id: 'eligible_prisoner', label: 'Eligible Prisoner Report' },
+    { id: 'form1', label: 'Form 1 Report' },
+    { id: 'form2', label: 'Form 2 Report' },
+    { id: 'hearing', label: 'Hearing Report' },
+    { id: 'board_decision', label: 'Board Decision Report' },
+    { id: 'parole_granted', label: 'Parole Granted Report' },
+    { id: 'parole_refused', label: 'Parole Refused Report' },
+    { id: 'released_prisoner', label: 'Released Prisoner Report' },
+    { id: 'pending_cases', label: 'Pending Cases Report' },
+    { id: 'overdue_cases', label: 'Overdue Cases Report' },
+    { id: 'institution', label: 'Institution Report' },
+    { id: 'board_member', label: 'Board Member Report' },
+    { id: 'contract_expiry', label: 'Contract Expiry Report' },
+  ];
   function esc(str) {
     const d = document.createElement('div');
     d.textContent = str ?? '';
@@ -66,6 +84,10 @@ const PMSReports = (() => {
       province: '',
       prisonerStatus: '',
       applicationStatus: '',
+      caseStage: '',
+      decision: '',
+      userId: '',
+      reportType: 'analytics',
       role: '',
     };
   }
@@ -90,6 +112,11 @@ const PMSReports = (() => {
     }
     if (filters.prisonerStatus) prisoners = prisoners.filter((p) => p.status === filters.prisonerStatus);
     if (filters.applicationStatus) applications = applications.filter((a) => a.status === filters.applicationStatus);
+    if (filters.decision) applications = applications.filter((a) => (a.boardDecision?.outcome || a.status) === filters.decision);
+    if (filters.caseStage) applications = applications.filter((a) => a.status === filters.caseStage);
+    if (filters.userId) {
+      applications = applications.filter((a) => a.submittedBy === filters.userId || a.boardDecision?.decidedBy === filters.userId);
+    }
 
     const from = parseFilterDate(filters.dateFrom);
     const to = parseFilterDate(filters.dateTo);
@@ -121,26 +148,41 @@ const PMSReports = (() => {
     return Math.round(total / completed.length);
   }
 
+  function workflowBottlenecks(applications) {
+    const stages = PMSStorage.APPLICATION_STATUSES.filter((s) => !['Draft', 'Released'].includes(s));
+    return stages.map((s) => ({
+      label: s,
+      value: applications.filter((a) => a.status === s).length,
+    })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
+  }
+
+  function pct(n, d) { return d ? Math.round((n / d) * 100) : 0; }
+
   function buildAnalytics(user, filters) {
     const data = scopeData(user, filters);
     const { prisoners, applications, institutions, hearings, auditLogs, users } = data;
+    const escalations = PMSStorage.getEscalations(filters.institutionId || user.institutionId || null);
+    const granted = applications.filter((a) => ['Approved', 'Parole Granted'].includes(a.status) || a.formData?.form4?.status === 'Parole Granted').length;
+    const refused = applications.filter((a) => ['Refused', 'Parole Refused'].includes(a.status)).length;
+    const decided = granted + refused;
     const activeStatuses = ['Awaiting Eligibility', 'Eligible for Parole Application', 'Assessment in Progress', 'Hearing Scheduled'];
-    const terminalPrisoner = ['Released', 'Sentence Completed', 'Approved'];
 
     const kpis = [
-      { label: 'Total Prisoners', value: prisoners.length, icon: 'bi-person-lock' },
-      { label: 'Active in Custody', value: prisoners.filter((p) => activeStatuses.includes(p.status)).length, icon: 'bi-building' },
-      { label: 'Eligible / In Pipeline', value: prisoners.filter((p) => ['Eligible for Parole Application', 'Assessment in Progress', 'Hearing Scheduled'].includes(p.status)).length, icon: 'bi-check-circle' },
-      { label: 'Applications (period)', value: applications.length, icon: 'bi-file-earmark-text' },
-      { label: 'Approved', value: applications.filter((a) => a.status === 'Approved').length, icon: 'bi-hand-thumbs-up' },
-      { label: 'Pending Review', value: applications.filter((a) => ['Submitted', 'Under DJAG Review', 'Pending Board Review'].includes(a.status)).length, icon: 'bi-hourglass-split' },
-      { label: 'Avg Processing (days)', value: avgProcessingDays(applications), icon: 'bi-clock-history' },
-      { label: 'Hearings Scheduled', value: hearings.filter((h) => h.status === 'Scheduled').length, icon: 'bi-calendar-event' },
+      { label: 'Total Parole Cases', value: applications.length, icon: 'fi fi-rr-document' },
+      { label: 'Total Prisoners', value: prisoners.length, icon: 'fi fi-rr-user-lock' },
+      { label: '% Granted', value: `${pct(granted, decided)}%`, icon: 'fi fi-rr-thumbs-up' },
+      { label: '% Refused', value: `${pct(refused, decided)}%`, icon: 'fi fi-rr-cross-circle' },
+      { label: 'Avg Processing (days)', value: avgProcessingDays(applications), icon: 'fi fi-rr-time-past' },
+      { label: 'Overdue Cases', value: escalations.filter((e) => e.severity === 'high').length, icon: 'fi fi-rr-exclamation' },
+      { label: 'Hearings', value: hearings.length, icon: 'fi fi-rr-calendar' },
+      { label: 'Released on Parole', value: prisoners.filter((p) => ['Released on Parole', 'Released'].includes(p.status)).length, icon: 'fi fi-rr-door-open' },
+      { label: 'Eligible Prisoners', value: prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible).length, icon: 'fi fi-rr-check-circle' },
+      { label: 'Pending Assessments', value: applications.filter((a) => a.status === 'Pending Board Review').length, icon: 'fi fi-rr-hourglass' },
     ];
 
     if (user.role === 'System Administrator') {
-      kpis.push({ label: 'Audit Events', value: auditLogs.length, icon: 'bi-journal-text' });
-      kpis.push({ label: 'System Users', value: users.filter((u) => u.status === 'Active').length, icon: 'bi-people' });
+      kpis.push({ label: 'Audit Events', value: auditLogs.length, icon: 'fi fi-rr-book' });
+      kpis.push({ label: 'System Users', value: users.filter((u) => u.status === 'Active').length, icon: 'fi fi-rr-users' });
     }
 
     return {
@@ -159,10 +201,109 @@ const PMSReports = (() => {
       auditByModule: countBy(auditLogs, (l) => l.entity),
       auditByUser: countBy(auditLogs, (l) => l.userName).slice(0, 10),
       auditByAction: countBy(auditLogs, (l) => l.action),
-      releasedCount: prisoners.filter((p) => p.status === 'Released').length,
+      releasedCount: prisoners.filter((p) => ['Released on Parole', 'Released'].includes(p.status)).length,
       sentenceCompleted: prisoners.filter((p) => p.status === 'Sentence Completed').length,
+      bottlenecks: workflowBottlenecks(applications),
+      escalations,
+      granted, refused, decided,
       raw: data,
     };
+  }
+
+  function buildNamedReport(reportType, user, filters) {
+    const data = scopeData(user, filters);
+    const { prisoners, applications, institutions, hearings, users } = data;
+    const rows = [];
+    const headers = [];
+    const title = REPORT_TYPES.find((r) => r.id === reportType)?.label || 'Report';
+
+    switch (reportType) {
+      case 'prisoner':
+        headers.push('Prisoner No.', 'Name', 'Institution', 'Status', 'Offense', 'SSD', 'SED');
+        prisoners.forEach((p) => rows.push([p.prisonerNumber, `${p.firstName} ${p.lastName}`, PMSStorage.getInstitutionById(p.institutionId)?.name, p.status, p.offense, fmtDate(p.sentenceStartDate), fmtDate(p.sentenceEndDate)]));
+        break;
+      case 'parole_application':
+      case 'pending_cases':
+        headers.push('Case No.', 'Prisoner', 'Institution', 'Status', 'Submitted', 'Stage');
+        applications.filter((a) => reportType === 'pending_cases' ? !['Approved', 'Refused', 'Released', 'Draft'].includes(a.status) : true)
+          .forEach((a) => {
+            const p = PMSStorage.getPrisonerById(a.prisonerId);
+            rows.push([a.caseNumber || a.id, p ? `${p.firstName} ${p.lastName}` : '—', PMSStorage.getInstitutionById(a.institutionId)?.name, a.status, fmtDate(a.submittedAt), a.status]);
+          });
+        break;
+      case 'eligible_prisoner':
+        headers.push('Prisoner No.', 'Name', 'Institution', 'Eligibility Date', '% Served');
+        prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible).forEach((p) => {
+          const prog = PMSStorage.getPrisonerProgress(p);
+          rows.push([p.prisonerNumber, `${p.firstName} ${p.lastName}`, PMSStorage.getInstitutionById(p.institutionId)?.name, fmtDate(prog.eligibilityDate), `${prog.percent.toFixed(1)}%`]);
+        });
+        break;
+      case 'form1':
+        headers.push('Case No.', 'Prisoner', 'Form 1 Status', 'Submitted', 'Officer');
+        applications.filter((a) => a.formData?.form1).forEach((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          const f1 = a.formData.form1;
+          rows.push([a.caseNumber || a.id, p ? `${p.firstName} ${p.lastName}` : '—', f1.status, fmtDate(f1.submittedAt), f1.submittedByName || '—']);
+        });
+        break;
+      case 'form2':
+        headers.push('Case No.', 'Prisoner', 'DDR', 'PPR', 'Complete');
+        applications.filter((a) => a.formData?.form2).forEach((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          const s = a.formData.form2?.sections || {};
+          rows.push([a.caseNumber || a.id, p ? `${p.firstName} ${p.lastName}` : '—', s.ddr?.submitted ? 'Yes' : 'No', s.ppr?.submitted ? 'Yes' : 'No', PMSStorage.isForm2Complete(a.formData.form2) ? 'Yes' : 'No']);
+        });
+        break;
+      case 'hearing':
+        headers.push('Date', 'Prisoner', 'Case', 'Location', 'Status');
+        hearings.forEach((h) => {
+          const p = PMSStorage.getPrisonerById(h.prisonerId);
+          rows.push([fmtDate(h.scheduledDate), p ? `${p.firstName} ${p.lastName}` : '—', h.caseNumber || h.applicationId, h.location, h.status]);
+        });
+        break;
+      case 'board_decision':
+      case 'parole_granted':
+      case 'parole_refused':
+        headers.push('Case No.', 'Prisoner', 'Outcome', 'Score', 'Decided', 'By');
+        applications.filter((a) => {
+          if (reportType === 'parole_granted') return ['Approved', 'Parole Granted'].includes(a.status);
+          if (reportType === 'parole_refused') return ['Refused', 'Parole Refused'].includes(a.status);
+          return !!a.boardDecision;
+        }).forEach((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          rows.push([a.caseNumber || a.id, p ? `${p.firstName} ${p.lastName}` : '—', a.boardDecision?.outcome || a.status, a.paroleScore?.percent ?? '—', fmtDate(a.boardDecision?.decidedAt), a.boardDecision?.decidedByName || '—']);
+        });
+        break;
+      case 'released_prisoner':
+        headers.push('Prisoner No.', 'Name', 'Institution', 'Release Date', 'Officer');
+        applications.filter((a) => a.status === 'Released' || a.releaseInfo).forEach((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          rows.push([p?.prisonerNumber, p ? `${p.firstName} ${p.lastName}` : '—', PMSStorage.getInstitutionById(a.institutionId)?.name, fmtDate(a.releaseInfo?.releaseDate), a.releaseInfo?.authorizedByName || '—']);
+        });
+        break;
+      case 'overdue_cases':
+        headers.push('Case No.', 'Prisoner', 'Issue', 'Severity');
+        PMSStorage.getEscalations(filters.institutionId || null).forEach((e) => rows.push([e.caseNumber || '—', e.prisonerName || '—', e.message, e.severity]));
+        break;
+      case 'institution':
+        headers.push('Institution', 'Province', 'Prisoners', 'Active Cases', 'Released');
+        institutions.forEach((i) => {
+          const pr = prisoners.filter((p) => p.institutionId === i.id);
+          const ap = applications.filter((a) => a.institutionId === i.id && !['Approved', 'Refused', 'Released'].includes(a.status));
+          rows.push([i.name, i.province, pr.length, ap.length, pr.filter((p) => ['Released on Parole', 'Released'].includes(p.status)).length]);
+        });
+        break;
+      case 'board_member':
+      case 'contract_expiry':
+        headers.push('Name', 'Role', 'Position', 'Contract Expiry', 'Status');
+        users.filter((u) => ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(u.role))
+          .filter((u) => reportType !== 'contract_expiry' || ['Approaching Expiry', 'Expired'].includes(u.contractStatus))
+          .forEach((u) => rows.push([`${u.firstName} ${u.lastName}`, u.role, u.boardPosition || u.position || '—', fmtDate(u.contractExpiryDate), u.contractStatus || u.status]));
+        break;
+      default:
+        return null;
+    }
+    return { title, headers, rows };
   }
 
   function monthSeries(apps, field) {
@@ -190,13 +331,16 @@ const PMSReports = (() => {
           <label>Province<select id="report-province"><option value="">All</option>${provinces.map((p) => `<option value="${esc(p)}"${filters.province === p ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
           <label>Prisoner Status<select id="report-prisoner-status"><option value="">All</option>${PMSStorage.PRISONER_STATUSES.map((s) => `<option value="${esc(s)}"${filters.prisonerStatus === s ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></label>
           <label>Application Status<select id="report-app-status"><option value="">All</option>${PMSStorage.APPLICATION_STATUSES.map((s) => `<option value="${esc(s)}"${filters.applicationStatus === s ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></label>
+          <label>Report Type<select id="report-type">${REPORT_TYPES.map((r) => `<option value="${esc(r.id)}"${filters.reportType === r.id ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select></label>
+          <label>Case Stage<select id="report-case-stage"><option value="">All</option>${PMSStorage.APPLICATION_STATUSES.map((s) => `<option value="${esc(s)}"${filters.caseStage === s ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></label>
+          <label>Decision<select id="report-decision"><option value="">All</option><option value="Parole Granted"${filters.decision === 'Parole Granted' ? ' selected' : ''}>Parole Granted</option><option value="Parole Refused"${filters.decision === 'Parole Refused' ? ' selected' : ''}>Parole Refused</option><option value="Approved"${filters.decision === 'Approved' ? ' selected' : ''}>Approved</option><option value="Refused"${filters.decision === 'Refused' ? ' selected' : ''}>Refused</option></select></label>
         </div>
         <div class="reports-filter-actions">
           <button type="button" class="btn-primary btn-sm" id="report-apply-filters">Apply Filters</button>
           <button type="button" class="btn-secondary btn-sm" id="report-reset-filters">Reset</button>
-          <button type="button" class="btn-secondary btn-sm" id="report-export-csv"><i class="bi bi-filetype-csv"></i> Export CSV</button>
-          <button type="button" class="btn-secondary btn-sm" id="report-export-excel"><i class="bi bi-file-earmark-spreadsheet"></i> Export Excel</button>
-          <button type="button" class="btn-secondary btn-sm" id="report-print"><i class="bi bi-printer"></i> Print</button>
+          <button type="button" class="btn-secondary btn-sm" id="report-export-csv"><i class="fi fi-rr-file-csv"></i> Export CSV</button>
+          <button type="button" class="btn-secondary btn-sm" id="report-export-excel"><i class="fi fi-rr-file-excel"></i> Export Excel</button>
+          <button type="button" class="btn-secondary btn-sm" id="report-print"><i class="fi fi-rr-print"></i> Print</button>
         </div>
       </div>`;
 
@@ -207,7 +351,10 @@ const PMSReports = (() => {
       province: document.getElementById('report-province')?.value || '',
       prisonerStatus: document.getElementById('report-prisoner-status')?.value || '',
       applicationStatus: document.getElementById('report-app-status')?.value || '',
-      role: '',
+      caseStage: document.getElementById('report-case-stage')?.value || '',
+      decision: document.getElementById('report-decision')?.value || '',
+      reportType: document.getElementById('report-type')?.value || 'analytics',
+      userId: '',
     });
 
     document.getElementById('report-apply-filters')?.addEventListener('click', () => onChange?.(readFilters()));
@@ -220,13 +367,23 @@ const PMSReports = (() => {
   function renderPanel(containerId, user, filters) {
     const el = document.getElementById(containerId);
     if (!el || !user) return;
+    if (filters.reportType && filters.reportType !== 'analytics') {
+      const report = buildNamedReport(filters.reportType, user, filters);
+      if (report) {
+        el.innerHTML = `<div class="card card--wide"><div class="card-header"><h2>${esc(report.title)}</h2></div>
+          <div class="card-body"><div class="table-wrap"><table class="data-table"><thead><tr>${report.headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+          <tbody>${report.rows.length ? report.rows.map((r) => `<tr>${r.map((c) => `<td>${esc(String(c ?? '—'))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${report.headers.length}" class="empty-state">No records match filters.</td></tr>`}</tbody></table></div></div></div>`;
+        return;
+      }
+    }
     const a = buildAnalytics(user, filters);
     const isAdmin = user.role === 'System Administrator';
 
     el.innerHTML = `
       <div class="reports-kpi-grid">${a.kpis.map((k) => `
-        <article class="reports-kpi"><i class="bi ${k.icon}" aria-hidden="true"></i><strong>${k.value}</strong><span>${esc(k.label)}</span></article>`).join('')}</div>
+        <article class="reports-kpi"><i class="${k.icon}" aria-hidden="true"></i><strong>${k.value}</strong><span>${esc(k.label)}</span></article>`).join('')}</div>
       <div class="reports-grid">
+        <div class="card"><div class="card-header"><h2>Workflow Bottlenecks</h2></div><div class="card-body chart-body" id="report-chart-bottleneck"></div></div>
         <div class="card"><div class="card-header"><h2>Prisoners by Institution</h2></div><div class="card-body chart-body" id="report-chart-inst"></div></div>
         <div class="card"><div class="card-header"><h2>Prisoners by Status</h2></div><div class="card-body chart-body" id="report-chart-pstatus"></div></div>
         <div class="card"><div class="card-header"><h2>Applications by Status</h2></div><div class="card-body chart-body" id="report-chart-astatus"></div></div>
@@ -240,6 +397,7 @@ const PMSReports = (() => {
         <div class="card card--wide"><div class="card-header"><h2>Management Summary</h2></div><div class="card-body"><div class="reports-summary-text">${buildSummaryText(a, user)}</div></div></div>
       </div>`;
 
+    PMSUI.renderBarChart('report-chart-bottleneck', a.bottlenecks, 'var(--color-warning)');
     PMSUI.renderBarChart('report-chart-inst', a.prisonerByInstitution.slice(0, 10));
     PMSUI.renderBarChart('report-chart-pstatus', a.prisonerByStatus, 'var(--color-navy)');
     PMSUI.renderBarChart('report-chart-astatus', a.appsByStatus, 'var(--djag-purple)');
@@ -263,11 +421,11 @@ const PMSReports = (() => {
 
   function buildSummaryText(a, user) {
     const pending = a.appsByStatus.find((x) => x.label === 'Submitted')?.value || 0;
-    const approved = a.appsByStatus.find((x) => x.label === 'Approved')?.value || 0;
-    const refused = a.appsByStatus.find((x) => x.label === 'Refused')?.value || 0;
-    return `<p>Reporting view for <strong>${esc(user.role)}</strong>. The custodial population in scope is <strong>${a.kpis[0]?.value || 0}</strong> prisoners, with <strong>${a.kpis[2]?.value || 0}</strong> eligible or in the parole pipeline.</p>
-      <p>During the selected period, <strong>${a.kpis[3]?.value || 0}</strong> parole applications were recorded. <strong>${approved}</strong> were approved, <strong>${refused}</strong> refused, and <strong>${pending}</strong> remain at submitted stage. Average processing time is <strong>${a.kpis[6]?.value || 0}</strong> days.</p>
-      <p>Sentence completion: <strong>${a.sentenceCompleted}</strong> prisoners reached sentence end date; <strong>${a.releasedCount}</strong> are recorded as released.</p>`;
+    const approved = a.granted || 0;
+    const refused = a.refused || 0;
+    return `<p>Reporting view for <strong>${esc(user.role)}</strong>. Total parole cases in scope: <strong>${a.kpis[0]?.value || 0}</strong>. Grant rate: <strong>${a.decided ? pct(a.granted, a.decided) : 0}%</strong>, refuse rate: <strong>${a.decided ? pct(a.refused, a.decided) : 0}%</strong>.</p>
+      <p>During the selected period, <strong>${approved}</strong> cases were granted and <strong>${refused}</strong> refused. <strong>${pending}</strong> remain at submitted stage. Average processing time is <strong>${a.kpis.find((k) => k.label.startsWith('Avg'))?.value || 0}</strong> days. Overdue escalations: <strong>${a.escalations?.filter((e) => e.severity === 'high').length || 0}</strong>.</p>
+      <p>Released on parole: <strong>${a.releasedCount}</strong>; sentence completed: <strong>${a.sentenceCompleted}</strong>.</p>`;
   }
 
   function exportCSV(user, filters) {
@@ -322,5 +480,5 @@ const PMSReports = (() => {
     renderPanel(containerId, user, filters);
   }
 
-  return { mount, buildAnalytics, defaultFilters, exportCSV, exportExcel };
+  return { mount, buildAnalytics, buildNamedReport, defaultFilters, exportCSV, exportExcel, REPORT_TYPES };
 })();

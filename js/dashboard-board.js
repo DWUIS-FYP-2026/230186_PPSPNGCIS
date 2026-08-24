@@ -1,16 +1,20 @@
 (async () => {
   await PMSStorage.ensureLoaded();
-  const actor = PMSAuth.requireRole(['Parole Board Member']);
+  const actor = PMSAuth.requireRole(['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary']);
   if (!actor) return;
 
+  const isBoardMember = actor.role === 'Parole Board Member';
+  const canAssess = PMSRBAC.canSubmitAssessment(actor);
+
   const panelTitles = {
-    overview: ['Board Overview', 'Parole Board — collective review and decision-making'],
+    overview: ['Board Overview', canAssess && !isBoardMember ? `${actor.role} — assessment portal` : 'Parole Board — collective review and decision-making'],
     prisoners: ['Prisoner Records', 'View official case files (read-only)'],
     applications: ['Completed Applications', 'Review applications ready for board consideration'],
     hearings: ['Hearing Schedule', 'Upcoming and completed parole hearings'],
-    decisions: ['Record Decisions', 'Approve, defer, or refuse parole applications'],
+    decisions: [canAssess && !isBoardMember ? 'Submit Assessments' : 'Record Decisions', canAssess && !isBoardMember ? 'Provide your board assessment before final decision' : 'Approve, defer, or refuse parole applications'],
     history: ['Decision History', 'Historical parole decisions and hearing records'],
     reports: ['Board Reports', 'Meeting summaries and board statistics'],
+    notifications: ['Notifications', 'Hearing, review, and decision alerts'],
     profile: ['Profile', 'Your account information'],
   };
 
@@ -21,15 +25,21 @@
   }
 
   function pendingDecisionApps() {
-    return PMSStorage.getParoleApplications().filter((a) =>
+    const base = PMSStorage.getParoleApplications().filter((a) =>
       ['Hearing Scheduled', 'Pending Board Review'].includes(a.status)
     );
+    if (!canAssess) return base;
+    return base.filter((a) => {
+      const mine = PMSStorage.getBoardAssessments(a.id).some((x) => x.assessorId === actor.id);
+      return !mine;
+    });
   }
 
   function refresh(panel) {
+    PMSUI.updateNotifBadge(actor);
     renderBoardBanner();
     ({ overview: renderOverview, prisoners: renderPrisoners, applications: renderApps, hearings: renderHearings,
-       decisions: renderDecisions, history: renderHistory, reports: renderReports })[panel]?.();
+       decisions: renderDecisions, history: renderHistory, reports: renderReports, notifications: renderNotifications })[panel]?.();
   }
 
   function renderPrisoners() {
@@ -53,15 +63,23 @@
 
   function renderOverview() {
     const pending = pendingDecisionApps();
-    document.getElementById('stat-pending').textContent = PMSStorage.getParoleApplications().filter((a) => a.status === 'Pending Board Review').length;
-    document.getElementById('stat-hearings').textContent = PMSStorage.getHearings().filter((h) => h.status === 'Scheduled').length;
+    const apps = PMSStorage.getParoleApplications();
+    document.getElementById('stat-pending').textContent = apps.filter((a) => a.status === 'Pending Board Review').length;
+    document.getElementById('stat-hearings').textContent = PMSStorage.getHearings().filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).length;
     document.getElementById('stat-awaiting').textContent = pending.length;
-    document.getElementById('stat-decided').textContent = PMSStorage.getParoleApplications().filter((a) => ['Approved', 'Deferred', 'Refused'].includes(a.status)).length;
+    document.getElementById('stat-decided').textContent = apps.filter((a) => ['Approved', 'Deferred', 'Refused', 'Parole Granted', 'Parole Refused'].includes(a.status)).length;
 
-    const upcoming = PMSStorage.getHearings().filter((h) => h.status === 'Scheduled').slice(0, 5);
-    document.getElementById('overview-hearings').innerHTML = upcoming.length
-      ? upcoming.map((h) => `<div class="overview-row"><strong>${PMSUI.fmtDate(h.scheduledDate)}</strong> ${PMSUI.prisonerName(h.prisonerId)}<span class="meta">${PMSUI.esc(h.location)}</span></div>`).join('')
-      : '<p class="empty-state">No upcoming hearings.</p>';
+    const contractStatus = actor.contractExpiryDate
+      ? (actor.contractStatus || 'Active')
+      : 'N/A';
+    const contractDays = actor.contractExpiryDate
+      ? Math.ceil((new Date(actor.contractExpiryDate) - new Date()) / 86400000)
+      : null;
+
+    const upcoming = PMSStorage.getHearings().filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).slice(0, 5);
+    document.getElementById('overview-hearings').innerHTML = `
+      <div class="overview-row overview-row--highlight"><strong>Contract Status</strong><span class="meta">${PMSUI.esc(contractStatus)}${contractDays != null ? ` · ${contractDays} day(s) remaining` : ''}</span></div>
+      ${upcoming.length ? upcoming.map((h) => `<div class="overview-row"><strong>${PMSUI.fmtDate(h.scheduledDate)}</strong> ${PMSUI.prisonerName(h.prisonerId)}<span class="meta">${PMSUI.esc(h.location)}</span></div>`).join('') : '<p class="empty-state">No upcoming hearings.</p>'}`;
 
     const apps = PMSStorage.getParoleApplications();
     PMSUI.renderBarChart('chart-decisions', [
@@ -84,20 +102,45 @@
     document.getElementById('apps-tbody').innerHTML = boardApps().map((a) => {
       const p = PMSStorage.getPrisonerById(a.prisonerId);
       const months = p ? PMSStorage.getSentenceDurationMonths(p) : 0;
-      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td>${PMSUI.instName(a.institutionId)}</td><td>${Math.floor(months / 12)}y ${months % 12}m</td><td>${PMSStorage.getFormCompletionSummary(a).checks.form4 ? 'Available' : '—'}</td><td>${PMSStorage.getFormCompletionSummary(a).completed}/5</td><td><a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>${['Hearing Scheduled', 'Pending Board Review'].includes(a.status) ? ` <button type="button" class="btn-icon" data-open-form="5" data-app="${a.id}">Form 5</button> <button type="button" class="btn-icon" data-decide="${a.id}">Decide</button>` : ''}</td></tr>`;
+      const summary = PMSStorage.getFormCompletionSummary(a);
+      const preParoleReady = summary.checks.form4 || !!a.formData?.form4?.investigationSummary || !!a.preParoleReport;
+      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td>${PMSUI.instName(a.institutionId)}</td><td>${Math.floor(months / 12)}y ${months % 12}m</td><td>${preParoleReady ? 'Available' : '—'}</td><td>${summary.completed}/5</td><td><a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>${['Hearing Scheduled', 'Pending Board Review'].includes(a.status) ? ` <button type="button" class="btn-icon" data-open-form="5" data-app="${a.id}">Form 5</button> <button type="button" class="btn-icon" data-decide="${a.id}">Review Case</button>` : ''}</td></tr>`;
     }).join('') || '<tr><td colspan="6" class="empty-state">No applications.</td></tr>';
   }
 
   function renderHearings() {
-    document.getElementById('hearings-tbody').innerHTML = PMSStorage.getHearings().map((h) =>
-      `<tr><td>${PMSUI.fmtDate(h.scheduledDate)} ${h.scheduledTime || ''}</td><td>${PMSUI.prisonerName(h.prisonerId)}</td><td>${PMSUI.esc(h.location)}</td><td>${PMSUI.esc(h.status)}</td><td><a href="${PMSRBAC.prisonerProfileUrl(h.prisonerId)}" class="btn-icon">Case File</a></td></tr>`
-    ).join('') || '<tr><td colspan="5" class="empty-state">No hearings.</td></tr>';
+    const highlightId = PMSUI.getDeepLinkParam('hearing');
+    document.getElementById('hearings-tbody').innerHTML = PMSStorage.getHearings().map((h) => {
+      const p = PMSStorage.getPrisonerById(h.prisonerId);
+      const app = h.applicationId ? PMSStorage.getApplicationById(h.applicationId) : null;
+      const rowClass = highlightId === h.id ? 'row-highlight' : '';
+      return `<tr data-hearing-id="${PMSUI.esc(h.id)}" class="${rowClass}"><td>${PMSUI.fmtDate(h.scheduledDate)} ${h.scheduledTime || ''}</td><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : PMSUI.prisonerName(h.prisonerId)}</td><td>${h.applicationId ? PMSUI.esc(h.applicationId) : '—'}</td><td>${PMSUI.esc(h.location)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(h.status)}">${PMSUI.esc(h.status)}</span></td><td><a href="${PMSRBAC.prisonerProfileUrl(h.prisonerId)}" class="btn-icon">Case File</a>${app && ['Hearing Scheduled', 'Pending Board Review'].includes(app.status) ? ` <button type="button" class="btn-icon" data-decide="${PMSUI.esc(app.id)}">Review Case</button>` : ''}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="empty-state">No hearings.</td></tr>';
+    if (highlightId) PMSUI.highlightDeepLinkRow(`[data-hearing-id="${CSS.escape(highlightId)}"]`);
+  }
+
+  function renderNotifications() {
+    PMSUI.renderNotificationPanel('notification-list', actor);
   }
 
   function renderDecisions() {
+    if (canAssess) {
+      document.getElementById('decisions-list').innerHTML = pendingDecisionApps().map((a) => {
+        const p = PMSStorage.getPrisonerById(a.prisonerId);
+        const score = PMSStorage.calculateParoleScore(a);
+        const mine = PMSStorage.getBoardAssessments(a.id).find((x) => x.assessorId === actor.id);
+        return `<div class="decision-card"><strong>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</strong> — ${PMSUI.esc(a.caseNumber || a.id)}<br>
+          <span class="meta">Parole score: ${score.percent}% · ${mine ? 'Assessment submitted' : 'Assessment pending'}</span>
+          <button type="button" class="btn-primary btn-sm" data-assess="${a.id}">${mine ? 'Update Assessment' : 'Submit Assessment'}</button></div>`;
+      }).join('') || '<p class="empty-state">No applications awaiting your assessment.</p>';
+      return;
+    }
     document.getElementById('decisions-list').innerHTML = pendingDecisionApps().map((a) => {
       const p = PMSStorage.getPrisonerById(a.prisonerId);
-      return `<div class="decision-card"><strong>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</strong> — ${PMSUI.esc(a.status)}<br><span class="meta">${PMSUI.instName(a.institutionId)}</span>
+      const score = PMSStorage.calculateParoleScore(a);
+      const assessments = PMSStorage.getBoardAssessments(a.id);
+      return `<div class="decision-card"><strong>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</strong> — ${PMSUI.esc(a.status)}<br>
+        <span class="meta">${PMSUI.instName(a.institutionId)} · Score ${score.percent}% · Assessments ${assessments.length}/3</span>
         <button type="button" class="btn-primary btn-sm" data-decide="${a.id}">Record Decision</button></div>`;
     }).join('') || '<p class="empty-state">No applications awaiting decision.</p>';
   }
@@ -127,16 +170,33 @@
 
   function openDecisionModal(appId) {
     const app = PMSStorage.getApplicationById(appId);
+    if (!app) {
+      alert('Application not found.');
+      return;
+    }
+    if (!['Hearing Scheduled', 'Pending Board Review'].includes(app.status)) {
+      alert('This application is not ready for a board decision.');
+      return;
+    }
     const p = PMSStorage.getPrisonerById(app.prisonerId);
+    const hearing = PMSStorage.getHearingsByApplication(appId).find((h) => h.status === 'Scheduled') || PMSStorage.getHearingsByApplication(appId)[0];
     document.getElementById('dec-app-id').value = appId;
     document.getElementById('dec-prisoner-info').innerHTML = p
       ? `<p><a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-link">Open full case file (read-only)</a></p>${prisonerProfileHtml(p)}`
       : '<p class="empty-state">Prisoner record unavailable.</p>';
-    document.getElementById('dec-report').textContent = app.preParoleReport || 'No pre-parole report on file.';
+    document.getElementById('dec-report').textContent = app.preParoleReport || app.formData?.form4?.investigationSummary || 'No pre-parole report on file.';
     document.getElementById('dec-docs').innerHTML = PMSStorage.PAROLE_FORMS.map((f) => {
       const done = PMSStorage.getFormCompletionSummary(app).checks[`form${f.number}`];
       return `<li>${PMSUI.esc(f.name)}: ${done ? 'Complete' : 'Incomplete'}</li>`;
     }).join('');
+    document.getElementById('dec-hearing-info').innerHTML = hearing
+      ? `<p><strong>Scheduled hearing:</strong> ${PMSUI.fmtDate(hearing.scheduledDate)} ${PMSUI.esc(hearing.scheduledTime || '')} · ${PMSUI.esc(hearing.location)}</p>`
+      : '<p class="empty-state">No linked hearing record on file.</p>';
+    const score = PMSStorage.calculateParoleScore(app);
+    const assessments = PMSStorage.getBoardAssessments(appId);
+    document.getElementById('dec-hearing-info').innerHTML += `<div class="score-panel"><p><strong>Parole score (system calculated):</strong> ${score.percent}% — ${score.result || (score.meetsThreshold ? 'ELIGIBLE FOR PAROLE' : 'NOT ELIGIBLE')}</p>
+      <p><strong>Calculation:</strong> ${score.calculation || 'Pending all assessments'}</p>
+      <p><strong>Individual assessments:</strong> ${score.assessments?.map((a) => `${a.role}: ${a.score}%`).join(' · ') || assessments.map((a) => `${a.role}: ${a.score}%`).join(', ') || 'None'}</p></div>`;
     document.getElementById('dec-outcome').value = 'Approved';
     document.getElementById('dec-conditions').value = '';
     document.getElementById('dec-deliberation').value = '';
@@ -151,28 +211,51 @@
   });
   PMSUI.initShell(actor, actor.boardPosition || 'Parole Board Member');
   PMSUI.bindModalClose();
+  PMSUI.bindNotificationPanel('notification-list', actor, () => refresh('notifications'));
 
   document.getElementById('decision-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    await PMSStorage.recordBoardDecision(document.getElementById('dec-app-id').value, {
-      outcome: document.getElementById('dec-outcome').value,
-      conditions: document.getElementById('dec-conditions').value.trim(),
-      deliberationNotes: document.getElementById('dec-deliberation').value.trim(),
-    }, actor);
-    document.getElementById('decision-modal').close();
-    refresh(document.querySelector('.nav-item.active').dataset.panel);
+    if (!isBoardMember) return;
+    try {
+      await PMSStorage.recordBoardDecision(document.getElementById('dec-app-id').value, {
+        outcome: document.getElementById('dec-outcome').value,
+        conditions: document.getElementById('dec-conditions').value.trim(),
+        deliberationNotes: document.getElementById('dec-deliberation').value.trim(),
+      }, actor);
+      document.getElementById('decision-modal').close();
+      refresh(document.querySelector('.nav-item.active')?.dataset.panel || 'decisions');
+      alert('Board decision recorded successfully.');
+    } catch (err) {
+      alert(err.message || 'Could not record decision.');
+    }
   });
 
   document.getElementById('btn-print-summary').addEventListener('click', () => window.print());
   document.getElementById('board-prisoner-search').addEventListener('input', () => renderPrisoners());
 
   document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-decide]')) openDecisionModal(e.target.closest('[data-decide]').dataset.decide);
+    if (e.target.closest('[data-decide]') && isBoardMember) openDecisionModal(e.target.closest('[data-decide]').dataset.decide);
+    if (e.target.closest('[data-assess]')) {
+      const appId = e.target.closest('[data-assess]').dataset.assess;
+      const score = prompt('Enter assessment score (0–100):', '85');
+      if (score == null) return;
+      const feedback = prompt('Assessment feedback:', '') || '';
+      try {
+        PMSStorage.saveBoardAssessment(appId, { score: Number(score), feedback, recommendation: Number(score) >= 80 ? 'Recommend' : 'Do not recommend' }, actor);
+        refresh(document.querySelector('.nav-item.active')?.dataset.panel || 'decisions');
+        alert('Assessment submitted.');
+      } catch (err) { alert(err.message); }
+    }
     if (e.target.closest('[data-open-form]')) {
       const btn = e.target.closest('[data-open-form]');
       PMSForms.openForm(parseInt(btn.dataset.openForm, 10), btn.dataset.app);
     }
   });
 
-  if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');
+  if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) {
+    refresh('overview');
+  } else {
+    const appId = PMSUI.getDeepLinkParam('app');
+    if (appId) setTimeout(() => openDecisionModal(appId), 0);
+  }
 })();

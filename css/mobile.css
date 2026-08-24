@@ -1,0 +1,171 @@
+/**
+ * PMS — Phone / small-screen layout (works with Bootstrap 5).
+ */
+@import url('icons.css');
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (max-width: 1024px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .dashboard {
+    min-width: 0;
+  }
+
+  .main-content {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0.75rem;
+  }
+
+  .sidebar {
+    width: min(20rem, 88vw);
+    max-width: 100%;
+  }
+
+  .table-wrap,
+  .inst-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table {
+    min-width: 36rem;
+  }
+
+  .workspace-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .workspace-header__tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .workspace-search {
+    flex: 1 1 100%;
+  }
+
+  .workspace-search input {
+    width: 100%;
+  }
+
+  .workspace-quick-actions {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal,
+  dialog.modal {
+    width: calc(100% - 1rem);
+    max-width: 100%;
+    margin: 0.5rem;
+  }
+
+  .modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .modal-actions .btn-primary,
+  .modal-actions .btn-secondary {
+    flex: 1 1 auto;
+  }
+
+  .command-bar,
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #page-zoom-controls {
+    right: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid,
+  .stats-grid--7,
+  .stats-grid--4 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stat-card,
+  .stat-card--featured,
+  .stats-grid--7 .stat-card,
+  .stats-grid--7 .stat-card--featured,
+  .stats-grid--4 .stat-card,
+  .stats-grid--4 .stat-card--featured,
+  .stats-grid:not(.stats-grid--7):not(.stats-grid--4) .stat-card,
+  .stats-grid:not(.stats-grid--7):not(.stats-grid--4) .stat-card--featured {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
+
+  .form-grid,
+  .field-grid--2,
+  .field-grid--3 {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-list {
+    grid-template-columns: 1fr;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .workspace-quick-actions__items {
+    flex-wrap: nowrap;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .sidebar-mobile-toggle,
+  .workspace-icon-btn {
+    min-height: 2.75rem;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 576px) {
+  .stats-grid,
+  .stats-grid--7,
+  .stats-grid--4 {
+    grid-template-columns: 1fr;
+  }
+
+  .main-content {
+    padding: 0.625rem;
+  }
+
+  .workspace-header__titles h1,
+  #panel-title {
+    font-size: 1.125rem;
+  }
+
+  .sidebar-mobile-toggle span {
+    display: none;
+  }
+}

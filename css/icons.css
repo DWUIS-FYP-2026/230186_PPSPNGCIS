@@ -1,0 +1,66 @@
+/* PMS — Flaticon Uicons (uniform icon set across the application) */
+@import url('https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1/css/regular/rounded.css');
+
+:root {
+  --pms-icon-color: var(--pngcs-gold, #c8922a);
+  --pms-icon-muted: rgb(255 255 255 / 0.75);
+  --pms-icon-size: 1rem;
+}
+
+.fi,
+.pms-icon {
+  display: inline-block;
+  line-height: 1;
+  vertical-align: middle;
+  font-style: normal;
+}
+
+.nav-icon {
+  color: var(--pms-icon-color);
+  opacity: 0.95;
+  font-size: var(--pms-icon-size);
+  flex-shrink: 0;
+  width: 1.125rem;
+  text-align: center;
+}
+
+.sidebar .nav-icon {
+  color: var(--pms-icon-color);
+}
+
+.workspace-search .fi,
+.command-ticker .fi,
+.input-icon.fi {
+  opacity: 0.9;
+}
+
+.pms-icon-attribution {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  font-size: 0.625rem;
+  line-height: 1.4;
+  color: rgb(255 255 255 / 0.45);
+  text-align: center;
+}
+
+.pms-icon-attribution a {
+  color: var(--pngcs-gold-light, #e0ad4a);
+  text-decoration: none;
+}
+
+.pms-icon-attribution a:hover {
+  text-decoration: underline;
+}
+
+.pms-icon-attribution--login {
+  margin-top: 1rem;
+  border-top: none;
+  padding-top: 0;
+  color: rgb(255 255 255 / 0.55);
+  text-align: center;
+}
+
+.pms-icon-attribution--login a {
+  color: var(--pngcs-gold-light, #e0ad4a);
+}
