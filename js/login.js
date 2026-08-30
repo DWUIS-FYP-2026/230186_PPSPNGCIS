@@ -10,6 +10,39 @@ const loginOpenBtn = document.getElementById('home-login-open');
 const loginCloseBtn = document.getElementById('home-login-close');
 const loginBackdrop = document.getElementById('home-login-backdrop');
 
+const supportsMaskedText = typeof CSS !== 'undefined' && CSS.supports('-webkit-text-security', 'disc');
+
+function setPasswordHidden(hidden) {
+  if (!passwordInput) return;
+  if (supportsMaskedText) {
+    passwordInput.type = 'text';
+    passwordInput.classList.toggle('password-masked', hidden);
+  } else {
+    passwordInput.classList.remove('password-masked');
+    passwordInput.type = hidden ? 'password' : 'text';
+  }
+}
+
+function isPasswordHidden() {
+  if (!passwordInput) return true;
+  return supportsMaskedText
+    ? passwordInput.classList.contains('password-masked')
+    : passwordInput.type === 'password';
+}
+
+function updatePasswordToggleIcon() {
+  const hidden = isPasswordHidden();
+  const icon = togglePasswordBtn?.querySelector('.toggle-password-icon');
+  if (icon) {
+    icon.classList.toggle('fi-rr-eye', hidden);
+    icon.classList.toggle('fi-rr-eye-crossed', !hidden);
+  }
+  togglePasswordBtn?.setAttribute('aria-label', hidden ? 'Show password' : 'Hide password');
+}
+
+setPasswordHidden(true);
+updatePasswordToggleIcon();
+
 function openLoginFloater() {
   loginFloater?.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -181,18 +214,9 @@ function setLoading(loading) {
 
 
 
-togglePasswordBtn.addEventListener('click', () => {
-
-  const isPassword = passwordInput.type === 'password';
-
-  passwordInput.type = isPassword ? 'text' : 'password';
-
-  togglePasswordBtn.querySelector('.icon-eye').classList.toggle('hidden', isPassword);
-
-  togglePasswordBtn.querySelector('.icon-eye-off').classList.toggle('hidden', !isPassword);
-
-  togglePasswordBtn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
-
+togglePasswordBtn?.addEventListener('click', () => {
+  setPasswordHidden(!isPasswordHidden());
+  updatePasswordToggleIcon();
 });
 
 
@@ -264,15 +288,11 @@ form.addEventListener('submit', async (e) => {
         return;
 
       } catch (apiErr) {
-
-        if (apiErr.status && apiErr.status !== 401) {
-
+        const canUseLocalAuth = !apiErr.status || apiErr.status === 401 || apiErr.status >= 500;
+        if (!canUseLocalAuth) {
           setFieldError(passwordInput, passwordError, apiErr.message || 'Login failed.');
-
           return;
-
         }
-
       }
 
     }

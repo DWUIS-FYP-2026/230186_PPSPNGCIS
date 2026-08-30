@@ -17,10 +17,24 @@
     <aside class="sidebar" id="app-sidebar"></aside>
     <main class="main-content">
       <header class="topbar command-bar">
-        <div class="command-bar__titles">
-          <h1 id="panel-title">Prisoner Record Management</h1>
-          <p id="panel-subtitle">PNGCS Parole Clerk — data entry</p>
+        <div class="command-bar__identity">
+          <div class="command-bar__badges" aria-hidden="true">
+            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
+            <span class="command-badge-divider"></span>
+            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+          </div>
+          <div class="command-bar__titles">
+            <h1 id="panel-title">Prisoner Record Management</h1>
+            <p id="panel-subtitle">PNGCS Parole Clerk — data entry</p>
+          </div>
         </div>
+        <aside class="command-bar__status">
+          <div class="command-ticker"><i class="fi fi-rr-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
+          <div class="command-status-row">
+            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
+            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
+          </div>
+        </aside>
       </header>
 
       <div class="case-file-page">
@@ -90,9 +104,11 @@
   </div>
 
   <script src="js/workspace-shell.js"></script>
+  <script src="js/command-bar.js"></script>
   <script src="js/id-generator.js"></script>
   <script src="js/eligibility-engine.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/global-search.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/rbac.js"></script>
   <script src="js/sidebar-nav.js"></script>

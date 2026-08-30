@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <script src="js/page-zoom.js"></script>
   <title>Parole Management System — PNG Correctional Service &amp; DJAG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,10 +49,9 @@
               <label for="password" class="visually-hidden">Password</label>
               <div class="input-icon-wrap password-field">
                 <i class="fi fi-rr-lock input-icon" aria-hidden="true"></i>
-                <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" required>
+                <input type="text" id="password" name="password" class="password-masked" placeholder="Password" autocomplete="current-password" required spellcheck="false">
                 <button type="button" class="toggle-password" aria-label="Show password">
-                  <i class="fi fi-rr-eye icon-eye" aria-hidden="true"></i>
-                  <i class="fi fi-rr-eye-crossed icon-eye-off hidden" aria-hidden="true"></i>
+                  <i class="fi fi-rr-eye toggle-password-icon" aria-hidden="true"></i>
                 </button>
               </div>
               <span class="error-message" id="password-error"></span>
@@ -68,6 +68,21 @@
             </label>
             <a href="#" class="forgot-link">Forgot password?</a>
           </div>
+          <details class="home-demo-accounts">
+            <summary>Demo accounts by role</summary>
+            <ul class="home-demo-list">
+              <li><strong>admin</strong> · System Administrator → Admin Dashboard</li>
+              <li><strong>john.dole@cs.gov.pg</strong> · PNGCS Parole Clerk → PNGCS Dashboard</li>
+              <li><strong>officer.tau@cs.gov.pg</strong> · CS Parole Officer → PNGCS Dashboard</li>
+              <li><strong>mary.kila@djag.gov.pg</strong> · DJAG Parole Clerk → DJAG Dashboard</li>
+              <li><strong>commander@cs.gov.pg</strong> · Jail Commander → Commander Dashboard</li>
+              <li><strong>secretary.morris@djag.gov.pg</strong> · DJAG Secretary → Board Dashboard</li>
+              <li><strong>judge.kakaraya@justice.gov.pg</strong> · Parole Board Member → Board Dashboard</li>
+              <li><strong>dr.sine@health.gov.pg</strong> · Doctor → Board Dashboard</li>
+              <li><strong>commissioner.bain@cs.gov.pg</strong> · CS Commissioner → Board Dashboard</li>
+            </ul>
+            <p class="home-demo-note">Password: <code>Password123!</code> (admin uses <code>admin123</code>)</p>
+          </details>
         </form>
       </div>
     </div>

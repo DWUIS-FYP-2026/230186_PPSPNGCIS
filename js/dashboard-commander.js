@@ -1,6 +1,6 @@
 (async () => {
   await PMSStorage.ensureLoaded();
-  const actor = PMSAuth.requireRole(['Jail Commander']);
+  const actor = PMSAuth.requireDashboardRole('dashboard-commander.html');
   if (!actor) return;
 
   if (!actor.institutionId) {

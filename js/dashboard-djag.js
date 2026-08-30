@@ -1,6 +1,6 @@
 (async () => {
   await PMSStorage.ensureLoaded();
-  const actor = PMSAuth.requireRole(['DJAG Parole Clerk', 'DJAG Secretary']);
+  const actor = PMSAuth.requireDashboardRole('dashboard-djag.html');
   if (!actor) return;
 
   const panelTitles = {
@@ -143,24 +143,12 @@
 
   document.getElementById('djag-prisoner-search').addEventListener('input', () => renderPrisoners());
   document.getElementById('btn-schedule-hearing').addEventListener('click', () => {
-    const sel = document.getElementById('h-app');
-    sel.innerHTML = djagApps().filter((a) => ['Pre-Parole Report Prepared'].includes(a.status))
-      .map((a) => { const p = PMSStorage.getPrisonerById(a.prisonerId); return `<option value="${a.id}">${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</option>`; }).join('');
-    document.getElementById('hearing-modal').showModal();
-  });
-
-  document.getElementById('hearing-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const app = PMSStorage.getApplicationById(document.getElementById('h-app').value);
-    await PMSStorage.saveHearing({
-      applicationId: app.id, prisonerId: app.prisonerId, institutionId: app.institutionId,
-      scheduledDate: document.getElementById('h-date').value,
-      scheduledTime: document.getElementById('h-time').value,
-      location: document.getElementById('h-location').value.trim(),
-      notes: document.getElementById('h-notes').value.trim(),
-    }, actor);
-    document.getElementById('hearing-modal').close();
-    refresh('hearings');
+    const eligible = djagApps().filter((a) => ['Pre-Parole Report Prepared'].includes(a.status));
+    if (eligible.length === 1) {
+      window.location.href = `forms/hearing-portal.html?appId=${encodeURIComponent(eligible[0].id)}`;
+      return;
+    }
+    window.location.href = 'forms/hearing-portal.html';
   });
 
   document.getElementById('btn-verify-docs').addEventListener('click', async () => {

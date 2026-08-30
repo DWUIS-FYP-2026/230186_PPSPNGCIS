@@ -264,6 +264,18 @@ const PMSFormWorkflow = (() => {
 
   function getNextForm(formN) { return FORM_DEFS.find((f) => f.n === formN + 1) || null; }
 
+  function canAccessHearingPortal() {
+    const user = getSessionUser();
+    if (!user) return false;
+    return ['DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator'].includes(user.role);
+  }
+
+  function hearingPortalHref(appId) {
+    const id = encodeURIComponent(appId || getAppId());
+    const inFormsDir = /\/forms(\/|$)/.test(window.location.pathname);
+    return inFormsDir ? `hearing-portal.html?appId=${id}` : `forms/hearing-portal.html?appId=${id}`;
+  }
+
   function injectStyles() {
     if (document.getElementById('pms-form-workflow-styles')) return;
     const style = document.createElement('style');
@@ -335,8 +347,6 @@ const PMSFormWorkflow = (() => {
   }
 
   function showContinueBanner(formN, appId) {
-    const next = getNextForm(formN);
-    if (!next) return;
     injectStyles();
     let banner = document.getElementById('wf-continue');
     if (!banner) {
@@ -347,6 +357,23 @@ const PMSFormWorkflow = (() => {
       if (actions) actions.parentNode.insertBefore(banner, actions);
       else document.querySelector('.page-main')?.appendChild(banner);
     }
+
+    if (formN === 3 && canAccessHearingPortal()) {
+      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 completed — schedule the parole hearing for this prisoner</span>
+        <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Portal →</button>`;
+      banner.classList.add('show');
+      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
+      return;
+    }
+
+    if (formN === 3) {
+      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — DJAG will schedule the parole hearing within 14 days</span>`;
+      banner.classList.add('show');
+      return;
+    }
+
+    const next = getNextForm(formN);
+    if (!next) return;
     banner.innerHTML = `<span class="wf-continue__text">✅ ${getDef(formN)?.title} completed — ready for ${next.title}</span>
       <button type="button" class="wf-continue__btn" id="wf-continue-btn">Continue to Form ${next.n} →</button>`;
     banner.classList.add('show');
@@ -397,5 +424,6 @@ const PMSFormWorkflow = (() => {
   return {
     FORM_DEFS, getAppId, getDataStorageKey, getChecks, canAccess, getBlockingForm,
     markComplete, openForm, initPage, isFormDataComplete, prereqsMet, canUserEditForms,
+    hearingPortalHref, canAccessHearingPortal,
   };
 })();

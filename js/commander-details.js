@@ -8,6 +8,15 @@
   if (!actor) return;
 
   const isAdmin = actor.role === 'System Administrator';
+
+  PMSSidebar.init({
+    user: actor,
+    activeNavId: isAdmin ? 'institutions' : 'institution',
+    linkPanels: true,
+    dashboardUrl: PMSAuth.getDashboardForRole(actor.role),
+  });
+  PMSUI.updateNotifBadge(actor);
+
   const params = new URLSearchParams(window.location.search);
   let commanderId = params.get('id');
 

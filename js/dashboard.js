@@ -1,11 +1,12 @@
 (async () => {
   await PMSStorage.ensureLoaded();
-  const actor = PMSAuth.requireRole(['System Administrator']);
+  const actor = PMSAuth.requireDashboardRole('admin-dashboard.html');
   if (!actor) return;
 
   let pendingDocs = [];
   let prisonerDocsExisting = [];
   let usersOfficersOnly = false;
+  let activeNavId = 'overview';
   const usersPager = PMSUI.createPaginator({ pageSize: 12, onPageChange: () => renderUsers(usersOfficersOnly) });
   const prisonersPager = PMSUI.createPaginator({ pageSize: 15, onPageChange: renderPrisoners });
 
@@ -20,6 +21,17 @@
     profile: ['Profile', 'Your account information'],
     reports: ['System Reports', 'Operational and administrative reports'],
     officers: ['Officer Management', 'Manage correctional officers and role assignments'],
+  };
+
+  const navTitles = {
+    cases: ['Parole Cases', 'Prisoners with active or historical parole applications'],
+    eligibility: ['Eligibility Queue', 'Prisoners eligible for parole application'],
+    'release-pending': ['Pending Release', 'Approved cases awaiting release authorization'],
+    'release-done': ['Released Prisoners', 'Prisoners released on parole or discharged'],
+    guarantors: ['Guarantor Records', 'Cases with registered guarantors'],
+    documents: ['Case Documents', 'Prisoners with attached case documents'],
+    analytics: ['Analytics Dashboard', 'System-wide parole KPIs and trends'],
+    'board-members': ['Board Members', 'Parole board member and assessor accounts'],
   };
 
   function esc(str) {
@@ -50,6 +62,7 @@
   }
 
   function switchPanel(id, navId) {
+    activeNavId = navId || id;
     const panelId = id === 'officers' ? 'users' : id;
     document.querySelectorAll('.sidebar-nav .nav-item').forEach((b) => {
       const matchNav = navId && b.dataset.navId === navId;
@@ -57,7 +70,7 @@
       b.classList.toggle('active', matchNav || matchPanel);
     });
     document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${panelId}`));
-    const titles = panelTitles[id] || panelTitles[panelId];
+    const titles = navTitles[activeNavId] || panelTitles[id] || panelTitles[panelId];
     if (titles) {
       const titleEl = document.getElementById('panel-title');
       const subtitleEl = document.getElementById('panel-subtitle');
@@ -285,7 +298,9 @@
   function renderUsers(officersOnly = false) {
     usersOfficersOnly = officersOnly;
     let users = PMSStorage.getUsers();
-    if (officersOnly) users = users.filter((u) => u.role !== 'System Administrator');
+    if (officersOnly || activeNavId === 'board-members') {
+      users = users.filter((u) => ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(u.role));
+    }
     const roleF = document.getElementById('user-role-filter').value;
     const statusF = document.getElementById('user-status-filter').value;
     const q = document.getElementById('user-search').value.trim().toLowerCase();
@@ -305,6 +320,7 @@
       <td><strong>${esc(u.username)}</strong></td>
       <td>${esc(u.firstName)} ${esc(u.lastName)}</td>
       <td>${esc(u.role)}</td>
+      <td><a href="${esc(PMSAuth.getDashboardForRole(u.role))}" class="btn-icon">${esc(dashboardLabel(u.role))}</a></td>
       <td>${esc(instName(u.institutionId))}</td>
       <td>${esc(u.position || '—')}</td>
       <td>${esc(u.email)}${u.phone ? `<br><span class="meta">${esc(u.phone)}</span>` : ''}</td>
@@ -316,6 +332,24 @@
         ${u.role !== 'System Administrator' ? `<button type="button" class="btn-icon btn-icon--danger" data-delete-user="${u.id}">Delete</button>` : ''}
       </td>
     </tr>`).join('');
+  }
+
+  function dashboardLabel(role) {
+    const file = PMSAuth.getDashboardForRole(role);
+    const labels = {
+      'admin-dashboard.html': 'Admin Dashboard',
+      'dashboard-pngcs.html': 'PNGCS Dashboard',
+      'dashboard-djag.html': 'DJAG Dashboard',
+      'dashboard-commander.html': 'Commander Dashboard',
+      'dashboard-board.html': 'Board Dashboard',
+    };
+    return labels[file] || file;
+  }
+
+  function updateUserDashboardPreview(role) {
+    const el = document.getElementById('user-dashboard-preview');
+    if (!el) return;
+    el.value = `${dashboardLabel(role)} (${PMSAuth.getDashboardForRole(role)})`;
   }
 
   function toggleBoardFields(role) {
@@ -349,6 +383,7 @@
     document.getElementById('user-contract-start').value = user?.contractStartDate || '';
     document.getElementById('user-contract-expiry').value = user?.contractExpiryDate || '';
     toggleBoardFields(user?.role || PMSStorage.OFFICER_ROLES[0]);
+    updateUserDashboardPreview(user?.role || PMSStorage.OFFICER_ROLES[0]);
     document.getElementById('user-password').value = '';
     document.getElementById('user-password').required = !user;
     const pwLabel = document.getElementById('password-group').querySelector('label');
@@ -386,6 +421,34 @@
   function renderPrisoners() {
     let prisoners = PMSStorage.getPrisoners();
     PMSStorage.syncParoleNotifications(actor);
+    const apps = PMSStorage.getParoleApplications();
+    const appByPrisoner = new Map(apps.map((a) => [a.prisonerId, a]));
+
+    if (activeNavId === 'cases') {
+      const caseIds = new Set(apps.map((a) => a.prisonerId));
+      prisoners = prisoners.filter((p) => caseIds.has(p.id));
+    } else if (activeNavId === 'eligibility') {
+      prisoners = prisoners.filter((p) => {
+        const prog = PMSStorage.getPrisonerProgress(p);
+        return prog.eligible || p.status === 'Eligible for Parole Application';
+      });
+    } else if (activeNavId === 'release-pending') {
+      prisoners = prisoners.filter((p) => {
+        const app = appByPrisoner.get(p.id);
+        return ['Pending Approval', 'Approved', 'Parole Granted'].includes(app?.status)
+          || ['Pending Release', 'Approved for Release'].includes(p.status);
+      });
+    } else if (activeNavId === 'release-done') {
+      prisoners = prisoners.filter((p) => ['Released on Parole', 'Released', 'Discharged'].includes(p.status));
+    } else if (activeNavId === 'guarantors') {
+      prisoners = prisoners.filter((p) => {
+        const app = appByPrisoner.get(p.id);
+        return (p.guarantors?.length || app?.guarantors?.length || 0) > 0;
+      });
+    } else if (activeNavId === 'documents') {
+      prisoners = prisoners.filter((p) => (p.documents?.length || 0) > 0);
+    }
+
     const instF = document.getElementById('prisoner-institution-filter').value;
     const statusF = document.getElementById('prisoner-status-filter').value;
     const q = document.getElementById('prisoner-search').value.trim().toLowerCase();
@@ -520,6 +583,13 @@
   function renderReports() {
     if (typeof PMSReports !== 'undefined') {
       PMSReports.mount('admin-reports-body', 'reports-filter-bar', actor);
+      if (activeNavId === 'analytics') {
+        const typeSel = document.getElementById('report-type');
+        if (typeSel) {
+          typeSel.value = 'analytics';
+          typeSel.dispatchEvent(new Event('change'));
+        }
+      }
       return;
     }
     const stats = PMSStorage.getDashboardStats();
@@ -683,6 +753,9 @@
 
   populateRoleSelects();
   populateInstitutionSelects();
-  document.getElementById('user-role-select')?.addEventListener('change', (e) => toggleBoardFields(e.target.value));
+  document.getElementById('user-role-select')?.addEventListener('change', (e) => {
+    toggleBoardFields(e.target.value);
+    updateUserDashboardPreview(e.target.value);
+  });
   if (!PMSUI.applyDeepLinkNav((panel, navId) => switchPanel(panel, navId))) switchPanel('overview');
 })();

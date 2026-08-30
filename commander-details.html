@@ -13,26 +13,41 @@
   <link href="css/institutions.css" rel="stylesheet">
 </head>
 <body>
-  <header class="inst-page-header">
-    <div class="container-fluid px-4">
-      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 py-2">
-        <div>
-          <div class="brand-line">Papua New Guinea Correctional Service</div>
-          <h1>Jail Commander Profile</h1>
-          <p class="subtitle mb-0" id="page-subtitle">Institutional leadership and facility overview</p>
+  <div class="dashboard">
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <main class="main-content institutions-main">
+      <header class="topbar command-bar inst-topbar">
+        <div class="command-bar__identity">
+          <div class="command-bar__badges" aria-hidden="true">
+            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
+            <span class="command-badge-divider"></span>
+            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+          </div>
+          <div class="command-bar__titles">
+            <h1>Jail Commander Profile</h1>
+            <p id="page-subtitle">Institutional leadership and facility overview</p>
+          </div>
         </div>
-        <div class="d-flex flex-wrap gap-2">
+        <aside class="command-bar__status">
+          <div class="command-ticker"><i class="fi fi-rr-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
+          <div class="command-status-row">
+            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
+            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
+          </div>
+        </aside>
+        <div class="inst-topbar-actions">
           <a href="institutions.html" class="btn btn-pms-outline btn-sm">← Institutions</a>
           <a href="#" class="btn btn-pms-outline btn-sm" id="back-dashboard">Dashboard</a>
           <button type="button" class="btn btn-pms-gold btn-sm d-none" id="btn-edit-commander">Edit Profile</button>
         </div>
-      </div>
-    </div>
-  </header>
+      </header>
 
-  <main class="container-fluid px-4 py-4" id="main-content">
-    <p class="text-center text-muted py-5">Loading commander profile…</p>
-  </main>
+      <div class="container-fluid px-0 py-4" id="main-content">
+        <p class="text-center text-muted py-5">Loading commander profile…</p>
+      </div>
+    </main>
+  </div>
 
   <!-- Edit Commander Modal (Admin) -->
   <div class="modal fade" id="editCommanderModal" tabindex="-1" aria-hidden="true">
@@ -71,13 +86,19 @@
     </div>
   </div>
 
+  <script src="js/workspace-shell.js"></script>
+  <script src="js/command-bar.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/institutions-data.js"></script>
   <script src="js/commanders-data.js"></script>
   <script src="js/id-generator.js"></script>
   <script src="js/eligibility-engine.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/global-search.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/rbac.js"></script>
+  <script src="js/sidebar-nav.js"></script>
+  <script src="js/ui-shared.js"></script>
   <script src="js/commander-details.js"></script>
 </body>
 </html>

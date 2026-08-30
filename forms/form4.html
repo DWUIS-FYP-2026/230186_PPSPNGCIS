@@ -5,287 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
+  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
   <title>Form 4 – Parole Granted | PNG Parole System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/forms.css">
   <link rel="stylesheet" href="../css/mobile.css">
-  <style>
-    :root {
-      --png-blue: #002b5c;
-      --png-blue-light: #003d7a;
-      --refusal-red: #b71c1c;
-      --refusal-red-light: #c62828;
-      --refusal-red-dark: #8b0000;
-      --refusal-bg: #fdecea;
-      --refusal-border: #ef9a9a;
-      --readonly-bg: #eef2f7;
-      --text: #1a2b3c;
-      --text-muted: #5a6b7d;
-      --border: #d0d8e4;
-      --white: #ffffff;
-      --success: #198754;
-      --shadow: 0 2px 12px rgba(183, 28, 28, 0.08);
-      --radius: 8px;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f4f6f9;
-      color: var(--text);
-      line-height: 1.5;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    a { color: var(--png-blue); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    .page-header {
-      background: linear-gradient(135deg, var(--png-blue) 0%, var(--png-blue-light) 100%);
-      color: var(--white);
-      border-bottom: 4px solid var(--refusal-red);
-    }
-
-    .header-top { max-width: 1100px; margin: 0 auto; padding: 0.75rem 1.5rem; }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .back-link:hover { color: #ffcdd2; text-decoration: none; }
-
-    .header-main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 1.25rem 1.5rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .header-title h1 { font-size: 1.5rem; font-weight: 700; }
-    .header-title p { font-size: 0.8125rem; opacity: 0.85; margin-top: 0.25rem; }
-
-    .role-badge {
-      background: var(--refusal-red);
-      color: var(--white);
-      font-size: 0.6875rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      white-space: nowrap;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-    }
-
-    .page-main {
-      flex: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 1.5rem;
-      width: 100%;
-    }
-
-    .section {
-      background: var(--white);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      margin-bottom: 1.25rem;
-      overflow: hidden;
-    }
-
-    .section-header {
-      background: var(--refusal-red);
-      color: var(--white);
-      padding: 0.75rem 1.25rem;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      border-left: 4px solid var(--refusal-red-dark);
-    }
-
-    .section-body { padding: 1.25rem; }
-
-    .field-grid { display: grid; gap: 1rem; }
-    .field-grid--3 { grid-template-columns: repeat(3, 1fr); }
-    .field-grid--2 { grid-template-columns: repeat(2, 1fr); }
-
-    @media (max-width: 768px) {
-      .field-grid--2, .field-grid--3 { grid-template-columns: 1fr; }
-    }
-
-    .field { display: flex; flex-direction: column; gap: 0.35rem; }
-    .field--full { grid-column: 1 / -1; }
-
-    label {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-
-    .readonly-field,
-    input[readonly],
-    textarea[readonly] {
-      background: var(--readonly-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.625rem 0.875rem;
-      font-size: 0.9375rem;
-      font-family: inherit;
-      width: 100%;
-      color: var(--text);
-    }
-
-    select,
-    input[type="date"],
-    textarea {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.625rem 0.875rem;
-      font-size: 0.9375rem;
-      font-family: inherit;
-      width: 100%;
-      color: var(--text);
-      background: var(--white);
-    }
-
-    textarea { resize: vertical; }
-
-    select:focus,
-    input[type="date"]:focus,
-    textarea:focus {
-      outline: none;
-      border-color: var(--refusal-red);
-      box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.12);
-    }
-
-    /* Warning box */
-    .warning-box {
-      background: var(--refusal-bg);
-      border: 1px solid var(--refusal-border);
-      border-left: 5px solid var(--refusal-red);
-      border-radius: var(--radius);
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .warning-box__title {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: var(--refusal-red);
-      margin-bottom: 0.5rem;
-    }
-
-    .warning-box__text {
-      font-size: 0.9375rem;
-      color: var(--text);
-      line-height: 1.6;
-    }
-
-    /* Actions */
-    .actions-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      padding: 1.25rem;
-      background: var(--white);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.625rem 1.25rem;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      font-family: inherit;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-    }
-
-    .btn:active { transform: translateY(1px); }
-    .btn-primary { background: var(--png-blue); color: var(--white); }
-    .btn-primary:hover { background: var(--png-blue-light); box-shadow: 0 4px 12px rgba(0, 43, 92, 0.25); }
-    .btn-danger { background: var(--refusal-red); color: var(--white); }
-    .btn-danger:hover { background: var(--refusal-red-light); box-shadow: 0 4px 12px rgba(183, 28, 28, 0.3); }
-    .btn-secondary { background: var(--white); color: var(--png-blue); border: 2px solid var(--png-blue); }
-    .btn-secondary:hover { background: var(--readonly-bg); }
-
-    .page-footer {
-      background: var(--png-blue);
-      color: rgba(255, 255, 255, 0.85);
-      text-align: center;
-      padding: 1rem 1.5rem;
-      font-size: 0.8125rem;
-      border-top: 3px solid var(--refusal-red);
-      margin-top: auto;
-    }
-
-    .issued-banner {
-      display: none;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      background: var(--refusal-bg);
-      border: 1px solid var(--refusal-border);
-      border-radius: 6px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--refusal-red);
-      margin-bottom: 1rem;
-    }
-
-    .issued-banner.show { display: flex; }
-
-    .toast {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      background: var(--refusal-red);
-      color: var(--white);
-      padding: 0.875rem 1.25rem;
-      border-radius: var(--radius);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-      font-size: 0.875rem;
-      font-weight: 500;
-      opacity: 0;
-      transform: translateY(1rem);
-      transition: opacity 0.25s, transform 0.25s;
-      pointer-events: none;
-      z-index: 1000;
-      border-left: 4px solid var(--refusal-red-dark);
-      max-width: 380px;
-    }
-
-    .toast.show { opacity: 1; transform: translateY(0); }
-
-    @media print {
-      .back-link, .actions-bar, .toast, .issued-banner { display: none !important; }
-      body { background: white; }
-      .section { box-shadow: none; break-inside: avoid; }
-      .warning-box { break-inside: avoid; }
-    }
-  </style>
 </head>
-<body>
+<body class="pms-form-page pms-form-page--grant">
   <header class="page-header">
     <div class="header-top">
       <a href="../dashboard-board.html" class="back-link">← Back to Dashboard</a>
@@ -294,16 +21,15 @@
       <div class="header-title">
         <h1>Form 4 – Parole Granted</h1>
         <p>Papua New Guinea Parole System · Official parole grant record (≥80% eligibility)</p>
-        <p>Papua New Guinea Parole System · Notice of Refusal (Official Form 2)</p>
       </div>
-      <span class="role-badge">Official Form 2</span>
+      <span class="role-badge">Form 4</span>
     </div>
   </header>
 
   <main class="page-main">
-    <form id="form4-refusal" novalidate>
+    <form id="form4-grant" novalidate>
       <div class="issued-banner" id="issued-banner" role="status">
-        ⛔ Notice of Refusal has been issued and recorded.
+        ✅ Parole Granted — Form 4 has been issued and recorded.
       </div>
 
       <!-- Detainee Information -->
@@ -331,45 +57,102 @@
         </div>
       </section>
 
-      <!-- Notice of Refusal -->
-      <section class="section" aria-labelledby="sec-refusal">
-        <h2 class="section-header" id="sec-refusal">Notice of Refusal</h2>
+      <!-- Parole Order (Approval) -->
+      <section class="section" aria-labelledby="sec-order">
+        <h2 class="section-header" id="sec-order">Parole Order (Approval)</h2>
         <div class="section-body">
-          <div class="warning-box">
-            <div class="warning-box__title">⚠ Parole Application Refused</div>
-            <p class="warning-box__text">
-              The Parole Board has reviewed the application and supporting documentation and has determined
-              that parole shall not be granted at this time. This notice is issued in accordance with the
-              <em>Parole Act 1991</em> and PNG Parole Regulation. The detainee has the right to be informed
-              of the reasons for refusal and the earliest date upon which reapplication may be made.
+          <div class="approval-box">
+            <div class="approval-box__title">✅ Parole Application Approved</div>
+            <p class="approval-box__text">
+              The Parole Board has reviewed the application, hearing proceedings, and all supporting
+              documentation and has determined that parole shall be granted. This Parole Order is issued
+              in accordance with the <em>Parole Act 1991</em> and PNG Parole Regulation. The detainee
+              is hereby ordered to be released on parole subject to the conditions specified below.
             </p>
           </div>
 
-          <div class="field-grid field-grid--2">
+          <div class="field-grid field-grid--3">
             <div class="field">
-              <label for="refusal-reason">Reasons for Refusal</label>
-              <select id="refusal-reason" required>
-                <option value="">Select reason…</option>
-                <option value="public-safety" selected>Risk to public safety</option>
-                <option value="conduct">Unsatisfactory institutional conduct</option>
-                <option value="release-plan">Lack of viable release plan</option>
-                <option value="community-support">Insufficient community support</option>
-                <option value="reoffending">High risk of reoffending</option>
-                <option value="other">Other (specify below)</option>
+              <label for="release-date">Release Date</label>
+              <input type="date" id="release-date" required>
+            </div>
+            <div class="field">
+              <label for="parole-duration">Parole Duration</label>
+              <select id="parole-duration" required>
+                <option value="">Select duration…</option>
+                <option value="6">6 Months</option>
+                <option value="12" selected>12 Months</option>
+                <option value="18">18 Months</option>
+                <option value="24">24 Months</option>
+                <option value="remainder">Remainder of Sentence</option>
               </select>
             </div>
             <div class="field">
-              <label for="reapply-date">Reapplication Eligible Date</label>
-              <input type="date" id="reapply-date" required>
+              <label for="supervision-level">Supervision Level</label>
+              <select id="supervision-level" required>
+                <option value="">Select level…</option>
+                <option value="standard" selected>Standard Supervision</option>
+                <option value="intensive">Intensive Supervision</option>
+                <option value="minimum">Minimum Supervision</option>
+              </select>
             </div>
             <div class="field field--full">
-              <label for="justification">Detailed Justification</label>
-              <textarea id="justification" rows="4" required>Following review of the parole hearing held on 25/08/2026, the Board determined that the applicant presents an unacceptable risk to public safety at this time. Despite participation in institutional programs, conduct records indicate ongoing disciplinary concerns. The proposed release plan lacks verified community support and adequate supervision arrangements. The Board therefore refuses parole and advises that reapplication may be considered after a minimum period of 12 months, subject to improved conduct and a revised release plan.</textarea>
+              <label for="release-address">Release Address</label>
+              <input type="text" id="release-address" value="Lot 14, Section 42, Gerehu Stage 6, National Capital District" required>
             </div>
-            <div class="field">
-              <label for="reapply-period">Reapplication Period</label>
-              <input type="text" id="reapply-period" class="readonly-field" value="12 Months from Refusal Date" readonly>
-            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Parole Conditions -->
+      <section class="section" aria-labelledby="sec-conditions">
+        <h2 class="section-header" id="sec-conditions">Parole Conditions</h2>
+        <div class="section-body">
+          <p class="conditions-heading">Standard Conditions (Required)</p>
+          <ul class="conditions-list" id="required-conditions">
+            <li class="condition-item">
+              <input type="checkbox" id="cond-weekly" checked data-required="true">
+              <label class="condition-item__text" for="cond-weekly">Report to Community Based Corrections officer weekly.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-reside" checked data-required="true">
+              <label class="condition-item__text" for="cond-reside">Reside at approved address at all times.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-curfew" checked data-required="true">
+              <label class="condition-item__text" for="cond-curfew">Observe curfew: 9:00 PM – 6:00 AM.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-offences" checked data-required="true">
+              <label class="condition-item__text" for="cond-offences">Not commit any further offences.</label>
+            </li>
+            <li class="condition-item">
+              <input type="checkbox" id="cond-ncd" checked data-required="true">
+              <label class="condition-item__text" for="cond-ncd">Not leave the National Capital District without prior written permission.</label>
+            </li>
+          </ul>
+
+          <p class="conditions-heading conditions-heading--optional">Additional Optional Conditions</p>
+          <ul class="conditions-list" id="optional-conditions">
+            <li class="condition-item condition-item--optional">
+              <input type="checkbox" id="cond-anger">
+              <label class="condition-item__text" for="cond-anger">
+                Complete anger management and rehabilitation program.
+                <span class="condition-item__tag">Optional</span>
+              </label>
+            </li>
+            <li class="condition-item condition-item--optional">
+              <input type="checkbox" id="cond-testing">
+              <label class="condition-item__text" for="cond-testing">
+                Submit to random drug and alcohol testing.
+                <span class="condition-item__tag">Optional</span>
+              </label>
+            </li>
+          </ul>
+
+          <div class="field field--full" style="margin-top: 1rem;">
+            <label for="additional-conditions">Additional Conditions</label>
+            <textarea id="additional-conditions" rows="2" placeholder="Enter any additional parole conditions not listed above…"></textarea>
           </div>
         </div>
       </section>
@@ -389,13 +172,13 @@
             </div>
             <div class="field">
               <label for="board-vote">Board Vote</label>
-              <input type="text" id="board-vote" class="readonly-field" value="4 – Refuse | 1 – Approve" readonly>
+              <input type="text" id="board-vote" class="readonly-field vote-approved" value="5 – Approve | 0 – Refuse" readonly>
             </div>
             <div class="field field--full">
-              <label for="notice-recipients">Official Notice Sent To</label>
-              <textarea id="notice-recipients" class="readonly-field" rows="4" readonly>Michael K. Warupi (Detainee) – Bomana Correctional Facility
+              <label for="order-recipients">Official Order Sent To</label>
+              <textarea id="order-recipients" class="readonly-field" rows="4" readonly>Michael K. Warupi (Detainee) – Bomana Correctional Facility
 Superintendent, Bomana Correctional Facility
-Legal Representative – Ms. Grace A. Tomure, Public Solicitor's Office
+Community Based Corrections – NCD Regional Office
 Department of Justice & Attorney General – Parole Secretariat
 Correctional Services HQ – Parole Records Unit</textarea>
             </div>
@@ -404,15 +187,16 @@ Correctional Services HQ – Parole Records Unit</textarea>
       </section>
 
       <div class="actions-bar">
-        <button type="button" class="btn btn-success" id="btn-issue">Submit Investigation Report</button>
-        <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
+        <button type="button" class="btn btn-success" id="btn-issue">Record Parole Grant (Form 4)</button>
+        <button type="button" class="btn btn-primary" id="btn-save">Save Record</button>
+        <button type="button" class="btn btn-warning" id="btn-print-conditions">Print Parole Conditions</button>
         <button type="button" class="btn btn-secondary" id="btn-print">Print Form 4</button>
       </div>
     </form>
   </main>
 
   <footer class="page-footer">
-    PNG Parole Regulation – Form 2 (Refusal) · Parole Act 1991
+    PNG Parole Regulation – Form 4 (Parole Granted) · Parole Act 1991
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -421,11 +205,14 @@ Correctional Services HQ – Parole Records Unit</textarea>
   <script src="../js/storage.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/rbac.js"></script>
+  <script src="../js/ui-shared.js"></script>
+  <script src="../js/pms-validation.js"></script>
   <script src="../js/form-workflow.js"></script>
+  <script src="../js/forms-engine.js"></script>
   <script>
     (async function () {
       await PMSStorage.ensureLoaded();
-      const actor = PMSAuth.requireRole(['Parole Board Member', 'System Administrator']);
+      const actor = PMSAuth.requireRole(['Parole Board Member', 'DJAG Parole Clerk', 'System Administrator']);
       if (!actor) return;
 
       var wf = PMSFormWorkflow.initPage(4);
@@ -433,17 +220,40 @@ Correctional Services HQ – Parole Records Unit</textarea>
 
       const appId = wf.appId;
       const app = appId && appId !== '_default' ? PMSStorage.getApplicationById(appId) : null;
+      const prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
+      const institution = prisoner ? PMSStorage.getInstitutionById(prisoner.institutionId) : null;
+      const hearing = app ? (PMSStorage.getHearingsByApplication(app.id)[0] || null) : null;
+
+      if (prisoner) {
+        document.getElementById('cs-number').value = prisoner.prisonerNumber || prisoner.id;
+        document.getElementById('full-name').value = [prisoner.firstName, prisoner.middleName, prisoner.lastName].filter(Boolean).join(' ');
+        document.getElementById('facility').value = institution?.name || '—';
+        if (hearing) {
+          document.getElementById('hearing-date').value = hearing.scheduledDate
+            ? new Date(hearing.scheduledDate).toLocaleDateString('en-GB')
+            : '—';
+        }
+      }
+      document.getElementById('decision-by').value = `${actor.firstName} ${actor.lastName}${actor.boardPosition ? ` (${actor.boardPosition})` : ''}`;
+      document.getElementById('decision-date').value = new Date().toLocaleDateString('en-GB');
 
       var STORAGE_KEY = wf.getDataKey();
       var issued = false;
 
-      var refusalReason = document.getElementById('refusal-reason');
-      var justification = document.getElementById('justification');
-      var reapplyDate = document.getElementById('reapply-date');
+      var releaseDate = document.getElementById('release-date');
+      var paroleDuration = document.getElementById('parole-duration');
+      var supervisionLevel = document.getElementById('supervision-level');
+      var releaseAddress = document.getElementById('release-address');
+      var additionalConditions = document.getElementById('additional-conditions');
       var issuedBanner = document.getElementById('issued-banner');
       var toast = document.getElementById('toast');
 
-      reapplyDate.value = '2027-08-25';
+      var conditionIds = [
+        'cond-weekly', 'cond-reside', 'cond-curfew', 'cond-offences', 'cond-ncd',
+        'cond-anger', 'cond-testing'
+      ];
+
+      releaseDate.value = '2026-09-15';
 
       function showToast(msg) {
         toast.textContent = msg;
@@ -451,20 +261,50 @@ Correctional Services HQ – Parole Records Unit</textarea>
         setTimeout(function () { toast.classList.remove('show'); }, 3500);
       }
 
+      function getConditionsState() {
+        var state = {};
+        conditionIds.forEach(function (id) {
+          state[id] = document.getElementById(id).checked;
+        });
+        return state;
+      }
+
+      function applyConditionsState(state) {
+        if (!state) return;
+        conditionIds.forEach(function (id) {
+          if (state.hasOwnProperty(id)) {
+            document.getElementById(id).checked = state[id];
+          }
+        });
+      }
+
       function validateForm() {
-        if (!refusalReason.value) {
-          showToast('Please select a reason for refusal.');
-          refusalReason.focus();
+        if (!releaseDate.value) {
+          showToast('Please set the release date.');
+          releaseDate.focus();
           return false;
         }
-        if (!justification.value.trim()) {
-          showToast('Please provide a detailed justification.');
-          justification.focus();
+        if (!paroleDuration.value) {
+          showToast('Please select parole duration.');
+          paroleDuration.focus();
           return false;
         }
-        if (!reapplyDate.value) {
-          showToast('Please set the reapplication eligible date.');
-          reapplyDate.focus();
+        if (!supervisionLevel.value) {
+          showToast('Please select supervision level.');
+          supervisionLevel.focus();
+          return false;
+        }
+        if (!releaseAddress.value.trim()) {
+          showToast('Please enter the release address.');
+          releaseAddress.focus();
+          return false;
+        }
+        var requiredMissing = conditionIds.filter(function (id) {
+          var el = document.getElementById(id);
+          return el.dataset.required === 'true' && !el.checked;
+        });
+        if (requiredMissing.length) {
+          showToast('All standard parole conditions must remain checked.');
           return false;
         }
         return true;
@@ -472,18 +312,24 @@ Correctional Services HQ – Parole Records Unit</textarea>
 
       function getState() {
         return {
-          refusalReason: refusalReason.value,
-          justification: justification.value,
-          reapplyDate: reapplyDate.value,
+          releaseDate: releaseDate.value,
+          paroleDuration: paroleDuration.value,
+          supervisionLevel: supervisionLevel.value,
+          releaseAddress: releaseAddress.value,
+          additionalConditions: additionalConditions.value,
+          conditions: getConditionsState(),
           issued: issued
         };
       }
 
       function applyState(data) {
         if (!data) return;
-        if (data.refusalReason) refusalReason.value = data.refusalReason;
-        if (data.justification) justification.value = data.justification;
-        if (data.reapplyDate) reapplyDate.value = data.reapplyDate;
+        if (data.releaseDate) releaseDate.value = data.releaseDate;
+        if (data.paroleDuration) paroleDuration.value = data.paroleDuration;
+        if (data.supervisionLevel) supervisionLevel.value = data.supervisionLevel;
+        if (data.releaseAddress) releaseAddress.value = data.releaseAddress;
+        if (data.additionalConditions) additionalConditions.value = data.additionalConditions;
+        applyConditionsState(data.conditions);
         issued = !!data.issued;
         issuedBanner.classList.toggle('show', issued);
       }
@@ -502,11 +348,12 @@ Correctional Services HQ – Parole Records Unit</textarea>
       document.getElementById('btn-save').addEventListener('click', function () {
         if (!validateForm()) return;
         saveState();
-        showToast('Refusal record saved successfully.');
+        showToast('Parole approval record saved successfully.');
       });
 
       document.getElementById('btn-issue').addEventListener('click', async function () {
-        if (!app) {
+        if (!validateForm()) return;
+        if (!app || !prisoner) {
           showToast('Application context is required.');
           return;
         }
@@ -515,14 +362,26 @@ Correctional Services HQ – Parole Records Unit</textarea>
           showToast(`Score ${score.percent}% is below 80%. Use Form 5 for refusal.`);
           return;
         }
+        if (!window.confirm('Record official Parole Grant based on the calculated score?')) return;
         try {
           PMSStorage.routeParoleOutcome(app.id, actor);
+          issued = true;
+          saveState();
           wf.markCompleteAndAdvance({ issued: true });
           issuedBanner.classList.add('show');
           showToast('Form 4 — Parole Granted recorded.');
         } catch (err) {
           showToast(err.message || 'Could not record parole grant.');
         }
+      });
+
+      document.getElementById('btn-print-conditions').addEventListener('click', function () {
+        document.body.classList.add('print-conditions');
+        window.print();
+        window.addEventListener('afterprint', function cleanup() {
+          document.body.classList.remove('print-conditions');
+          window.removeEventListener('afterprint', cleanup);
+        });
       });
 
       document.getElementById('btn-print').addEventListener('click', function () {

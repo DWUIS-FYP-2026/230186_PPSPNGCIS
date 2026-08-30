@@ -5,413 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
+  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
   <title>Form 3 – Institutional Report | PNG Parole System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/forms.css">
   <link rel="stylesheet" href="../css/mobile.css">
-  <style>
-    :root {
-      --png-blue: #002b5c;
-      --png-blue-light: #003d7a;
-      --png-gold: #f9b81b;
-      --readonly-bg: #eef2f7;
-      --text: #1a2b3c;
-      --text-muted: #5a6b7d;
-      --border: #d0d8e4;
-      --white: #ffffff;
-      --success: #198754;
-      --success-hover: #157347;
-      --success-bg: #e8f5e9;
-      --success-text: #1b5e20;
-      --warning: #ffc107;
-      --warning-hover: #e0a800;
-      --warning-text: #664d03;
-      --danger: #dc3545;
-      --danger-hover: #bb2d3b;
-      --shadow: 0 2px 12px rgba(0, 43, 92, 0.08);
-      --radius: 8px;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f4f6f9;
-      color: var(--text);
-      line-height: 1.5;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    a { color: var(--png-blue); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    .page-header {
-      background: linear-gradient(135deg, var(--png-blue) 0%, var(--png-blue-light) 100%);
-      color: var(--white);
-      border-bottom: 4px solid var(--png-gold);
-    }
-
-    .header-top { max-width: 1100px; margin: 0 auto; padding: 0.75rem 1.5rem; }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .back-link:hover { color: var(--png-gold); text-decoration: none; }
-
-    .header-main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 1.25rem 1.5rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .header-title h1 { font-size: 1.5rem; font-weight: 700; }
-    .header-title p { font-size: 0.8125rem; opacity: 0.85; margin-top: 0.25rem; }
-
-    .role-badge {
-      background: var(--png-gold);
-      color: var(--png-blue);
-      font-size: 0.6875rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      white-space: nowrap;
-    }
-
-    .page-main {
-      flex: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 1.5rem;
-      width: 100%;
-    }
-
-    .section {
-      background: var(--white);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      margin-bottom: 1.25rem;
-      overflow: hidden;
-    }
-
-    .section-header {
-      background: var(--png-blue);
-      color: var(--white);
-      padding: 0.75rem 1.25rem;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      border-left: 4px solid var(--png-gold);
-    }
-
-    .section-body { padding: 1.25rem; }
-
-    .field-grid { display: grid; gap: 1rem; }
-    .field-grid--3 { grid-template-columns: repeat(3, 1fr); }
-    .field-grid--2 { grid-template-columns: repeat(2, 1fr); }
-
-    @media (max-width: 768px) {
-      .field-grid--2, .field-grid--3 { grid-template-columns: 1fr; }
-    }
-
-    .field { display: flex; flex-direction: column; gap: 0.35rem; }
-    .field--full { grid-column: 1 / -1; }
-
-    label {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-
-    .readonly-field,
-    input[readonly] {
-      background: var(--readonly-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.625rem 0.875rem;
-      font-size: 0.9375rem;
-      font-family: inherit;
-      width: 100%;
-      color: var(--text);
-    }
-
-    select,
-    input[type="date"],
-    textarea {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.625rem 0.875rem;
-      font-size: 0.9375rem;
-      font-family: inherit;
-      width: 100%;
-      color: var(--text);
-      background: var(--white);
-    }
-
-    textarea { resize: vertical; min-height: 4.5rem; }
-
-    select:focus,
-    input[type="date"]:focus,
-    textarea:focus {
-      outline: none;
-      border-color: var(--png-blue);
-      box-shadow: 0 0 0 3px rgba(0, 43, 92, 0.12);
-    }
-
-    select[multiple] {
-      min-height: 9.5rem;
-      padding: 0.5rem;
-    }
-
-    select[multiple] option {
-      padding: 0.4rem 0.5rem;
-      border-radius: 4px;
-      margin-bottom: 2px;
-    }
-
-    select[multiple] option:checked {
-      background: linear-gradient(0deg, var(--png-blue) 0%, var(--png-blue-light) 100%);
-      color: var(--white);
-    }
-
-    .field-hint {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      font-weight: 400;
-      text-transform: none;
-      letter-spacing: 0;
-      margin-top: 0.15rem;
-    }
-
-    /* Checklist */
-    .checklist { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
-
-    .checklist-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.875rem 1rem;
-      background: var(--readonly-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      flex-wrap: wrap;
-    }
-
-    .checklist-item__label {
-      font-size: 0.9375rem;
-      font-weight: 500;
-      flex: 1;
-      min-width: 200px;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 999px;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
-    .status-badge--verified {
-      background: var(--success-bg);
-      color: var(--success-text);
-      border: 1px solid #a5d6a7;
-    }
-
-    .overall-status {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      margin-top: 1.25rem;
-      padding: 1rem 1.25rem;
-      background: var(--success-bg);
-      border: 2px solid #a5d6a7;
-      border-radius: var(--radius);
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--success-text);
-    }
-
-    /* Summary box */
-    .summary-box {
-      background: linear-gradient(135deg, #f0f4fa 0%, #e8eef8 100%);
-      border: 2px solid var(--png-blue);
-      border-left: 5px solid var(--png-gold);
-      border-radius: var(--radius);
-      padding: 1.25rem 1.5rem;
-      margin-top: 1.25rem;
-    }
-
-    .summary-box__title {
-      font-size: 0.9375rem;
-      font-weight: 700;
-      color: var(--png-blue);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-    }
-
-    @media (max-width: 768px) {
-      .summary-grid { grid-template-columns: 1fr; }
-    }
-
-    .summary-item__label {
-      font-size: 0.6875rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      margin-bottom: 0.2rem;
-    }
-
-    .summary-item__value {
-      font-size: 0.9375rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .summary-box__footer {
-      margin-top: 1rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--border);
-      font-size: 0.875rem;
-      color: var(--success-text);
-      font-weight: 600;
-    }
-
-    .summary-box--cancelled {
-      background: linear-gradient(135deg, #fdecea 0%, #fce4e4 100%);
-      border-color: var(--danger);
-    }
-
-    .summary-box--cancelled .summary-box__title { color: var(--danger); }
-    .summary-box--cancelled .summary-box__footer { color: var(--danger); }
-
-    .summary-members {
-      margin-top: 0.75rem;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
-
-    .summary-members strong { color: var(--text); display: block; margin-bottom: 0.25rem; }
-
-    /* Actions */
-    .actions-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      padding: 1.25rem;
-      background: var(--white);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.625rem 1.25rem;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      font-family: inherit;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-    }
-
-    .btn:active { transform: translateY(1px); }
-    .btn-primary { background: var(--png-blue); color: var(--white); }
-    .btn-primary:hover { background: var(--png-blue-light); box-shadow: 0 4px 12px rgba(0, 43, 92, 0.25); }
-    .btn-success { background: var(--success); color: var(--white); }
-    .btn-success:hover { background: var(--success-hover); }
-    .btn-warning { background: var(--warning); color: var(--warning-text); }
-    .btn-warning:hover { background: var(--warning-hover); }
-    .btn-secondary { background: var(--white); color: var(--png-blue); border: 2px solid var(--png-blue); }
-    .btn-secondary:hover { background: var(--readonly-bg); }
-    .btn-danger { background: var(--danger); color: var(--white); }
-    .btn-danger:hover { background: var(--danger-hover); }
-
-    .page-footer {
-      background: var(--png-blue);
-      color: rgba(255, 255, 255, 0.85);
-      text-align: center;
-      padding: 1rem 1.5rem;
-      font-size: 0.8125rem;
-      border-top: 3px solid var(--png-gold);
-      margin-top: auto;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      background: var(--png-blue);
-      color: var(--white);
-      padding: 0.875rem 1.25rem;
-      border-radius: var(--radius);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-      font-size: 0.875rem;
-      font-weight: 500;
-      opacity: 0;
-      transform: translateY(1rem);
-      transition: opacity 0.25s, transform 0.25s;
-      pointer-events: none;
-      z-index: 1000;
-      border-left: 4px solid var(--png-gold);
-      max-width: 380px;
-    }
-
-    .toast.show { opacity: 1; transform: translateY(0); }
-
-    @media print {
-      .back-link, .actions-bar, .toast { display: none !important; }
-      body { background: white; }
-      .section { box-shadow: none; break-inside: avoid; }
-    }
-  </style>
 </head>
-<body>
+<body class="pms-form-page">
   <header class="page-header">
     <div class="header-top">
-      <a href="../dashboard-djag.html" class="back-link">← Back to Dashboard</a>
+      <a href="../dashboard-commander.html" class="back-link">← Back to Dashboard</a>
     </div>
     <div class="header-main">
       <div class="header-title">
         <h1>Form 3 – Institutional Report</h1>
         <p>Papua New Guinea Parole System · Jail Commander institutional assessment</p>
       </div>
-      <span class="role-badge">DJAG Secretary</span>
+      <span class="role-badge">Jail Commander</span>
     </div>
   </header>
 
@@ -478,93 +89,46 @@
         </div>
       </section>
 
-      <!-- Hearing Scheduling -->
-      <section class="section" aria-labelledby="sec-schedule">
-        <h2 class="section-header" id="sec-schedule">Hearing Scheduling <span style="font-weight:400;opacity:0.85;font-size:0.8125rem;">(CS Parole Clerk entry)</span></h2>
+      <!-- Institutional Report -->
+      <section class="section" aria-labelledby="sec-report">
+        <h2 class="section-header" id="sec-report">Institutional Report</h2>
         <div class="section-body">
-          <div class="field-grid field-grid--3">
+          <div class="field-grid field-grid--2">
             <div class="field">
-              <label for="hearing-date">Hearing Date</label>
-              <input type="date" id="hearing-date" required>
+              <label for="commander-name">Commander Name</label>
+              <input type="text" id="commander-name" required>
             </div>
             <div class="field">
-              <label for="hearing-time">Hearing Time</label>
-              <select id="hearing-time" required>
-                <option value="">Select time…</option>
-                <option value="09:00">09:00</option>
-                <option value="10:00" selected>10:00</option>
-                <option value="11:00">11:00</option>
-                <option value="13:00">13:00</option>
-                <option value="14:00">14:00</option>
-                <option value="15:00">15:00</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="hearing-venue">Hearing Venue</label>
-              <select id="hearing-venue" required>
-                <option value="">Select venue…</option>
-                <option value="Port Moresby – DJAG Boardroom" selected>Port Moresby – DJAG Boardroom</option>
-                <option value="Lae – DJAG Regional Office">Lae – DJAG Regional Office</option>
-                <option value="Mt. Hagen – DJAG Office">Mt. Hagen – DJAG Office</option>
-                <option value="Kokopo – DJAG Office">Kokopo – DJAG Office</option>
+              <label for="recommendation">Recommendation</label>
+              <select id="recommendation" required>
+                <option value="">Select recommendation…</option>
+                <option value="Recommended">Recommended for parole</option>
+                <option value="Not Recommended">Not recommended</option>
+                <option value="Conditional">Conditional recommendation</option>
               </select>
             </div>
             <div class="field field--full">
-              <label for="board-members">Board Members Assigned</label>
-              <select id="board-members" multiple size="5" aria-describedby="board-members-hint">
-                <option value="cannings" selected>Hon. Justice David K. Cannings – Chairperson</option>
-                <option value="aisi" selected>Ms. Rosalyn K. Aisi – Commissioner</option>
-                <option value="warupi" selected>Mr. Peter S. Warupi – Commissioner</option>
-                <option value="pais">Dr. Linda J. Pais – Psychiatrist (Advisor)</option>
-                <option value="kila">Mr. James N. Kila – Community Representative</option>
-              </select>
-              <span class="field-hint" id="board-members-hint">Hold Ctrl (Windows) or Cmd (Mac) to select multiple board members.</span>
+              <label for="institutional-report">Institutional Report</label>
+              <textarea id="institutional-report" rows="6" required placeholder="Summarize conduct, program participation, institutional behaviour, and readiness for parole consideration…"></textarea>
             </div>
             <div class="field field--full">
-              <label for="remarks">Special Instructions / Remarks</label>
-              <textarea id="remarks" rows="2" placeholder="Enter any special instructions, accessibility requirements, or remarks for the hearing…"></textarea>
-            </div>
-          </div>
-
-          <div class="summary-box" id="summary-box">
-            <div class="summary-box__title">Scheduled Hearing Details</div>
-            <div class="summary-grid">
-              <div class="summary-item">
-                <div class="summary-item__label">Date</div>
-                <div class="summary-item__value" id="summary-date">25/08/2026</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-item__label">Time</div>
-                <div class="summary-item__value" id="summary-time">10:00</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-item__label">Venue</div>
-                <div class="summary-item__value" id="summary-venue">Port Moresby – DJAG Boardroom</div>
-              </div>
-            </div>
-            <div class="summary-members" id="summary-members">
-              <strong>Board Members:</strong>
-              <span id="summary-members-list">Hon. Justice David K. Cannings – Chairperson; Ms. Rosalyn K. Aisi – Commissioner; Mr. Peter S. Warupi – Commissioner</span>
-            </div>
-            <div class="summary-box__footer" id="summary-footer">
-              ✅ Hearing scheduled by: DJAG Secretary – Maria T. Kila
+              <label for="conduct-summary">Conduct Summary</label>
+              <textarea id="conduct-summary" rows="3" placeholder="Disciplinary record, incident history, and rehabilitation progress…"></textarea>
             </div>
           </div>
         </div>
       </section>
 
       <div class="actions-bar">
-        <button type="button" class="btn btn-primary" id="btn-save">Save Schedule</button>
-        <button type="button" class="btn btn-success" id="btn-publish">Publish &amp; Notify All Parties</button>
-        <button type="button" class="btn btn-warning" id="btn-reschedule">Reschedule</button>
-        <button type="button" class="btn btn-secondary" id="btn-print">Print Hearing Notice</button>
-        <button type="button" class="btn btn-danger" id="btn-cancel">Cancel Hearing</button>
+        <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
+        <button type="button" class="btn btn-success" id="btn-submit">Submit Institutional Report</button>
+        <button type="button" class="btn btn-secondary" id="btn-print">Print Form 3</button>
       </div>
     </form>
   </main>
 
   <footer class="page-footer">
-    PNG Parole Regulation – Hearing Scheduling · DJAG Secretary Portal
+    PNG Parole Regulation – Form 3 (Institutional Report) · Parole Act 1991
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -573,7 +137,10 @@
   <script src="../js/storage.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/rbac.js"></script>
+  <script src="../js/ui-shared.js"></script>
+  <script src="../js/pms-validation.js"></script>
   <script src="../js/form-workflow.js"></script>
+  <script src="../js/forms-engine.js"></script>
   <script>
     (async function () {
       await PMSStorage.ensureLoaded();
@@ -595,19 +162,13 @@
       }
 
       var STORAGE_KEY = wf.getDataKey();
-      var SECRETARY = 'DJAG Secretary – Maria T. Kila';
-      var cancelled = false;
-      var published = false;
-
-      var hearingDate = document.getElementById('hearing-date');
-      var hearingTime = document.getElementById('hearing-time');
-      var hearingVenue = document.getElementById('hearing-venue');
-      var boardMembers = document.getElementById('board-members');
-      var remarks = document.getElementById('remarks');
-      var summaryBox = document.getElementById('summary-box');
+      var commanderName = document.getElementById('commander-name');
+      var recommendation = document.getElementById('recommendation');
+      var institutionalReport = document.getElementById('institutional-report');
+      var conductSummary = document.getElementById('conduct-summary');
       var toast = document.getElementById('toast');
 
-      hearingDate.value = '2026-08-25';
+      commanderName.value = `${actor.firstName} ${actor.lastName}`;
 
       function showToast(msg) {
         toast.textContent = msg;
@@ -615,84 +176,44 @@
         setTimeout(function () { toast.classList.remove('show'); }, 3500);
       }
 
-      function formatDate(iso) {
-        if (!iso) return '—';
-        var parts = iso.split('-');
-        if (parts.length !== 3) return iso;
-        return parts[2] + '/' + parts[1] + '/' + parts[0];
+      function getFormPayload() {
+        return {
+          commanderName: commanderName.value.trim(),
+          commanderRecommendation: recommendation.value,
+          recommendation: recommendation.value,
+          institutionalReport: institutionalReport.value.trim(),
+          conductSummary: conductSummary.value.trim(),
+        };
       }
 
-      function getSelectedMembers() {
-        var selected = [];
-        for (var i = 0; i < boardMembers.options.length; i++) {
-          if (boardMembers.options[i].selected) {
-            selected.push(boardMembers.options[i].text);
+      function validateForm() {
+        if (typeof PMSValidation !== 'undefined') {
+          const result = PMSValidation.validateForm3(getFormPayload());
+          if (!result.valid) {
+            showToast(result.errors[0] || 'Please complete all required fields.');
+            return false;
           }
+          return true;
         }
-        return selected;
-      }
-
-      function updateSummary() {
-        document.getElementById('summary-date').textContent = formatDate(hearingDate.value);
-        document.getElementById('summary-time').textContent = hearingTime.value || '—';
-        document.getElementById('summary-venue').textContent = hearingVenue.value || '—';
-
-        var members = getSelectedMembers();
-        document.getElementById('summary-members-list').textContent =
-          members.length ? members.join('; ') : 'No board members assigned';
-
-        var footer = document.getElementById('summary-footer');
-        if (cancelled) {
-          summaryBox.classList.add('summary-box--cancelled');
-          footer.textContent = '⛔ Hearing cancelled by: ' + SECRETARY;
-        } else if (published) {
-          summaryBox.classList.remove('summary-box--cancelled');
-          footer.textContent = '✅ Published & notified — scheduled by: ' + SECRETARY;
-        } else {
-          summaryBox.classList.remove('summary-box--cancelled');
-          footer.textContent = '✅ Hearing scheduled by: ' + SECRETARY;
+        if (!commanderName.value.trim() || !recommendation.value || !institutionalReport.value.trim()) {
+          showToast('Please complete commander name, recommendation, and institutional report.');
+          return false;
         }
-      }
-
-      function validateSchedule() {
-        if (!hearingDate.value) { showToast('Please select a hearing date.'); return false; }
-        if (!hearingTime.value) { showToast('Please select a hearing time.'); return false; }
-        if (!hearingVenue.value) { showToast('Please select a hearing venue.'); return false; }
-        if (!getSelectedMembers().length) { showToast('Please assign at least one board member.'); return false; }
         return true;
       }
 
       function getState() {
-        var members = [];
-        for (var i = 0; i < boardMembers.options.length; i++) {
-          if (boardMembers.options[i].selected) members.push(boardMembers.options[i].value);
-        }
-        return {
-          hearingDate: hearingDate.value,
-          hearingTime: hearingTime.value,
-          hearingVenue: hearingVenue.value,
-          boardMembers: members,
-          remarks: remarks.value,
-          cancelled: cancelled,
-          published: published
-        };
+        return getFormPayload();
       }
 
       function applyState(data) {
         if (!data) return;
-        if (data.hearingDate) hearingDate.value = data.hearingDate;
-        if (data.hearingTime) hearingTime.value = data.hearingTime;
-        if (data.hearingVenue) hearingVenue.value = data.hearingVenue;
-        if (data.remarks) remarks.value = data.remarks;
-        cancelled = !!data.cancelled;
-        published = !!data.published;
-        if (data.boardMembers) {
-          for (var i = 0; i < boardMembers.options.length; i++) {
-            boardMembers.options[i].selected =
-              data.boardMembers.indexOf(boardMembers.options[i].value) !== -1;
-          }
+        if (data.commanderName) commanderName.value = data.commanderName;
+        if (data.commanderRecommendation || data.recommendation) {
+          recommendation.value = data.commanderRecommendation || data.recommendation;
         }
-        updateSummary();
+        if (data.institutionalReport) institutionalReport.value = data.institutionalReport;
+        if (data.conductSummary) conductSummary.value = data.conductSummary;
       }
 
       function saveState() {
@@ -704,76 +225,44 @@
           var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
           applyState(data);
         } catch (e) { /* ignore */ }
+        if (app?.formData?.form3) applyState(app.formData.form3);
       }
 
-      hearingDate.addEventListener('change', function () { cancelled = false; updateSummary(); });
-      hearingTime.addEventListener('change', function () { cancelled = false; updateSummary(); });
-      hearingVenue.addEventListener('change', function () { cancelled = false; updateSummary(); });
-      boardMembers.addEventListener('change', updateSummary);
-      remarks.addEventListener('input', function () { /* no summary update needed */ });
-
       document.getElementById('btn-save').addEventListener('click', function () {
-        if (!validateSchedule()) return;
-        cancelled = false;
+        if (!validateForm()) return;
         saveState();
-        updateSummary();
-        showToast('Hearing schedule saved successfully.');
+        showToast('Institutional report draft saved.');
       });
 
-      document.getElementById('btn-publish').addEventListener('click', async function () {
-        if (!validateSchedule()) return;
-        if (cancelled) { showToast('Cannot submit a cancelled record. Restore the report first.'); return; }
+      document.getElementById('btn-submit').addEventListener('click', async function () {
+        if (!validateForm()) return;
         if (!app || !prisoner) {
           showToast('Application context is required. Open Form 3 from a linked parole application.');
           return;
         }
-        published = true;
         saveState();
         try {
-          const recommendation = remarks.value.trim() || 'Recommended for parole consideration';
-          PMSStorage.saveFormData(app.id, 'form3', {
-            commanderRecommendation: recommendation,
-            institutionalNotes: remarks.value.trim(),
-            conductSummary: remarks.value.trim(),
+          const payload = {
+            ...getFormPayload(),
             status: 'approved',
             submitted: true,
             submittedAt: new Date().toISOString(),
-            commanderName: `${actor.firstName} ${actor.lastName}`,
             commanderId: actor.id,
-          }, actor);
-          wf.markCompleteAndAdvance({ published: true });
-          updateSummary();
+          };
+          PMSStorage.saveFormData(app.id, 'form3', payload, actor);
+          wf.markCompleteAndAdvance({ submitted: true });
           showToast('Institutional report submitted and linked to the parole application.');
         } catch (err) {
-          published = false;
           showToast(err.message || 'Could not submit institutional report.');
         }
       });
 
-      document.getElementById('btn-reschedule').addEventListener('click', function () {
-        published = false;
-        cancelled = false;
-        hearingDate.focus();
-        updateSummary();
-        showToast('Update the hearing date, time, or venue, then save the new schedule.');
-      });
-
       document.getElementById('btn-print').addEventListener('click', function () {
-        if (!validateSchedule()) return;
+        if (!validateForm()) return;
         window.print();
       });
 
-      document.getElementById('btn-cancel').addEventListener('click', function () {
-        if (!window.confirm('Are you sure you want to cancel this parole board hearing?')) return;
-        cancelled = true;
-        published = false;
-        saveState();
-        updateSummary();
-        showToast('Hearing has been cancelled.');
-      });
-
       loadState();
-      updateSummary();
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -5,7 +5,7 @@ const PMSAuth = (() => {
     'PNGCS Parole Clerk': 'dashboard-pngcs.html',
     'DJAG Parole Clerk': 'dashboard-djag.html',
     'Jail Commander': 'dashboard-commander.html',
-    'DJAG Secretary': 'dashboard-djag.html',
+    'DJAG Secretary': 'dashboard-board.html',
     'Doctor': 'dashboard-board.html',
     'CS Commissioner': 'dashboard-board.html',
     'Parole Board Member': 'dashboard-board.html',
@@ -30,6 +30,41 @@ const PMSAuth = (() => {
   function getDashboardForRole(role) {
     const normalized = normalizeRole(role);
     return ROLE_DASHBOARDS[normalized] || ROLE_DASHBOARDS[role] || 'index.html';
+  }
+
+  function getDashboardForUser(user) {
+    return getDashboardForRole(user?.role);
+  }
+
+  function buildDashboardRoles() {
+    const map = {};
+    Object.entries(ROLE_DASHBOARDS).forEach(([role, dashboard]) => {
+      if (!dashboard || dashboard === 'index.html') return;
+      if (!map[dashboard]) map[dashboard] = new Set();
+      map[dashboard].add(normalizeRole(role));
+    });
+    return Object.fromEntries(
+      Object.entries(map).map(([dashboard, roles]) => [dashboard, [...roles]])
+    );
+  }
+
+  const DASHBOARD_ROLES = buildDashboardRoles();
+
+  function getRolesForDashboard(dashboardFile) {
+    const file = (dashboardFile || '').split('/').pop()?.toLowerCase() || '';
+    return DASHBOARD_ROLES[file] || [];
+  }
+
+  function requireDashboardRole(dashboardFile) {
+    const file = (dashboardFile || location.pathname.split('/').pop() || '').toLowerCase();
+    const allowed = getRolesForDashboard(file);
+    if (!allowed.length) return requireRole(['System Administrator']);
+    return requireRole(allowed);
+  }
+
+  function redirectToRoleDashboard(userOrRole) {
+    const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
+    window.location.replace(getDashboardForRole(role));
   }
 
   function isSessionExpired() {
@@ -117,9 +152,14 @@ const PMSAuth = (() => {
 
   return {
     ROLE_DASHBOARDS,
+    DASHBOARD_ROLES,
     SESSION_TIMEOUT_MS,
     normalizeRole,
     getDashboardForRole,
+    getDashboardForUser,
+    getRolesForDashboard,
+    requireDashboardRole,
+    redirectToRoleDashboard,
     requireRole,
     redirectAccessDenied,
     showPermissionError,

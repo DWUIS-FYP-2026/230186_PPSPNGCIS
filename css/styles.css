@@ -304,9 +304,32 @@ body {
   padding-right: 2.75rem;
 }
 
+.password-field input.password-masked {
+  -webkit-text-security: disc;
+}
+
+.password-field input[type="password"]::-ms-reveal,
+.password-field input[type="password"]::-ms-clear,
+.password-field input::-ms-reveal,
+.password-field input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
+.password-field input::-webkit-credentials-auto-fill-button,
+.password-field input::-webkit-strong-password-auto-fill-button {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .toggle-password {
   position: absolute;
   right: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
@@ -315,8 +338,17 @@ body {
   padding: 0.25rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   font-size: 1.125rem;
+  line-height: 1;
   transition: opacity 0.15s, color 0.15s;
+  z-index: 1;
+}
+
+.toggle-password-icon {
+  display: block;
+  font-size: 1.125rem;
+  line-height: 1;
 }
 
 .toggle-password:hover {
@@ -824,6 +856,37 @@ body {
 
 .home-login-floater-card .home-login-options .forgot-link:hover {
   color: var(--pngcs-gold);
+}
+
+.home-demo-accounts {
+  margin-top: 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #64748b);
+}
+
+.home-demo-accounts summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+
+.home-demo-list {
+  margin: 0.625rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.home-demo-note {
+  margin: 0.625rem 0 0;
+  font-size: 0.75rem;
+}
+
+.home-demo-note code {
+  font-size: 0.75rem;
+  background: rgb(14 42 71 / 0.06);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
 }
 
 .home-login-options {

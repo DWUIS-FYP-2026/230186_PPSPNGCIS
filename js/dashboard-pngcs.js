@@ -2,7 +2,7 @@
 
   await PMSStorage.ensureLoaded();
 
-  const actor = PMSAuth.requireRole(['PNGCS Parole Clerk']);
+  const actor = PMSAuth.requireDashboardRole('dashboard-pngcs.html');
 
   if (!actor) return;
 
