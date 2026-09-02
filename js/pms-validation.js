@@ -80,13 +80,13 @@ const PMSValidation = (() => {
     const errors = [];
     if (!data) return { valid: false, errors: ['Section data is missing.'] };
     if (sectionKey === 'ddr') {
-      errors.push(required(data.officerName, 'Officer name'));
-      errors.push(required(data.institutionName, 'Institution'));
-      errors.push(required(data.assessmentSummary, 'Assessment summary'));
+      errors.push(required(data.officerName || data.darOfficer, 'Officer name'));
+      errors.push(required(data.institutionName || data.facilityName, 'Institution'));
+      errors.push(required(data.assessmentSummary || data.conductLog || data.summary, 'Assessment summary'));
     }
     if (sectionKey === 'ppr') {
-      errors.push(required(data.clerkName, 'Clerk name'));
-      errors.push(required(data.personalParticulars, 'Personal particulars review'));
+      errors.push(required(data.clerkName || data.pprOfficer, 'Clerk name'));
+      errors.push(required(data.personalParticulars || data.victimStatements || data.communitySummary, 'Personal particulars review'));
     }
     if (data.confirmed !== true) errors.push('Section must be confirmed before submission.');
     return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };

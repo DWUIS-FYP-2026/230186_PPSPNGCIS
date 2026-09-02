@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "migrate": "node src/migrate.js",
     "seed": "node src/seed.js",
-    "sync": "node src/sync-all.js"
+    "sync": "node src/sync-all.js",
+    "test": "node --test src/parole/*.test.js"
   },
   "engines": {
     "node": ">=18"

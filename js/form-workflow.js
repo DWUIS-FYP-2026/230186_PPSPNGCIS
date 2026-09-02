@@ -29,7 +29,7 @@ const PMSFormWorkflow = (() => {
       key: 'form3',
       title: 'Form 3 — Institutional Report',
       prereqs: ['form1', 'form2'],
-      dashboard: '../dashboard-commander.html',
+      dashboard: '../dashboard-pngcs.html',
       dataKey: 'png_form3_institutional',
       path: 'forms/form3.html',
     },

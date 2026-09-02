@@ -1,9 +1,12 @@
 const PMSUI = (() => {
   const DASHBOARD_URLS = {
     'System Administrator': 'admin-dashboard.html',
+    'CS Parole Officer': 'dashboard-pngcs.html',
     'PNGCS Parole Clerk': 'dashboard-pngcs.html',
     'DJAG Parole Clerk': 'dashboard-djag.html',
-    'Jail Commander': 'dashboard-commander.html',
+    'DJAG Secretary': 'dashboard-board.html',
+    'Doctor': 'dashboard-board.html',
+    'CS Commissioner': 'dashboard-board.html',
     'Parole Board Member': 'dashboard-board.html',
   };
 
@@ -13,6 +16,16 @@ const PMSUI = (() => {
     document: 'fi fi-rr-paperclip',
     user: 'fi fi-rr-user',
     eligibility: 'fi fi-rr-check-circle',
+    verification: 'fi fi-rr-shield-check',
+    form1: 'fi fi-rr-document',
+    form2: 'fi fi-rr-document',
+    form3: 'fi fi-rr-building',
+    returned: 'fi fi-rr-undo',
+    deadline: 'fi fi-rr-hourglass-end',
+    escalation: 'fi fi-rr-triangle-warning',
+    approval: 'fi fi-rr-badge-check',
+    board_review: 'fi fi-rr-gavel',
+    contract: 'fi fi-rr-id-badge',
     system: 'fi fi-rr-bell',
   };
   function esc(str) {

@@ -140,6 +140,27 @@ const PMSApi = (() => {
     });
   }
 
+  async function generateForm1(prisonerId, sectionD = {}) {
+    return request('POST', `/api/parole/generate-form1/${encodeURIComponent(prisonerId)}`, sectionD);
+  }
+
+  async function recordConsent(applicationId, body) {
+    return request('POST', `/api/parole/record-consent/${encodeURIComponent(applicationId)}`, body);
+  }
+
+  async function downloadForm1(applicationId) {
+    const url = `${getBaseUrl()}/api/parole/form1/${encodeURIComponent(applicationId)}/download`;
+    window.open(url, '_blank');
+  }
+
+  async function submitDetaineeReport(applicationId, body) {
+    return request('POST', `/api/parole/submit-detainee-report/${encodeURIComponent(applicationId)}`, body);
+  }
+
+  async function submitPreParoleReport(applicationId, body) {
+    return request('POST', `/api/parole/submit-preparole-report/${encodeURIComponent(applicationId)}`, body);
+  }
+
   return {
     getBaseUrl,
     getToken,
@@ -153,6 +174,11 @@ const PMSApi = (() => {
     syncBootstrap,
     seedDatabase,
     saveForm1,
+    generateForm1,
+    recordConsent,
+    downloadForm1,
+    submitDetaineeReport,
+    submitPreParoleReport,
     getInstitutions,
     createPrisoner,
     updatePrisoner,

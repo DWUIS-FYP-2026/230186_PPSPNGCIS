@@ -7,7 +7,7 @@ const { validateForm1 } = require('../form1-validation');
 const router = express.Router({ mergeParams: true });
 
 const FORM1_EDIT_ROLES = new Set(['PNGCS Parole Clerk', 'CS Parole Clerk', 'System Administrator', 'Admin']);
-const SUPERVISOR_ROLES = new Set(['Jail Commander', 'System Administrator', 'Admin']);
+const SUPERVISOR_ROLES = new Set(['PNGCS Parole Clerk', 'System Administrator', 'Admin']);
 
 async function loadApplication(appId) {
   const rows = await query('SELECT * FROM parole_applications WHERE id = ? LIMIT 1', [appId]);

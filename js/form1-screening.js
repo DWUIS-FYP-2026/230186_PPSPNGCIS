@@ -168,7 +168,7 @@ const PMSForm1Screening = (() => {
   }
 
   function populateSupervisorFields(form1) {
-    const canReview = ['Jail Commander', 'System Administrator'].includes(
+    const canReview = ['PNGCS Parole Clerk', 'System Administrator'].includes(
       PMSRBAC.normalizeRole(ctx.user.role)
     );
     const section = document.getElementById('f1-section-g');

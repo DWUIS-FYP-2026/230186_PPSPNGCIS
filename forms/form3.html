@@ -15,14 +15,14 @@
 <body class="pms-form-page">
   <header class="page-header">
     <div class="header-top">
-      <a href="../dashboard-commander.html" class="back-link">← Back to Dashboard</a>
+      <a href="../dashboard-pngcs.html" class="back-link">← Back to Dashboard</a>
     </div>
     <div class="header-main">
       <div class="header-title">
         <h1>Form 3 – Institutional Report</h1>
-        <p>Papua New Guinea Parole System · Jail Commander institutional assessment</p>
+        <p>Papua New Guinea Parole System · Port Moresby institutional assessment (Bomana)</p>
       </div>
-      <span class="role-badge">Jail Commander</span>
+      <span class="role-badge">PNGCS Parole Clerk</span>
     </div>
   </header>
 
@@ -95,7 +95,7 @@
         <div class="section-body">
           <div class="field-grid field-grid--2">
             <div class="field">
-              <label for="commander-name">Commander Name</label>
+              <label for="commander-name">Reporting Officer</label>
               <input type="text" id="commander-name" required>
             </div>
             <div class="field">
@@ -144,7 +144,7 @@
   <script>
     (async function () {
       await PMSStorage.ensureLoaded();
-      const actor = PMSAuth.requireRole(['Jail Commander', 'System Administrator']);
+      const actor = PMSAuth.requireRole(['PNGCS Parole Clerk', 'System Administrator']);
       if (!actor) return;
 
       var wf = PMSFormWorkflow.initPage(3);
@@ -196,7 +196,7 @@
           return true;
         }
         if (!commanderName.value.trim() || !recommendation.value || !institutionalReport.value.trim()) {
-          showToast('Please complete commander name, recommendation, and institutional report.');
+          showToast('Please complete reporting officer, recommendation, and institutional report.');
           return false;
         }
         return true;

@@ -5,10 +5,10 @@ const PMSWorkflow = (() => {
   const STEPS = [
     { id: 1, name: 'Prisoner Registration', status: null, role: 'PNGCS Parole Clerk', action: 'Register prisoner record with SSD, SED, and institution' },
     { id: 2, name: 'Eligibility Calculation', status: 'Eligible for Parole Application', role: 'System (Automated)', action: 'Calculate eligibility at one-third (1/3) of sentence served' },
-    { id: 3, name: 'Eligibility Notification', status: null, role: 'System (Automated)', action: 'Notify PNGCS Clerk, Jail Commander, and System Administrator' },
+    { id: 3, name: 'Eligibility Notification', status: null, role: 'System (Automated)', action: 'Notify PNGCS Parole Clerk, CS Parole Officer, and System Administrator' },
     { id: 4, name: 'Forms 1 & 2 Preparation', status: 'Draft', role: 'CS Parole Officer / PNGCS & DJAG Clerks', action: 'Complete Form 1 and Form 2 (DDR by CS, PPR by DJAG)' },
-    { id: 5, name: 'Commander Verification', status: 'Pending Commander Review', role: 'Jail Commander', action: 'Verify assessment information and institutional readiness' },
-    { id: 6, name: 'Form 3 — Institutional Report', status: 'Draft', role: 'Jail Commander', action: 'Complete Form 3 (Institutional Report)' },
+    { id: 5, name: 'Institutional Verification', status: 'Pending Commander Review', role: 'PNGCS Parole Clerk', action: 'Verify assessment information and institutional readiness' },
+    { id: 6, name: 'Form 3 — Institutional Report', status: 'Draft', role: 'PNGCS Parole Clerk', action: 'Complete Form 3 (Institutional Report)' },
     { id: 7, name: 'Submit to DJAG', status: 'Submitted', role: 'PNGCS Parole Clerk', action: 'Submit complete application package to DJAG' },
     { id: 8, name: 'DJAG Review', status: 'Under DJAG Review', role: 'DJAG Parole Clerk', action: 'Verify documentation and review application' },
     { id: 9, name: 'Return for Correction', status: 'Returned for Correction', role: 'DJAG Parole Clerk', action: 'Return application to PNGCS for correction if required' },
@@ -16,8 +16,8 @@ const PMSWorkflow = (() => {
     { id: 11, name: 'Board Assessments', status: 'Pending Board Review', role: 'Doctor / CS Commissioner / DJAG Secretary', action: 'Submit individual board assessments' },
     { id: 12, name: 'Score Calculation', status: 'Pending Board Review', role: 'System (Automated)', action: 'Calculate final parole score (80% threshold)' },
     { id: 13, name: 'Form 4 or 5 Outcome', status: 'Parole Granted|Parole Refused', role: 'Parole Board Member', action: 'Record Form 4 (Granted) or Form 5 (Refused) based on score' },
-    { id: 14, name: 'Approval Workflow', status: 'Pending Approval', role: 'Board / Commander', action: 'Complete required approvals before release' },
-    { id: 15, name: 'Release Authorization', status: 'Approved', role: 'Jail Commander', action: 'Authorize release from institution' },
+    { id: 14, name: 'Approval Workflow', status: 'Pending Approval', role: 'Board / PNGCS Parole Clerk', action: 'Complete required approvals before release' },
+    { id: 15, name: 'Release Authorization', status: 'Approved', role: 'PNGCS Parole Clerk', action: 'Authorize release from institution' },
     { id: 16, name: 'Audit & Notification', status: null, role: 'System (Automated)', action: 'Log all actions and notify stakeholders' },
   ];
 
@@ -40,11 +40,11 @@ const PMSWorkflow = (() => {
     'Draft→Submitted': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
     'Draft→Pending Commander Review': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
     'Submitted→Under DJAG Review': ['DJAG Parole Clerk', 'System Administrator'],
-    'Submitted→Returned for Correction': ['DJAG Parole Clerk', 'Jail Commander', 'System Administrator'],
+    'Submitted→Returned for Correction': ['DJAG Parole Clerk', 'PNGCS Parole Clerk', 'System Administrator'],
     'Submitted→Pending Commander Review': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
-    'Pending Commander Review→Pre-Parole Report Prepared': ['Jail Commander', 'System Administrator'],
-    'Pending Commander Review→Returned for Correction': ['Jail Commander', 'System Administrator'],
-    'Pending Commander Review→Refused': ['Jail Commander', 'System Administrator'],
+    'Pending Commander Review→Pre-Parole Report Prepared': ['PNGCS Parole Clerk', 'System Administrator'],
+    'Pending Commander Review→Returned for Correction': ['PNGCS Parole Clerk', 'System Administrator'],
+    'Pending Commander Review→Refused': ['PNGCS Parole Clerk', 'System Administrator'],
     'Under DJAG Review→Pre-Parole Report Prepared': ['DJAG Parole Clerk', 'System Administrator'],
     'Under DJAG Review→Returned for Correction': ['DJAG Parole Clerk', 'System Administrator'],
     'Returned for Correction→Draft': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
@@ -59,18 +59,18 @@ const PMSWorkflow = (() => {
     'Pending Board Review→Parole Refused': ['Parole Board Member', 'System Administrator'],
     'Pending Board Review→Deferred': ['Parole Board Member', 'System Administrator'],
     'Parole Granted→Pending Approval': ['Parole Board Member', 'System Administrator'],
-    'Parole Granted→Approved': ['Parole Board Member', 'Jail Commander', 'System Administrator'],
+    'Parole Granted→Approved': ['Parole Board Member', 'PNGCS Parole Clerk', 'System Administrator'],
     'Parole Refused→Refused': ['Parole Board Member', 'System Administrator'],
-    'Pending Approval→Approved': ['Parole Board Member', 'Jail Commander', 'System Administrator'],
-    'Pending Approval→Returned for Correction': ['Parole Board Member', 'Jail Commander', 'System Administrator'],
+    'Pending Approval→Approved': ['Parole Board Member', 'PNGCS Parole Clerk', 'System Administrator'],
+    'Pending Approval→Returned for Correction': ['Parole Board Member', 'PNGCS Parole Clerk', 'System Administrator'],
     'Pending Approval→Refused': ['Parole Board Member', 'System Administrator'],
-    'Approved→Released': ['Jail Commander', 'System Administrator'],
+    'Approved→Released': ['PNGCS Parole Clerk', 'System Administrator'],
   };
 
   const FORM_OWNERS = {
     1: 'CS Parole Officer',
     2: 'PNGCS Parole Clerk / DJAG Parole Clerk',
-    3: 'Jail Commander',
+    3: 'PNGCS Parole Clerk',
     4: 'Parole Board Member',
     5: 'Parole Board Member',
   };
@@ -114,11 +114,11 @@ const PMSWorkflow = (() => {
       need('form1', 'Form 1 must be completed and submitted.');
       need('form2', 'Form 2 (DDR and PPR) must be completed.');
       need('form3', 'Form 3 institutional report must be completed.');
-      need('commanderVerified', 'Jail Commander must verify Form 1.');
+      need('commanderVerified', 'Institutional verification must be completed.');
     }
     if (toStatus === 'Pending Commander Review') { need('form1', 'Form 1 must be completed.'); need('form2', 'Form 2 must be completed.'); }
     if (toStatus === 'Pre-Parole Report Prepared') { need('form2', 'Form 2 must be completed.'); need('form3', 'Form 3 must be completed.'); }
-    if (toStatus === 'Hearing Scheduled') { need('commanderVerified', 'Jail Commander verification is required.'); need('form3', 'Form 3 must be completed.'); }
+    if (toStatus === 'Hearing Scheduled') { need('commanderVerified', 'Institutional verification is required.'); need('form3', 'Form 3 must be completed.'); }
     if (toStatus === 'Pending Board Review') need('hearingScheduled', 'A hearing must be scheduled before board review.');
     if (['Parole Granted', 'Parole Refused', 'Pending Approval'].includes(toStatus)) {
       need('assessmentsComplete', 'All board assessments must be submitted.');

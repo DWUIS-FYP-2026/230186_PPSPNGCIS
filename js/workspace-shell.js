@@ -9,7 +9,6 @@ const PMSWorkspace = (() => {
     'CS Parole Officer': 'theme-corrections',
     'DJAG Parole Clerk': 'theme-djag',
     'DJAG Secretary': 'theme-djag',
-    'Jail Commander': 'theme-corrections',
     'Doctor': 'theme-board',
     'CS Commissioner': 'theme-corrections',
     'Parole Board Member': 'theme-board',

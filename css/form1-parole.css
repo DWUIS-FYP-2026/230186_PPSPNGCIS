@@ -1,0 +1,437 @@
+/* Form 1 — Parole Application (Parole Act 1991) */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body.pms-form1-parole {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f0f2f5;
+  padding: 30px 20px;
+  color: #1a1a2e;
+}
+
+.pms-form1-parole .container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 40px 45px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  border-top: 6px solid #e63946;
+}
+
+.pms-form1-parole .back-bar {
+  max-width: 1000px;
+  margin: 0 auto 12px;
+}
+
+.pms-form1-parole .back-bar a {
+  color: #1a1a2e;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pms-form1-parole .back-bar a:hover { text-decoration: underline; }
+
+.pms-form1-parole .header {
+  text-align: center;
+  border-bottom: 3px double #1a1a2e;
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.pms-form1-parole .header .badge {
+  display: inline-block;
+  background: #e63946;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 4px 16px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.pms-form1-parole .header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: 0.5px;
+}
+
+.pms-form1-parole .header .subtitle {
+  font-size: 16px;
+  color: #555;
+  margin-top: 4px;
+}
+
+.pms-form1-parole .header .form-id {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #888;
+  font-weight: 500;
+}
+
+.pms-form1-parole .section {
+  margin-bottom: 32px;
+  border-left: 4px solid #e63946;
+  padding-left: 20px;
+}
+
+.pms-form1-parole .section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pms-form1-parole .section-title .badge-letter {
+  display: inline-block;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  text-align: center;
+  border-radius: 50%;
+}
+
+.pms-form1-parole .section-desc {
+  font-size: 13px;
+  color: #777;
+  margin-top: -10px;
+  margin-bottom: 16px;
+}
+
+.pms-form1-parole .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 30px;
+}
+
+.pms-form1-parole .form-grid .full-width { grid-column: 1 / -1; }
+
+.pms-form1-parole .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pms-form1-parole .form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2d2d44;
+  letter-spacing: 0.3px;
+}
+
+.pms-form1-parole .form-group label .required { color: #e63946; margin-left: 2px; }
+
+.pms-form1-parole .form-group label .hint {
+  font-weight: 400;
+  color: #999;
+  font-size: 11px;
+}
+
+.pms-form1-parole .form-group input,
+.pms-form1-parole .form-group select,
+.pms-form1-parole .form-group textarea {
+  padding: 10px 14px;
+  border: 1.5px solid #d0d4dd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fafbfc;
+  color: #1a1a2e;
+}
+
+.pms-form1-parole .form-group input:focus,
+.pms-form1-parole .form-group select:focus,
+.pms-form1-parole .form-group textarea:focus {
+  outline: none;
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.15);
+  background: #ffffff;
+}
+
+.pms-form1-parole .form-group textarea { resize: vertical; min-height: 70px; }
+
+.pms-form1-parole .form-group .readonly-input,
+.pms-form1-parole .form-group input[readonly],
+.pms-form1-parole .form-group select[disabled] {
+  background: #eef0f3;
+  color: #444;
+  cursor: not-allowed;
+}
+
+.pms-form1-parole .consent-box {
+  background: #f8f9fc;
+  border: 2px solid #d0d4dd;
+  border-radius: 10px;
+  padding: 22px 28px;
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px 40px;
+}
+
+.pms-form1-parole .consent-box .consent-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.pms-form1-parole .consent-box .consent-text input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #e63946;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.pms-form1-parole .consent-box .consent-signature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pms-form1-parole .consent-box .consent-signature label { font-weight: 500; font-size: 14px; }
+
+.pms-form1-parole .consent-box .consent-signature input {
+  padding: 8px 14px;
+  border: 1.5px solid #d0d4dd;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 180px;
+}
+
+.pms-form1-parole .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 30px;
+  padding-top: 25px;
+  border-top: 2px solid #eef0f3;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pms-form1-parole .actions .left-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.pms-form1-parole .btn {
+  padding: 11px 30px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.pms-form1-parole .btn:active { transform: scale(0.97); }
+.pms-form1-parole .btn-primary { background: #1a1a2e; color: #fff; }
+.pms-form1-parole .btn-primary:hover { background: #2d2d44; box-shadow: 0 4px 14px rgba(26, 26, 46, 0.25); }
+.pms-form1-parole .btn-danger { background: #e63946; color: #fff; }
+.pms-form1-parole .btn-danger:hover { background: #c62836; box-shadow: 0 4px 14px rgba(230, 57, 70, 0.3); }
+.pms-form1-parole .btn-success { background: #2a9d8f; color: #fff; }
+.pms-form1-parole .btn-success:hover { background: #21867a; box-shadow: 0 4px 14px rgba(42, 157, 143, 0.3); }
+.pms-form1-parole .btn-outline { background: transparent; color: #1a1a2e; border: 2px solid #d0d4dd; }
+.pms-form1-parole .btn-outline:hover { background: #f0f2f5; border-color: #1a1a2e; }
+.pms-form1-parole .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.pms-form1-parole .status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 30px;
+  background: #f8f9fc;
+  padding: 14px 22px;
+  border-radius: 10px;
+  margin-bottom: 28px;
+  border: 1px solid #e4e7ed;
+  align-items: center;
+}
+
+.pms-form1-parole .status-bar .status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.pms-form1-parole .status-bar .status-item .label { font-weight: 400; color: #666; }
+.pms-form1-parole .status-bar .status-item .value { font-weight: 700; color: #1a1a2e; }
+
+.pms-form1-parole .status-badge {
+  display: inline-block;
+  padding: 3px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pms-form1-parole .status-badge.eligible { background: #d4edda; color: #155724; }
+.pms-form1-parole .status-badge.pending { background: #fff3cd; color: #856404; }
+.pms-form1-parole .status-badge.granted { background: #cce5ff; color: #004085; }
+.pms-form1-parole .status-badge.denied { background: #f8d7da; color: #721c24; }
+.pms-form1-parole .status-badge.consent { background: #e8eaf6; color: #283593; }
+
+.pms-form1-parole .selection-panel {
+  max-width: 1000px;
+  margin: 0 auto 20px;
+  background: #fff;
+  padding: 24px 28px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #e63946;
+}
+
+.pms-form1-parole .selection-panel h2 { font-size: 18px; margin-bottom: 8px; color: #1a1a2e; }
+.pms-form1-parole .selection-panel p { font-size: 14px; color: #666; margin-bottom: 16px; }
+
+.pms-form1-parole .prisoner-combobox { position: relative; margin-bottom: 8px; }
+.pms-form1-parole .prisoner-combobox > label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2d2d44;
+  margin-bottom: 6px;
+}
+.pms-form1-parole .prisoner-combobox__control { position: relative; display: flex; align-items: center; }
+.pms-form1-parole .prisoner-combobox__control input[type="text"] {
+  width: 100%;
+  padding: 10px 36px 10px 14px;
+  border: 1.5px solid #d0d4dd;
+  border-radius: 8px;
+  background: #fafbfc;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a1a2e;
+}
+.pms-form1-parole .prisoner-combobox__control input[type="text"]:focus {
+  outline: none;
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.15);
+  background: #fff;
+}
+.pms-form1-parole .prisoner-combobox__clear {
+  position: absolute;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.pms-form1-parole .prisoner-combobox__clear:hover { background: #eef0f3; color: #1a1a2e; }
+.pms-form1-parole .prisoner-combobox__list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #d0d4dd;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.pms-form1-parole .prisoner-combobox__option {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.pms-form1-parole .prisoner-combobox__option:hover,
+.pms-form1-parole .prisoner-combobox__option[aria-selected="true"] { background: #f0f2f5; }
+.pms-form1-parole .prisoner-combobox__option strong { display: block; font-weight: 600; color: #1a1a2e; }
+.pms-form1-parole .prisoner-combobox__option-meta { display: block; color: #888; font-size: 12px; margin-top: 2px; }
+.pms-form1-parole .prisoner-combobox__empty { padding: 12px; text-align: center; color: #888; font-size: 13px; }
+
+.pms-form1-parole .text-muted { color: #888; font-size: 13px; }
+.pms-form1-parole .mt-8 { margin-top: 8px; }
+.pms-form1-parole .hidden { display: none !important; }
+
+.pms-form1-parole .print-footer {
+  display: none;
+  margin-top: 40px;
+  border-top: 2px solid #ddd;
+  padding-top: 16px;
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+}
+
+.pms-form1-parole .custom-toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  color: #fff;
+  padding: 16px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  max-width: 450px;
+  animation: f1-slideUp 0.3s ease-out;
+}
+
+@keyframes f1-slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .pms-form1-parole .container { padding: 20px 18px; }
+  .pms-form1-parole .form-grid { grid-template-columns: 1fr; }
+  .pms-form1-parole .header h1 { font-size: 22px; }
+  .pms-form1-parole .actions { flex-direction: column; align-items: stretch; }
+  .pms-form1-parole .actions .left-btns { justify-content: center; }
+  .pms-form1-parole .btn { justify-content: center; }
+  .pms-form1-parole .consent-box { flex-direction: column; align-items: stretch; gap: 16px; }
+  .pms-form1-parole .status-bar { flex-direction: column; align-items: stretch; gap: 6px; }
+}
+
+@media print {
+  body.pms-form1-parole { background: #fff; padding: 0; }
+  .pms-form1-parole .back-bar,
+  .pms-form1-parole .no-print,
+  .pms-form1-parole .btn { display: none !important; }
+  .pms-form1-parole .container {
+    box-shadow: none;
+    border-top: none;
+    padding: 20px;
+    border-radius: 0;
+  }
+  .pms-form1-parole .form-group input,
+  .pms-form1-parole .form-group select,
+  .pms-form1-parole .form-group textarea {
+    border: 1px solid #aaa;
+    background: #fff !important;
+  }
+  .pms-form1-parole .print-footer { display: block !important; }
+}

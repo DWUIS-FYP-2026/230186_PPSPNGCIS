@@ -6,7 +6,7 @@
   <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
   <script src="js/auth-guard.js"></script>
   <script src="js/page-zoom.js"></script>
-  <title>Correctional Institutions — PMS</title>
+  <title>Port Moresby Institution — PMS</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="css/dashboard.css" rel="stylesheet">
@@ -25,8 +25,8 @@
             <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
           </div>
           <div class="command-bar__titles">
-            <h1>Correctional Institution Management</h1>
-            <p id="page-subtitle">Official registry of PNGCS correctional facilities</p>
+            <h1>Port Moresby Correctional Institution</h1>
+            <p id="page-subtitle">Bomana Correctional Institution — National Capital District</p>
           </div>
         </div>
         <aside class="command-bar__status">
@@ -40,10 +40,6 @@
           <button type="button" class="btn btn-pms-primary btn-sm d-none" id="btn-add-institution">+ Add Institution</button>
         </div>
       </header>
-
-      <div class="commander-restricted-note d-none" id="commander-note">
-        You are viewing your assigned institution only. Contact the System Administrator to update institution details.
-      </div>
 
       <div class="inst-stats-row" id="stats-row">
         <div class="inst-stat-card">
@@ -98,9 +94,6 @@
                 <th data-sort="name">Institution Name <span class="sort-icon">↕</span></th>
                 <th data-sort="province">Province <span class="sort-icon">↕</span></th>
                 <th data-sort="address">Address / Location <span class="sort-icon">↕</span></th>
-                <th data-sort="commander">Jail Commander <span class="sort-icon">↕</span></th>
-                <th data-sort="phone">Contact <span class="sort-icon">↕</span></th>
-                <th data-sort="email">Email <span class="sort-icon">↕</span></th>
                 <th data-sort="officers" class="text-center">Officers <span class="sort-icon">↕</span></th>
                 <th data-sort="prisoners" class="text-center">Prisoners <span class="sort-icon">↕</span></th>
                 <th data-sort="status">Status <span class="sort-icon">↕</span></th>
@@ -178,12 +171,6 @@
                 <label class="form-label" for="edit-capacity">Capacity</label>
                 <input type="number" class="form-control" id="edit-capacity" min="0">
               </div>
-              <div class="col-md-6" id="commander-field-wrap">
-                <label class="form-label" for="edit-commander">Assigned Jail Commander</label>
-                <select class="form-select" id="edit-commander">
-                  <option value="">— Unassigned —</option>
-                </select>
-              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -199,7 +186,6 @@
   <script src="js/command-bar.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/institutions-data.js"></script>
-  <script src="js/commanders-data.js"></script>
   <script src="js/id-generator.js"></script>
   <script src="js/eligibility-engine.js"></script>
   <script src="js/storage.js"></script>

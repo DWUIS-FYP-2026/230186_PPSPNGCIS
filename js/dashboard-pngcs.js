@@ -51,7 +51,7 @@
   const FORM_WORKFLOW = [
     { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', owner: 'CS Parole Officer', prereqs: [] },
     { n: 2, key: 'form2', label: 'Form 2 — Personal Particulars', owner: 'PNGCS Parole Clerk', prereqs: ['form1'] },
-    { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', owner: 'Jail Commander', prereqs: ['form1', 'form2'] },
+    { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', owner: 'PNGCS Parole Clerk', prereqs: ['form1', 'form2'] },
     { n: 4, key: 'form4', label: 'Form 4 — Parole Granted', owner: 'Parole Board Member', prereqs: ['form1', 'form2', 'form3'] },
     { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', owner: 'Parole Board Member', prereqs: ['form1', 'form2', 'form3'] },
   ];
@@ -463,7 +463,7 @@
 
         </div>
 
-        <p class="field-hint" style="margin-bottom:0.75rem">Complete Forms 1 and 2 (PNGCS). Form 3 is completed by the Jail Commander before DJAG submission.</p>
+        <p class="field-hint" style="margin-bottom:0.75rem">Complete Forms 1 and 2, then Form 3 (institutional report) before DJAG submission.</p>
 
         <div class="form-workflow-list">${rows}</div>
 

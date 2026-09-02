@@ -10,7 +10,6 @@ const PMSSidebar = (() => {
     'CS Parole Officer': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Parole Officer', wide: false },
     'PNGCS Parole Clerk': { logo: 'images/PNG CS Logo.jpg', subtitle: 'PNGCS Parole Clerk', wide: false },
     'DJAG Parole Clerk': { logo: 'images/djag.png', subtitle: 'DJAG Parole Clerk', wide: true },
-    'Jail Commander': { logo: 'images/PNG CS Logo.jpg', subtitle: 'Jail Commander', wide: false },
     'DJAG Secretary': { logo: 'images/djag.png', subtitle: 'DJAG Secretary', wide: true },
     'Doctor': { logo: 'images/djag.png', subtitle: 'Board Medical Assessor', wide: true },
     'CS Commissioner': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Commissioner', wide: false },
@@ -49,14 +48,6 @@ const PMSSidebar = (() => {
       { label: 'Prisoners', ids: ['prisoners'] },
       { label: 'Hearings', ids: ['hearing-portal', 'hearings', 'hearings-upcoming'] },
       { label: 'Operations', ids: ['documents', 'notifications'] },
-      { label: 'Reports', ids: ['reports', 'profile'] },
-    ],
-    'Jail Commander': [
-      { label: 'Dashboard', ids: ['overview', 'institution'] },
-      { label: 'Parole Management', ids: ['applications', 'form3'] },
-      { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Release', ids: ['release-pending', 'release-done'] },
-      { label: 'Operations', ids: ['officers', 'notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'DJAG Secretary': [
@@ -140,19 +131,6 @@ const PMSSidebar = (() => {
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
-    'Jail Commander': [
-      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'institution', module: 'institutions', href: 'institutions.html', label: 'Institution Overview', icon: 'fi fi-rr-building' },
-      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
-      { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'release-pending', module: 'release', panel: 'applications', label: 'Pending Release', icon: 'fi fi-rr-hourglass' },
-      { id: 'release-done', module: 'release', panel: 'prisoners', label: 'Released Prisoners', icon: 'fi fi-rr-door-open' },
-      { id: 'officers', module: 'officers', panel: 'officers', label: 'Officers', icon: 'fi fi-rr-id-badge' },
-      { id: 'reports', module: 'reports', panel: 'reports', label: 'Institutional Reports', icon: 'fi fi-rr-chart-line-up' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
-      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
-    ],
     'CS Parole Officer': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
@@ -223,9 +201,6 @@ const PMSSidebar = (() => {
   }
 
   function profileHref(user) {
-    if (user.role === 'Jail Commander') {
-      return `commander-details.html?id=${encodeURIComponent(user.id)}`;
-    }
     return null;
   }
 

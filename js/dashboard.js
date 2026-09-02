@@ -195,7 +195,7 @@
     setStat('stat-released', stats.releasedPrisoners);
     setStat('stat-board-active', stats.activeBoardMembers);
     setStat('stat-board-expired', stats.expiredBoardMembers);
-    setStat('stat-notifications', stats.pendingNotifications);
+    setStat('stat-notifications', PMSStorage.getUnreadCountForUser(actor));
 
     const statHearings = document.getElementById('stat-hearings');
     if (statHearings) statHearings.textContent = hearings.filter((h) => h.status === 'Scheduled').length;
@@ -340,7 +340,6 @@
       'admin-dashboard.html': 'Admin Dashboard',
       'dashboard-pngcs.html': 'PNGCS Dashboard',
       'dashboard-djag.html': 'DJAG Dashboard',
-      'dashboard-commander.html': 'Commander Dashboard',
       'dashboard-board.html': 'Board Dashboard',
     };
     return labels[file] || file;
@@ -408,11 +407,9 @@
     const list = document.getElementById('inst-summary-list');
     list.innerHTML = insts.slice(0, 8).map((i) => {
       const stats = PMSStorage.getInstitutionStats(i.id);
-      const commander = stats?.commander;
       return `<div class="overview-row">
         <strong>${esc(i.name)}</strong> <span class="inst-id-badge">${esc(i.code)}</span>
-        <span class="meta">${esc(i.province)} · ${esc(i.address)} · ${stats?.prisonerCount ?? 0} prisoners · ${stats?.officerCount ?? 0} officers
-        ${commander ? ` · Commander: ${esc(commander.firstName)} ${esc(commander.lastName)}` : ''}</span>
+        <span class="meta">${esc(i.province)} · ${esc(i.address)} · ${stats?.prisonerCount ?? 0} prisoners · ${stats?.officerCount ?? 0} officers</span>
       </div>`;
     }).join('') + (insts.length > 8 ? `<p class="meta" style="margin-top:0.75rem">+ ${insts.length - 8} more — <a href="institutions.html">view all</a></p>` : '');
   }
@@ -530,7 +527,7 @@
     const ruleNote = document.getElementById('eligibility-rule-note');
     if (ruleNote) {
       ruleNote.textContent =
-        `Eligibility rule: ${settings.paroleEligibilityLabel}. Notifications are sent to System Administrator, PNGCS Parole Clerk, and Jail Commander.`;
+        `Eligibility rule: ${settings.paroleEligibilityLabel}. Notifications are sent to System Administrator and PNGCS Parole Clerk.`;
     }
 
     const notifs = PMSStorage.getNotificationsForUser(actor);

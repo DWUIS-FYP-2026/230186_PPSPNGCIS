@@ -2,465 +2,258 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
-  <title>Form 1 – Parole Application | PNG Parole System</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="../css/forms.css">
-  <link rel="stylesheet" href="../css/mobile.css">
+  <title>Form 1 - Parole Application | PNG Parole Board</title>
+  <link rel="stylesheet" href="../css/form1-parole.css">
 </head>
-<body class="pms-form-page">
-  <header class="page-header">
-    <div class="header-top">
-      <a href="../dashboard-pngcs.html" class="back-link">← Back to Dashboard</a>
-    </div>
-    <div class="header-main">
-      <div class="header-title">
-        <h1>Form 1 – Parole Application</h1>
-        <p>Papua New Guinea Parole System · Correctional Service &amp; Department of Justice</p>
+<body class="pms-form1-parole">
+
+  <div class="back-bar no-print">
+    <a href="../dashboard-pngcs.html">← Back to Dashboard</a>
+  </div>
+
+  <div id="selection-panel" class="selection-panel hidden">
+    <h2>Select Eligible Detainee</h2>
+    <p>Choose a detainee to generate Form 1 — Particulars of detainee eligible for parole.</p>
+    <div class="prisoner-combobox" id="prisoner-combobox">
+      <label for="prisoner-combobox-input">Detainee</label>
+      <input type="hidden" id="prisoner-combobox-value">
+      <div class="prisoner-combobox__control">
+        <input type="text" id="prisoner-combobox-input" placeholder="Search by name or prisoner ID…" autocomplete="off">
+        <button type="button" class="prisoner-combobox__clear hidden" id="prisoner-combobox-clear" aria-label="Clear">&times;</button>
       </div>
-      <span class="official-badge">Official Form 1</span>
+      <ul class="prisoner-combobox__list hidden" id="prisoner-combobox-listbox" role="listbox"></ul>
     </div>
-  </header>
+  </div>
 
-  <main class="page-main">
-    <section class="section f1-selection-panel" id="f1-selection-panel">
-      <h2 class="section-header">New Parole Application</h2>
-      <div class="section-body">
-        <p class="field-hint">Select an eligible detainee to begin Form 1 and add them to the parole process.</p>
-        <div class="prisoner-combobox" id="prisoner-combobox">
-          <label for="prisoner-combobox-input">Detainee</label>
-          <input type="hidden" id="prisoner-combobox-value">
-          <div class="prisoner-combobox__control">
-            <input type="text" id="prisoner-combobox-input" placeholder="Search by name or prisoner ID…" autocomplete="off" aria-controls="prisoner-combobox-listbox" aria-expanded="false">
-            <button type="button" class="prisoner-combobox__clear hidden" id="prisoner-combobox-clear" aria-label="Clear selection">&times;</button>
+  <div id="form1-root" class="container hidden">
+    <div class="header">
+      <div class="badge">Government of Papua New Guinea</div>
+      <h1>Form 1 — Parole Application</h1>
+      <p class="subtitle">Particulars of detainee eligible for parole</p>
+      <p class="form-id">
+        <strong>Application ID:</strong> <span id="applicationId">—</span>
+        &nbsp;|&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
+      </p>
+    </div>
+
+    <div class="status-bar no-print">
+      <div class="status-item">
+        <span class="label">Application Status:</span>
+        <span class="status-badge eligible" id="statusBadge">ELIGIBLE</span>
+      </div>
+      <div class="status-item">
+        <span class="label">Eligibility Date:</span>
+        <span class="value" id="eligibilityDate">—</span>
+      </div>
+      <div class="status-item">
+        <span class="label">Notification Date:</span>
+        <span class="value" id="notificationDate">—</span>
+      </div>
+      <div class="status-item">
+        <span class="label">CI #:</span>
+        <span class="value" id="ciNumberDisplay">—</span>
+      </div>
+    </div>
+
+    <form id="paroleForm" onsubmit="return false;">
+      <!-- SECTION A -->
+      <div class="section">
+        <div class="section-title">
+          <span class="badge-letter">A</span>
+          Detainee Identifiers &amp; Demographics
+        </div>
+        <p class="section-desc">Official identification details as per PNG Correctional Service records.</p>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Full Legal Name <span class="required">*</span></label>
+            <input type="text" id="fullName" class="readonly-input" readonly placeholder="Surname, Given Names">
           </div>
-          <ul class="prisoner-combobox__list hidden" id="prisoner-combobox-listbox" role="listbox"></ul>
+          <div class="form-group full-width">
+            <label>Aliases / Other Names</label>
+            <input type="text" id="aliases" placeholder="Any known aliases">
+          </div>
+          <div class="form-group">
+            <label>CI Number <span class="required">*</span></label>
+            <input type="text" id="ciNumber" class="readonly-input" readonly>
+          </div>
+          <div class="form-group">
+            <label>Date of Birth <span class="required">*</span></label>
+            <input type="date" id="dob" class="readonly-input" readonly>
+          </div>
+          <div class="form-group">
+            <label>Gender <span class="required">*</span></label>
+            <select id="gender" class="readonly-input" disabled>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
         </div>
       </div>
-    </section>
 
-    <form id="form1-application" class="hidden" novalidate>
-      <section class="section" aria-labelledby="sec-detainee">
-        <h2 class="section-header" id="sec-detainee">Detainee Details</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="cs-number">CS Number</label>
-              <input type="text" id="cs-number" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field field--full">
-              <label for="full-name">Full Name</label>
-              <input type="text" id="full-name" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field">
-              <label for="dob">Date of Birth</label>
-              <input type="text" id="dob" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field">
-              <label for="gender">Gender</label>
-              <input type="text" id="gender" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field field--full">
-              <label for="facility">Current Facility</label>
-              <input type="text" id="facility" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field field--full">
-              <label for="offences">Offence(s)</label>
-              <input type="text" id="offences" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field">
-              <label for="sentencing-date">Date of Sentencing</label>
-              <input type="text" id="sentencing-date" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field">
-              <label for="sentence-length">Total Sentence Length</label>
-              <input type="text" id="sentence-length" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field">
-              <label for="min-term">Minimum Term Served</label>
-              <input type="text" id="min-term" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
-            <div class="field field--full">
-              <label for="eligibility-status">Eligibility Status</label>
-              <input type="text" id="eligibility-status" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
+      <!-- SECTION B -->
+      <div class="section">
+        <div class="section-title">
+          <span class="badge-letter">B</span>
+          Sentencing and Conviction Particulars
+        </div>
+        <p class="section-desc">Court-ordered sentencing details used to calculate parole eligibility (one-half rule; Life: 10 years).</p>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Current Offense(s) <span class="required">*</span></label>
+            <textarea id="currentOffenses" rows="2" class="readonly-input" readonly></textarea>
+          </div>
+          <div class="form-group">
+            <label>Sentence Length (Years) <span class="required">*</span></label>
+            <input type="number" id="sentenceLength" class="readonly-input" readonly step="0.5" min="0.5">
+            <span class="text-muted">Half of this period determines eligibility</span>
+          </div>
+          <div class="form-group">
+            <label>Offense Category <span class="required">*</span></label>
+            <select id="offenseCategory" class="readonly-input" disabled>
+              <option value="Violent">Violent</option>
+              <option value="Property">Property</option>
+              <option value="Drug-related">Drug-related</option>
+              <option value="Sexual">Sexual</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Court of Conviction</label>
+            <input type="text" id="courtOfConviction" placeholder="National or District Court location">
+          </div>
+          <div class="form-group">
+            <label>Sentence Commencement Date <span class="required">*</span></label>
+            <input type="date" id="sentenceStartDate" class="readonly-input" readonly>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section class="section" aria-labelledby="sec-application">
-        <h2 class="section-header" id="sec-application">Application Details</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--2">
-            <div class="field field--full">
-              <label for="release-address">Proposed Release Address</label>
-              <input type="text" id="release-address" placeholder="Enter full residential address for proposed release">
-            </div>
-            <div class="field">
-              <label for="contact-person">Contact Person / Guardian</label>
-              <input type="text" id="contact-person" placeholder="Full name of contact or guardian">
-            </div>
-            <div class="field">
-              <label for="contact-phone">Contact Phone</label>
-              <input type="tel" id="contact-phone" placeholder="+675 XXX XXXX">
-            </div>
-            <div class="field field--full">
-              <label for="employment-plan">Employment / Training Plan</label>
-              <input type="text" id="employment-plan" placeholder="Describe employment or vocational training plans upon release">
-            </div>
-            <div class="field field--full">
-              <label for="community-support">Community Support / References</label>
-              <textarea id="community-support" rows="3" placeholder="List community leaders, family, church, or employer references supporting parole…"></textarea>
-            </div>
-            <div class="field field--full">
-              <label for="remarks">Additional Remarks</label>
-              <textarea id="remarks" rows="2" placeholder="Any additional information relevant to this application…"></textarea>
-            </div>
+      <!-- SECTION C -->
+      <div class="section">
+        <div class="section-title">
+          <span class="badge-letter">C</span>
+          Current Custodial Location
+        </div>
+        <p class="section-desc">Port Moresby (NCD) — Bomana Correctional Institution.</p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Correctional Facility <span class="required">*</span></label>
+            <input type="text" id="facility" class="readonly-input" readonly value="Bomana Correctional Institution">
+          </div>
+          <div class="form-group">
+            <label>Facility Code</label>
+            <input type="text" id="facilityCode" class="readonly-input" readonly placeholder="Standardized code">
+          </div>
+          <div class="form-group">
+            <label>Cell Block / Unit</label>
+            <input type="text" id="cellBlock" placeholder="e.g., Block A, Unit 2">
           </div>
         </div>
-      </section>
+      </div>
 
-      <section class="section" aria-labelledby="sec-status">
-        <h2 class="section-header" id="sec-status">Application Status</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="app-date">Application Date</label>
-              <input type="text" id="app-date" class="readonly-field" readonly tabindex="-1">
-            </div>
-            <div class="field">
-              <label>Current Status</label>
-              <span class="status-badge status-badge--pending" id="status-badge" role="status">Pending Assessment</span>
-            </div>
-            <div class="field">
-              <label for="submitted-by">Submitted By</label>
-              <input type="text" id="submitted-by" class="readonly-field" value="" readonly tabindex="-1">
-            </div>
+      <!-- SECTION D -->
+      <div class="section">
+        <div class="section-title">
+          <span class="badge-letter">D</span>
+          Proposed Post-Release &amp; Reintegration Details
+        </div>
+        <p class="section-desc">Information about the parolee's support network and reintegration plan.</p>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Sponsor / Guarantor Name <span class="required">*</span></label>
+            <input type="text" id="sponsorName" placeholder="Family member, elder, or church leader">
+          </div>
+          <div class="form-group">
+            <label>Relationship <span class="required">*</span></label>
+            <input type="text" id="sponsorRelationship" placeholder="e.g., Father, Uncle, Pastor">
+          </div>
+          <div class="form-group">
+            <label>Sponsor Contact <span class="required">*</span></label>
+            <input type="text" id="sponsorContact" placeholder="Phone / Email">
+          </div>
+          <div class="form-group full-width">
+            <label>Sponsor Address</label>
+            <input type="text" id="sponsorAddress" placeholder="Physical address">
+          </div>
+          <div class="form-group">
+            <label>Proposed Residence <span class="required">*</span></label>
+            <input type="text" id="proposedResidence" placeholder="Village, Ward, or District">
+          </div>
+          <div class="form-group">
+            <label>Province <span class="required">*</span></label>
+            <select id="proposedProvince">
+              <option value="">Select province…</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label>Employment or Business Plans</label>
+            <textarea id="employmentPlans" rows="2" placeholder="Work, farming, or business plans upon release"></textarea>
+          </div>
+          <div class="form-group full-width">
+            <label>Community Service Obligations</label>
+            <textarea id="communityPlans" rows="2" placeholder="Community obligations supporting rehabilitation"></textarea>
           </div>
         </div>
-      </section>
+      </div>
 
-      <div class="actions-bar">
-        <button type="button" class="btn btn-primary" id="btn-save">Save Application</button>
-        <button type="button" class="btn btn-success" id="btn-submit">Submit for Assessment</button>
-        <button type="button" class="btn btn-secondary" id="btn-print">Print Form 1</button>
-        <button type="button" class="btn btn-danger" id="btn-cancel">Cancel</button>
+      <!-- SECTION E -->
+      <div class="section">
+        <div class="section-title">
+          <span class="badge-letter">E</span>
+          Declaration &amp; Consent
+        </div>
+        <p class="section-desc">Formal acknowledgment by the detainee to be considered for parole.</p>
+        <div class="consent-box">
+          <div class="consent-text">
+            <input type="checkbox" id="prisonerConsent">
+            <label for="prisonerConsent">
+              I, <span id="consentNameDisplay">[Name]</span>, hereby formally acknowledge that I wish to be considered for parole.
+              <span class="required">*</span>
+            </label>
+          </div>
+          <div class="consent-signature">
+            <label for="consentDate">Consent Date:</label>
+            <input type="date" id="consentDate">
+            <span class="text-muted">(Prisoner's signature recorded in system)</span>
+          </div>
+        </div>
+        <p class="mt-8 text-muted">
+          By providing consent, the detainee agrees to Parole Board conditions. Community Safety and Protection is the paramount consideration.
+        </p>
+      </div>
+
+      <div class="actions no-print">
+        <div class="left-btns">
+          <button type="button" class="btn btn-primary" id="btnSave">Save Draft</button>
+          <button type="button" class="btn btn-success" id="btnSubmit">Submit &amp; Record Consent</button>
+          <button type="button" class="btn btn-outline" id="btnPreview">Preview / Print PDF</button>
+        </div>
+        <div>
+          <button type="button" class="btn btn-danger" id="btnReset">Reset Form</button>
+        </div>
+      </div>
+
+      <div class="print-footer">
+        <p>Generated by PMS — Papua New Guinea Parole Management System · Form 1 v2.0 · Parole Act 1991</p>
+        <p>This is an official document. Any alteration or forgery is a criminal offense.</p>
       </div>
     </form>
-  </main>
+  </div>
 
-  <footer class="page-footer">
-    PNG Parole Regulation – Form 1 · Parole Act 1991
-  </footer>
-
-  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
-
-  <script src="../js/id-generator.js"></script>
-  <script src="../js/eligibility-engine.js"></script>
   <script src="../js/storage.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/rbac.js"></script>
-  <script src="../js/ui-shared.js"></script>
+  <script src="../js/api-client.js"></script>
   <script src="../js/prisoner-combobox.js"></script>
-  <script src="../js/form-workflow.js"></script>
-  <script src="../js/form1-validation.js"></script>
-  <script src="../js/pms-validation.js"></script>
-  <script src="../js/forms-engine.js"></script>
+  <script src="../js/form1-parole.js"></script>
   <script>
-    (async function () {
-      await PMSStorage.ensureLoaded();
-      const actor = PMSAuth.requireRole(['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator']);
-      if (!actor) return;
-
-      const params = new URLSearchParams(window.location.search);
-      let appId = params.get('appId');
-      const prisonerIdParam = params.get('prisonerId');
-      let formBooted = false;
-
-      function getSelectablePrisoners() {
-        const apps = PMSStorage.getParoleApplications().filter(
-          (a) => !actor.institutionId || a.institutionId === actor.institutionId
-        );
-        return PMSRBAC.filterPrisonersForUser(actor, PMSStorage.getPrisoners())
-          .filter((p) => {
-            const prog = PMSStorage.getPrisonerProgress(p);
-            const hasActiveApp = apps.some((a) => a.prisonerId === p.id && !['Approved', 'Refused'].includes(a.status));
-            return prog.eligible || p.status === 'Eligible for Parole Application' || hasActiveApp;
-          })
-          .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
-      }
-
-      function showSelectionPanel() {
-        document.getElementById('f1-selection-panel').classList.remove('hidden');
-        document.getElementById('form1-application').classList.add('hidden');
-        PMSPrisonerCombobox.mount({
-          prisonerList: getSelectablePrisoners(),
-          onSelect: async (prisonerId) => {
-            if (!prisonerId || formBooted) return;
-            const created = PMSStorage.getOrCreateDraftApplication(prisonerId, actor);
-            appId = created.id;
-            window.history.replaceState({}, '', `${window.location.pathname}?appId=${encodeURIComponent(appId)}`);
-            document.getElementById('f1-selection-panel').classList.add('hidden');
-            document.getElementById('form1-application').classList.remove('hidden');
-            await bootApplication(appId);
-          },
-        });
-      }
-
-      async function bootApplication(resolvedAppId) {
-        if (formBooted) return;
-        formBooted = true;
-        appId = resolvedAppId;
-
-        const wf = PMSFormWorkflow.initPage(1);
-        if (wf.blocked) return;
-
-        let app = PMSStorage.getApplicationById(appId);
-        let prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
-        if (!app || !prisoner) {
-          alert('Application or detainee record not found.');
-          window.location.href = '../dashboard-pngcs.html';
-          return;
-        }
-
-        const institution = PMSStorage.getInstitutionById(prisoner.institutionId);
-        const progress = PMSStorage.getPrisonerProgress(prisoner);
-        const statusBadge = document.getElementById('status-badge');
-        const appDateField = document.getElementById('app-date');
-        const toast = document.getElementById('toast');
-
-        function formatDate(d) {
-          return String(d.getDate()).padStart(2, '0') + '/' +
-            String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
-        }
-
-        function formatPrisonerDate(value) {
-          if (!value) return '—';
-          const d = new Date(value);
-          return Number.isNaN(d.getTime()) ? '—' : formatDate(d);
-        }
-
-        function formatSentenceLength(p) {
-          const months = PMSStorage.getSentenceDurationMonths(p);
-          if (!months) return '—';
-          const years = Math.floor(months / 12);
-          const rem = months % 12;
-          const parts = [];
-          if (years) parts.push(`${years} Year${years !== 1 ? 's' : ''}`);
-          if (rem) parts.push(`${rem} Month${rem !== 1 ? 's' : ''}`);
-          return parts.join(' ') || '—';
-        }
-
-        function showToast(msg) {
-          toast.textContent = msg;
-          toast.classList.add('show');
-          setTimeout(function () { toast.classList.remove('show'); }, 2800);
-        }
-
-        function populateDetaineeDetails() {
-          document.getElementById('cs-number').value = prisoner.prisonerNumber || prisoner.id;
-          document.getElementById('full-name').value = [prisoner.firstName, prisoner.middleName, prisoner.lastName].filter(Boolean).join(' ');
-          document.getElementById('dob').value = formatPrisonerDate(prisoner.dateOfBirth);
-          document.getElementById('gender').value = prisoner.gender || '—';
-          document.getElementById('facility').value = institution?.name || '—';
-          document.getElementById('offences').value = prisoner.offense || '—';
-          document.getElementById('sentencing-date').value = formatPrisonerDate(prisoner.sentenceStartDate);
-          document.getElementById('sentence-length').value = formatSentenceLength(prisoner);
-          const servedYears = Math.floor(progress.totalMonths / 12);
-          const servedMonths = progress.totalMonths % 12;
-          const servedLabel = progress.totalMonths
-            ? `${servedYears ? servedYears + ' Year' + (servedYears !== 1 ? 's' : '') : ''}${servedYears && servedMonths ? ' ' : ''}${servedMonths ? servedMonths + ' Month' + (servedMonths !== 1 ? 's' : '') : ''}`.trim()
-            : '—';
-          document.getElementById('min-term').value = progress.eligible
-            ? `${servedLabel} — Eligible`
-            : `${servedLabel} — ${progress.percent.toFixed(0)}% served`;
-          document.getElementById('min-term').classList.toggle('eligibility-ok', progress.eligible);
-          document.getElementById('eligibility-status').value = progress.eligible
-            ? 'Eligible — ready for Form 1'
-            : `Not yet eligible — ${progress.percent.toFixed(0)}% served`;
-          document.getElementById('eligibility-status').classList.toggle('eligibility-ok', progress.eligible);
-          document.getElementById('submitted-by').value = `CS Parole Clerk – ${actor.firstName} ${actor.lastName}`;
-        }
-
-        function collectData() {
-          return {
-            releaseAddress: document.getElementById('release-address').value,
-            contactPerson: document.getElementById('contact-person').value,
-            contactPhone: document.getElementById('contact-phone').value,
-            employmentPlan: document.getElementById('employment-plan').value,
-            communitySupport: document.getElementById('community-support').value,
-            remarks: document.getElementById('remarks').value,
-            applicationDate: appDateField.value,
-            status: statusBadge.dataset.status || 'pending',
-          };
-        }
-
-        function setStatus(status) {
-          statusBadge.dataset.status = status;
-          if (status === 'submitted') {
-            statusBadge.className = 'status-badge status-badge--submitted';
-            statusBadge.textContent = 'Submitted for Assessment';
-          } else if (status === 'approved') {
-            statusBadge.className = 'status-badge status-badge--approved';
-            statusBadge.textContent = 'Approved';
-          } else {
-            statusBadge.className = 'status-badge status-badge--pending';
-            statusBadge.textContent = 'Pending Assessment';
-          }
-        }
-
-        function loadSavedData() {
-          let data = app.formData?.form1 || {};
-          try {
-            const wfData = JSON.parse(localStorage.getItem(wf.getDataKey()) || 'null');
-            if (wfData) data = { ...data, ...wfData };
-          } catch (e) { /* ignore */ }
-
-          if (data.releaseAddress) document.getElementById('release-address').value = data.releaseAddress;
-          if (data.contactPerson) document.getElementById('contact-person').value = data.contactPerson;
-          if (data.contactPhone) document.getElementById('contact-phone').value = data.contactPhone;
-          if (data.employmentPlan) document.getElementById('employment-plan').value = data.employmentPlan;
-          if (data.communitySupport) document.getElementById('community-support').value = data.communitySupport;
-          if (data.remarks) document.getElementById('remarks').value = data.remarks;
-          if (data.applicationDate) appDateField.value = data.applicationDate;
-          if (data.status === 'submitted') setStatus('submitted');
-        }
-
-        function buildScreeningPayload(data, status) {
-          const progress = PMSStorage.getPrisonerProgress(prisoner);
-          const settings = PMSStorage.getSettings();
-          const auto = PMSForm1Validation.computeAutoCriteria(prisoner, progress, settings);
-          const checklist = PMSForm1Validation.mergeChecklist({}, auto);
-          ['no_active_detainers', 'no_disqualifying_disciplinary', 'statutory_exemption_clear'].forEach((id) => {
-            if (!checklist[id]?.result) {
-              checklist[id] = {
-                result: 'pass',
-                verification: 'Officer review',
-                comments: 'Verified during Form 1 intake.',
-                criterion: id,
-              };
-            }
-          });
-          return {
-            releaseAddress: data.releaseAddress,
-            contactPerson: data.contactPerson,
-            contactPhone: data.contactPhone,
-            employmentPlan: data.employmentPlan,
-            communitySupport: data.communitySupport,
-            remarks: data.remarks,
-            applicationDate: data.applicationDate,
-            checklist,
-            eligibilityOutcome: progress.eligible ? 'eligible' : 'not_eligible',
-            screeningDate: new Date().toISOString().slice(0, 10),
-            recommendationReason: data.remarks?.trim()
-              || (status === 'submitted' ? 'Form 1 parole eligibility screening submitted for assessment.' : 'Form 1 draft saved.'),
-            officerName: `${actor.firstName} ${actor.lastName}`,
-            officerId: actor.officerId || actor.employeeNumber || actor.id,
-            statutoryExemptionApplicable: 'no',
-          };
-        }
-
-        async function persistForm1(status) {
-          const data = collectData();
-          data.status = status;
-          localStorage.setItem(wf.getDataKey(), JSON.stringify(data));
-          const form1Payload = buildScreeningPayload(data, status);
-          try {
-            if (status === 'submitted') {
-              await PMSStorage.saveForm1Screening(appId, form1Payload, actor, { submit: true });
-            } else {
-              await PMSStorage.saveForm1Screening(appId, form1Payload, actor, { draft: true });
-            }
-            app = PMSStorage.getApplicationById(appId);
-            if (status === 'submitted') {
-              wf.markCompleteAndAdvance({ status: 'submitted' });
-            }
-          } catch (err) {
-            showToast(err.message || 'Could not save Form 1.');
-            throw err;
-          }
-        }
-
-        function validate() {
-          const data = collectData();
-          const progress = PMSStorage.getPrisonerProgress(prisoner);
-          const payload = buildScreeningPayload(data, 'submitted');
-          const validation = PMSForm1Validation.validateForm1(
-            payload, prisoner, progress, PMSStorage.getSettings(), { submit: true }
-          );
-          if (!validation.valid) {
-            showToast(validation.errors[0] || 'Validation failed.');
-            return false;
-          }
-          if (!document.getElementById('release-address').value.trim()) {
-            showToast('Proposed release address is required.'); return false;
-          }
-          if (!document.getElementById('contact-person').value.trim()) {
-            showToast('Contact person / guardian is required.'); return false;
-          }
-          if (!document.getElementById('contact-phone').value.trim()) {
-            showToast('Contact phone is required.'); return false;
-          }
-          return true;
-        }
-
-        populateDetaineeDetails();
-        appDateField.value = formatDate(new Date());
-        loadSavedData();
-
-        const alreadySubmitted = app.formData?.form1?.status === 'submitted';
-        if (alreadySubmitted) {
-          document.querySelectorAll('#form1-application input:not(.readonly-field), #form1-application textarea').forEach((el) => {
-            el.readOnly = true;
-          });
-          document.getElementById('btn-save').disabled = true;
-          document.getElementById('btn-submit').disabled = true;
-        }
-
-        document.getElementById('btn-save').addEventListener('click', async function () {
-          await persistForm1('draft');
-          showToast('Application saved successfully.');
-        });
-
-        document.getElementById('btn-submit').addEventListener('click', async function () {
-          if (!validate()) return;
-          setStatus('submitted');
-          try {
-            await persistForm1('submitted');
-            document.getElementById('btn-save').disabled = true;
-            document.getElementById('btn-submit').disabled = true;
-            showToast('Form 1 eligibility screening submitted for assessment.');
-          } catch (_) { /* error shown in persistForm1 */ }
-        });
-
-        document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
-
-        document.getElementById('btn-cancel').addEventListener('click', function () {
-          if (confirm('Return to the dashboard? Unsaved changes may be lost.')) {
-            window.location.href = '../dashboard-pngcs.html';
-          }
-        });
-      }
-
-      if (!appId && prisonerIdParam) {
-        const created = PMSStorage.getOrCreateDraftApplication(prisonerIdParam, actor);
-        appId = created.id;
-        window.history.replaceState({}, '', `${window.location.pathname}?appId=${encodeURIComponent(appId)}`);
-      }
-
-      if (appId) {
-        document.getElementById('f1-selection-panel').classList.add('hidden');
-        document.getElementById('form1-application').classList.remove('hidden');
-        await bootApplication(appId);
-      } else {
-        showSelectionPanel();
-      }
-    })();
+    PMSForm1Parole.init();
+    document.getElementById('consentDate').value = new Date().toISOString().slice(0, 10);
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

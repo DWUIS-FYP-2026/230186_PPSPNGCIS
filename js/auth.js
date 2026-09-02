@@ -4,7 +4,6 @@ const PMSAuth = (() => {
     'CS Parole Officer': 'dashboard-pngcs.html',
     'PNGCS Parole Clerk': 'dashboard-pngcs.html',
     'DJAG Parole Clerk': 'dashboard-djag.html',
-    'Jail Commander': 'dashboard-commander.html',
     'DJAG Secretary': 'dashboard-board.html',
     'Doctor': 'dashboard-board.html',
     'CS Commissioner': 'dashboard-board.html',
@@ -139,9 +138,6 @@ const PMSAuth = (() => {
 
   function filterByInstitution(items, user, institutionKey = 'institutionId') {
     if (!user.institutionId || ['System Administrator', 'PNGCS Parole Clerk', 'DJAG Parole Clerk', 'Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(user.role)) {
-      if (user.role === 'Jail Commander' && user.institutionId) {
-        return items.filter((i) => i[institutionKey] === user.institutionId);
-      }
       if (user.role === 'CS Parole Officer' && user.institutionId) {
         return items.filter((i) => i[institutionKey] === user.institutionId);
       }

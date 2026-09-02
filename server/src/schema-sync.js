@@ -7,7 +7,33 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 const config = require('./config');
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 5;
+
+const PAROLE_EXTRA_COLUMNS = [
+  { table: 'prisoners', column: 'sentence_type', ddl: "ENUM('Standard', 'Life') NOT NULL DEFAULT 'Standard' AFTER sentence_end_date" },
+  { table: 'prisoners', column: 'total_sentence_years', ddl: 'DECIMAL(6,2) NULL AFTER sentence_type' },
+  { table: 'prisoners', column: 'sentence_length_months', ddl: 'INT NULL AFTER total_sentence_years' },
+  { table: 'prisoners', column: 'risk_classification', ddl: "ENUM('Low', 'Medium', 'High') NULL AFTER sentence_length_months" },
+  { table: 'prisoners', column: 'time_served_days', ddl: 'INT NULL AFTER risk_classification' },
+  { table: 'prisoners', column: 'full_legal_name', ddl: 'VARCHAR(200) NULL AFTER last_name' },
+  { table: 'prisoners', column: 'aliases', ddl: 'VARCHAR(255) NULL AFTER full_legal_name' },
+  { table: 'prisoners', column: 'ci_number', ddl: 'VARCHAR(32) NULL AFTER aliases' },
+  { table: 'prisoners', column: 'offense_category', ddl: "ENUM('Violent', 'Property', 'Drug-related', 'Sexual', 'Other') NULL AFTER offense" },
+  { table: 'prisoners', column: 'court_of_conviction', ddl: 'VARCHAR(200) NULL AFTER offense_category' },
+  { table: 'prisoners', column: 'cell_block_unit', ddl: 'VARCHAR(64) NULL AFTER institution_id' },
+  { table: 'parole_applications', column: 'case_number', ddl: 'VARCHAR(32) NULL AFTER id' },
+  { table: 'parole_applications', column: 'eligibility_date', ddl: 'DATE NULL AFTER status' },
+  { table: 'parole_applications', column: 'notification_date', ddl: 'DATE NULL AFTER eligibility_date' },
+  { table: 'parole_applications', column: 'notification_sent_at', ddl: 'DATETIME NULL AFTER notification_date' },
+  { table: 'parole_applications', column: 'prisoner_consent', ddl: 'TINYINT(1) NULL AFTER notification_sent_at' },
+  { table: 'parole_applications', column: 'consent_recorded_at', ddl: 'DATETIME NULL AFTER prisoner_consent' },
+  { table: 'parole_applications', column: 'consent_recorded_by', ddl: 'VARCHAR(32) NULL AFTER consent_recorded_at' },
+  { table: 'parole_applications', column: 'hearing_date', ddl: 'DATE NULL AFTER consent_recorded_by' },
+  { table: 'parole_applications', column: 'declined_at', ddl: 'DATETIME NULL AFTER hearing_date' },
+  { table: 'parole_applications', column: 'cooldown_until', ddl: 'DATE NULL AFTER declined_at' },
+  { table: 'parole_applications', column: 'community_safety_score', ddl: 'DECIMAL(5,2) NULL AFTER cooldown_until' },
+  { table: 'parole_applications', column: 'workflow_version', ddl: "VARCHAR(16) NOT NULL DEFAULT 'legacy' AFTER community_safety_score" },
+];
 
 const EXTRA_COLUMNS = [
   { table: 'prisoners', column: 'parole_eligibility_date', ddl: 'DATE NULL AFTER status' },
@@ -86,7 +112,7 @@ async function ensureLegacyPrisonersMigrated(conn) {
 }
 
 async function ensureExtraColumns(conn) {
-  for (const { table, column, ddl } of EXTRA_COLUMNS) {
+  for (const { table, column, ddl } of [...EXTRA_COLUMNS, ...PAROLE_EXTRA_COLUMNS]) {
     if (!(await tableExists(conn, table))) continue;
     if (await columnExists(conn, table, column)) continue;
     await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${ddl}`);
@@ -122,6 +148,16 @@ async function runBaseSchema(conn) {
   }
 }
 
+async function runParoleSchema(conn) {
+  const sqlPath = path.join(__dirname, '../../sql/parole_act1991_schema.sql');
+  if (!fs.existsSync(sqlPath)) return;
+  const script = fs.readFileSync(sqlPath, 'utf8');
+  const statements = script.split(';').map((s) => s.trim()).filter(Boolean);
+  for (const statement of statements) {
+    await conn.query(statement);
+  }
+}
+
 async function ensureSchema() {
   const { database, ...connOpts } = config.db;
   const conn = await mysql.createConnection({ ...connOpts, multipleStatements: true });
@@ -131,6 +167,7 @@ async function ensureSchema() {
     await ensureLegacyPrisonersMigrated(conn);
     await runBaseSchema(conn);
     await ensureExtraColumns(conn);
+    await runParoleSchema(conn);
     return { ok: true, version: SCHEMA_VERSION, database };
   } finally {
     await conn.end();

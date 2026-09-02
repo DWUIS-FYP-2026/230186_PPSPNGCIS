@@ -21,6 +21,8 @@ const prisonersRouter = require('./routes/prisoners');
 
 const documentsRouter = require('./routes/documents');
 const applicationsRouter = require('./routes/applications');
+const paroleRouter = require('./routes/parole');
+const { startParoleEligibilityJob } = require('./jobs/parole-eligibility-job');
 
 
 
@@ -72,6 +74,7 @@ app.use('/api/prisoners', prisonersRouter);
 
 app.use('/api/prisoners/:prisonerId/documents', documentsRouter);
 app.use('/api/applications', applicationsRouter);
+app.use('/api/parole', paroleRouter);
 
 const webRoot = path.join(__dirname, '../..');
 
@@ -140,7 +143,10 @@ async function start() {
 
     console.log(`  Auth required: ${config.authRequired}`);
 
+    console.log(`  Parole:  POST ${base}/api/parole/applications/:id/submit-consent`);
+
     openLoginPage(config.port);
+    startParoleEligibilityJob({ runOnStart: true });
 
   });
 
