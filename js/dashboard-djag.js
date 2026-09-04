@@ -5,81 +5,184 @@
 
   const panelTitles = {
     overview: ['Overview', 'DJAG Parole Clerk — application review and hearings'],
-    prisoners: ['Prisoner Search', 'View prisoner records (read-only — maintained by PNGCS)'],
-    applications: ['Review Applications', 'Review PNGCS submissions and documentation'],
-    forms: ['Forms', 'Access and complete parole application forms'],
-    'pre-parole': ['Pre-Parole Reports', 'Prepare and manage Form 4 reports'],
-    reports: ['Reports', 'Operational and hearing reports'],
-    hearings: ['Hearing Management', 'Schedule and manage parole hearings'],
+    prisoners: ['Prisoner Records', 'View prisoner records (read-only — maintained by PNGCS)'],
+    eligibility: ['Eligibility Verification', 'View parole eligibility status nationwide'],
+    applications: ['Parole Applications', 'Review PNGCS submissions and advance the legal workflow'],
     notifications: ['Notifications', 'Application and workflow alerts'],
+    reports: ['Operational Reports', 'Pre-parole and hearing reports'],
+    hearings: ['Hearing Calendar', 'Schedule and manage parole board hearings'],
     profile: ['Profile', 'Your account information'],
   };
 
   function djagApps() {
-    return PMSStorage.getParoleApplications().filter((a) => a.status !== 'Draft');
+    return typeof PMSStorage.getApplicationsForDjagClerk === 'function'
+      ? PMSStorage.getApplicationsForDjagClerk()
+      : PMSStorage.getParoleApplications().filter((a) => a.status !== 'Draft' || PMSStorage.needsDjagForm2Ppr(a));
+  }
+
+  function form2ActionLabel(app) {
+    if (PMSStorage.needsDjagForm2Ppr(app)) {
+      return '<span class="eligible-tag">Form 2 — PPR pending</span>';
+    }
+    return formsSummary(app);
+  }
+
+  function scopePrisoners() {
+    return PMSRBAC.filterPrisonersForUser(actor, PMSStorage.getPrisoners());
+  }
+
+  const FORM_WORKFLOW = [
+    { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', prereqs: [] },
+    { n: 2, key: 'form2', label: 'Form 2 — Assessment (PPR)', prereqs: ['form1'] },
+    { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', prereqs: ['form1', 'form2'] },
+    { n: 4, key: 'form4', label: 'Form 4 — Pre-Parole Report', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', prereqs: ['form1', 'form2', 'form3'] },
+  ];
+
+  function prereqsMet(checks, prereqs) {
+    return prereqs.every((k) => checks[k]);
+  }
+
+  function findApplicationForPrisoner(prisonerId) {
+    if (!prisonerId) return null;
+    return djagApps().find((a) => a.prisonerId === prisonerId && !['Approved', 'Refused', 'Released'].includes(a.status)) || null;
+  }
+
+  function getActiveFormNumber(app, checks) {
+    if (PMSStorage.needsDjagForm2Ppr(app)) return 2;
+    for (const f of FORM_WORKFLOW) {
+      if (checks[f.key]) continue;
+      if (!prereqsMet(checks, f.prereqs)) continue;
+      if (PMSRBAC.canAccessForm(actor, f.n, 'edit')) return f.n;
+    }
+    return null;
+  }
+
+  function resolveWorkflowFormForPrisoner(prisonerId) {
+    const app = findApplicationForPrisoner(prisonerId);
+    if (!app) return { formN: null, appId: null, label: 'No application', openReview: false };
+
+    if (PMSStorage.needsDjagForm2Ppr(app)) {
+      return { formN: 2, appId: app.id, label: 'Form 2 — PPR section' };
+    }
+
+    const checks = PMSStorage.getFormCompletionSummary(app).checks;
+    const activeFormNumber = getActiveFormNumber(app, checks);
+    if (activeFormNumber) {
+      const def = FORM_WORKFLOW.find((f) => f.n === activeFormNumber);
+      return { formN: activeFormNumber, appId: app.id, label: def?.label || `Form ${activeFormNumber}` };
+    }
+
+    for (const f of FORM_WORKFLOW) {
+      if (checks[f.key]) continue;
+      if (!prereqsMet(checks, f.prereqs)) continue;
+      if (PMSRBAC.canAccessForm(actor, f.n, 'edit')) {
+        return { formN: f.n, appId: app.id, label: f.label };
+      }
+    }
+
+    for (const f of FORM_WORKFLOW) {
+      if (!prereqsMet(checks, f.prereqs)) continue;
+      if (PMSRBAC.canAccessForm(actor, f.n, 'view')) {
+        return { formN: f.n, appId: app.id, label: f.label };
+      }
+    }
+
+    return { formN: null, appId: app.id, label: 'Review application', openReview: true };
+  }
+
+  function openPrisonerWorkflowForm(prisonerId) {
+    const target = resolveWorkflowFormForPrisoner(prisonerId);
+    if (target.openReview && target.appId) {
+      openReview(target.appId);
+      return;
+    }
+    if (!target.appId || !target.formN) return;
+    PMSForms.openForm(target.formN, target.appId);
   }
 
   async function refresh(panel) {
     await PMSStorage.ensureLoaded();
     PMSUI.updateNotifBadge(actor);
-    ({ overview: renderOverview, prisoners: renderPrisoners, applications: renderApps, reports: renderReports,
-       hearings: renderHearings, notifications: renderNotifications })[panel]?.();
-  }
-
-  function renderPrisoners() {
-    const q = document.getElementById('djag-prisoner-search').value.trim().toLowerCase();
-    const list = PMSRBAC.filterPrisonersForUser(actor, PMSStorage.getPrisoners())
-      .filter((p) => !q || `${p.firstName} ${p.lastName} ${p.prisonerNumber}`.toLowerCase().includes(q));
-    document.getElementById('djag-prisoners-tbody').innerHTML = list.map((p) =>
-      `<tr><td>${PMSUI.esc(p.prisonerNumber)}</td><td>${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</td><td>${PMSUI.instName(p.institutionId)}</td><td>${PMSUI.esc(p.offense)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(p.status)}">${PMSUI.esc(p.status)}</span></td><td><a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">View Case File</a></td></tr>`
-    ).join('') || '<tr><td colspan="6" class="empty-state">No matching prisoners.</td></tr>';
+    ({
+      overview: renderOverview,
+      prisoners: renderPrisoners,
+      eligibility: renderEligibility,
+      applications: renderApplications,
+      reports: renderReports,
+      hearings: renderHearings,
+      notifications: renderNotifications,
+    })[panel]?.();
   }
 
   function formsSummary(app) {
     const s = PMSStorage.getFormCompletionSummary(app);
-    return `${s.completed}/5 complete`;
+    return `${s.completed}/5 forms complete`;
   }
 
   function renderOverview() {
     const apps = djagApps();
-    const isSecretary = actor.role === 'DJAG Secretary';
-    document.getElementById('stat-submitted').textContent = isSecretary
-      ? apps.filter((a) => a.status === 'Pre-Parole Report Prepared').length
-      : apps.filter((a) => !PMSStorage.isForm2Complete(a.formData?.form2) && a.formData?.form2).length;
-    document.getElementById('stat-review').textContent = isSecretary
-      ? PMSStorage.getEscalations().filter((e) => e.type === 'hearing_overdue' || e.type === 'hearing_deadline').length
-      : apps.filter((a) => a.status === 'Submitted' || a.status === 'Under DJAG Review').length;
-    document.getElementById('stat-reports').textContent = isSecretary
-      ? apps.filter((a) => a.status === 'Pending Board Review' && !PMSStorage.requiredBoardAssessmentsComplete(a)).length
-      : apps.filter((a) => PMSStorage.isForm2Complete(a.formData?.form2)).length;
-    document.getElementById('stat-hearings').textContent = isSecretary
-      ? PMSStorage.getHearings().filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).length
-      : apps.filter((a) => a.status === 'Pending Commander Review').length;
-    PMSUI.renderBarChart('chart-pipeline', [
-      { label: 'Submitted', value: apps.filter((a) => a.status === 'Submitted').length },
-      { label: 'Under Review', value: apps.filter((a) => a.status === 'Under DJAG Review').length },
-      { label: 'Report Ready', value: apps.filter((a) => a.status === 'Pre-Parole Report Prepared').length },
-      { label: 'Hearing', value: apps.filter((a) => a.status === 'Hearing Scheduled').length },
-      { label: 'Board Review', value: apps.filter((a) => a.status === 'Pending Board Review').length },
-    ], 'var(--color-navy)');
+    const prisoners = scopePrisoners();
+
+    document.getElementById('stat-eligible').textContent = apps.filter((a) => !['Approved', 'Refused', 'Released'].includes(a.status)).length;
+    document.getElementById('stat-prisoners').textContent = apps.filter((a) => ['Submitted', 'Under DJAG Review'].includes(a.status)).length;
+    document.getElementById('stat-drafts').textContent = apps.filter((a) => PMSStorage.needsDjagForm2Ppr(a)).length;
+    document.getElementById('stat-notifications').textContent = PMSStorage.getUnreadCountForUser(actor);
+
+    const notifs = PMSStorage.getNotificationsForUser(actor).slice(0, 5);
+    document.getElementById('overview-notifications').innerHTML = `
+      <div class="overview-row"><strong>Submitted from PNGCS</strong><span class="meta">${apps.filter((a) => a.status === 'Submitted').length} cases</span></div>
+      <div class="overview-row"><strong>Under DJAG review</strong><span class="meta">${apps.filter((a) => a.status === 'Under DJAG Review').length}</span></div>
+      <div class="overview-row"><strong>Hearings scheduled</strong><span class="meta">${PMSStorage.getHearings().filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).length}</span></div>
+      ${notifs.length ? notifs.map((n) => `<div class="overview-row overview-row--${n.read ? 'read' : 'unread'}"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('') : ''}`;
+
+    if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
+  }
+
+  function renderPrisoners() {
+    const q = document.getElementById('prisoner-search').value.trim().toLowerCase();
+    const list = scopePrisoners().filter((p) => !q || `${p.firstName} ${p.lastName} ${p.prisonerNumber}`.toLowerCase().includes(q));
+    document.getElementById('prisoners-tbody').innerHTML = list.map((p) => {
+      const prog = PMSStorage.getPrisonerProgress(p);
+      return `<tr class="${prog.eligible ? 'row-eligible' : ''}"><td>${PMSUI.esc(p.prisonerNumber)}</td><td>${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</td><td>${PMSUI.instName(p.institutionId)}</td><td>${PMSUI.fmtDate(p.sentenceStartDate)}</td><td>${PMSUI.fmtDate(p.sentenceEndDate)}</td><td>${PMSUI.progressBar(p)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(p.status)}">${PMSUI.esc(p.status)}</span></td><td><a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">View</a></td></tr>`;
+    }).join('') || '<tr><td colspan="8" class="empty-state">No records.</td></tr>';
+  }
+
+  function renderEligibility() {
+    document.getElementById('eligibility-rule').textContent = PMSStorage.getSettings().paroleEligibilityLabel;
+    document.getElementById('eligibility-tbody').innerHTML = scopePrisoners().map((p) => {
+      const prog = PMSStorage.getPrisonerProgress(p);
+      const app = findApplicationForPrisoner(p.id);
+      const workflow = resolveWorkflowFormForPrisoner(p.id);
+      const canOpenWorkflow = !!app;
+      const nameCell = canOpenWorkflow
+        ? `<a href="#" class="eligibility-prisoner-link" data-open-prisoner-form="${PMSUI.esc(p.id)}" title="Open ${PMSUI.esc(workflow.label)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)} (${PMSUI.esc(p.prisonerNumber)})</a>`
+        : `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)} (${PMSUI.esc(p.prisonerNumber)})`;
+      const formStatus = app
+        ? `<span class="meta">${PMSUI.esc(workflow.label)}</span>`
+        : '<span class="meta">No application</span>';
+      const actions = app
+        ? (workflow.formN
+          ? `<button type="button" class="btn-icon" data-open-prisoner-form="${PMSUI.esc(p.id)}">Continue Form ${workflow.formN}</button>`
+          : `<button type="button" class="btn-icon" data-review="${PMSUI.esc(app.id)}">Review</button>`)
+        : '—';
+      return `<tr class="${prog.eligible ? 'row-eligible' : ''}"><td>${nameCell}</td><td>${PMSUI.fmtDate(p.sentenceStartDate)}</td><td>${Math.floor(prog.totalMonths / 12)}y ${prog.totalMonths % 12}m</td><td>${prog.percent.toFixed(0)}%</td><td>${PMSUI.fmtDate(prog.eligibilityDate)}${prog.eligible ? ' <span class="eligible-tag">ELIGIBLE</span>' : ''}</td><td>${PMSUI.esc(p.status)}</td><td>${formStatus}</td><td>${actions}</td></tr>`;
+    }).join('');
   }
 
   function appRow(a) {
     const p = PMSStorage.getPrisonerById(a.prisonerId);
-    return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td>${PMSUI.instName(a.institutionId)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${formsSummary(a)}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td><a href="${p ? PMSRBAC.prisonerProfileUrl(p.id) : '#'}" class="btn-icon">Case File</a> <button type="button" class="btn-icon" data-review="${a.id}">Review</button></td></tr>`;
+    const pprBtn = PMSStorage.needsDjagForm2Ppr(a)
+      ? `<button type="button" class="btn-icon" data-open-form="2" data-app="${a.id}">Open Form 2</button> `
+      : '';
+    return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${form2ActionLabel(a)}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td>${pprBtn}<button type="button" class="btn-icon" data-review="${a.id}">Review</button> ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}</td></tr>`;
   }
 
-  function renderApps() {
-    document.getElementById('apps-tbody').innerHTML = djagApps().map(appRow).join('') || '<tr><td colspan="6" class="empty-state">No applications.</td></tr>';
+  function renderApplications() {
+    document.getElementById('applications-tbody').innerHTML = djagApps().map(appRow).join('') || '<tr><td colspan="5" class="empty-state">No applications.</td></tr>';
   }
 
   function renderReports() {
-    const apps = djagApps().filter((a) => ['Under DJAG Review', 'Pre-Parole Report Prepared', 'Hearing Scheduled', 'Pending Board Review'].includes(a.status));
-    document.getElementById('reports-tbody').innerHTML = apps.map((a) => {
-      const s = PMSStorage.getFormCompletionSummary(a);
-      const p = PMSStorage.getPrisonerById(a.prisonerId);
-      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td>${s.checks.form4 ? 'Form 4 complete' : 'Pending'}</td><td>${formsSummary(a)}</td><td><button type="button" class="btn-icon" data-open-form="4" data-app="${a.id}">Form 4</button> <button type="button" class="btn-icon" data-review="${a.id}">Review</button></td></tr>`;
-    }).join('') || '<tr><td colspan="4" class="empty-state">No reports in progress.</td></tr>';
     if (typeof PMSReports !== 'undefined') PMSReports.mount('reports-body', 'reports-filter-bar', actor);
   }
 
@@ -88,16 +191,11 @@
     const highlightId = PMSUI.getDeepLinkParam('hearing');
     document.getElementById('hearings-tbody').innerHTML = PMSStorage.getHearings().map((h) => {
       const p = PMSStorage.getPrisonerById(h.prisonerId);
-      const app = h.applicationId ? PMSStorage.getApplicationById(h.applicationId) : null;
-      const deadline = app ? PMSStorage.getHearingDeadlineInfo(app) : null;
-      const deadlineCell = deadline
-        ? `<span class="${deadline.overdue ? 'text-danger' : deadline.warning ? 'text-warning' : ''}">${deadline.scheduledDate ? PMSUI.fmtDate(deadline.scheduledDate) : `${deadline.daysRemaining}d left`}${deadline.overdue ? ' · OVERDUE' : ''}</span>`
-        : '—';
       const appLink = h.applicationId
         ? `<button type="button" class="btn-icon" data-review="${PMSUI.esc(h.applicationId)}">${PMSUI.esc(h.applicationId)}</button>`
         : '—';
       const rowClass = highlightId === h.id ? 'row-highlight' : '';
-      return `<tr data-hearing-id="${PMSUI.esc(h.id)}" class="${rowClass}"><td>${PMSUI.fmtDate(h.scheduledDate)} ${h.scheduledTime || ''}</td><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : PMSUI.prisonerName(h.prisonerId)}</td><td>${appLink}</td><td>${deadlineCell}</td><td>${PMSUI.esc(h.location)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(h.status)}">${PMSUI.esc(h.status)}</span></td><td><a href="${PMSRBAC.prisonerProfileUrl(h.prisonerId)}" class="btn-icon">Case File</a> <button type="button" class="btn-icon" data-complete-hearing="${PMSUI.esc(h.id)}">Complete</button></td></tr>`;
+      return `<tr data-hearing-id="${PMSUI.esc(h.id)}" class="${rowClass}"><td>${PMSUI.fmtDate(h.scheduledDate)} ${h.scheduledTime || ''}</td><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : PMSUI.prisonerName(h.prisonerId)}</td><td>${appLink}</td><td>${PMSUI.esc(h.location)}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(h.status)}">${PMSUI.esc(h.status)}</span></td><td><a href="${PMSRBAC.prisonerProfileUrl(h.prisonerId)}" class="btn-icon">Case File</a> <button type="button" class="btn-icon" data-complete-hearing="${PMSUI.esc(h.id)}">Complete</button></td></tr>`;
     }).join('') || '<tr><td colspan="6" class="empty-state">No hearings scheduled.</td></tr>';
     if (highlightId) PMSUI.highlightDeepLinkRow(`[data-hearing-id="${CSS.escape(highlightId)}"]`);
   }
@@ -111,7 +209,12 @@
     return PMSStorage.PAROLE_FORMS.map((f) => {
       const key = `form${f.number}`;
       const done = s.checks[key];
-      return `<li class="${done ? 'form-done' : 'form-pending'}">${PMSUI.esc(f.name)}: ${done ? 'Complete' : 'Incomplete'} ${f.number <= 4 ? `<button type="button" class="btn-icon btn-sm" data-open-form="${f.number}" data-app="${app.id}">Open</button>` : ''}</li>`;
+      const canView = PMSRBAC.canAccessForm(actor, f.number, 'view');
+      const canEdit = PMSRBAC.canAccessForm(actor, f.number, 'edit');
+      const openBtn = canView
+        ? `<button type="button" class="btn-icon btn-sm" data-open-form="${f.number}" data-app="${app.id}">${canEdit && !done ? 'Open' : 'View'}</button>`
+        : '';
+      return `<li class="${done ? 'form-done' : 'form-pending'}">${PMSUI.esc(f.name)}: ${done ? 'Complete' : 'Incomplete'} ${openBtn}</li>`;
     }).join('');
   }
 
@@ -132,6 +235,15 @@
     document.getElementById('review-modal').showModal();
   }
 
+  function openHearingPortal() {
+    const eligible = djagApps().filter((a) => ['Pre-Parole Report Prepared'].includes(a.status));
+    if (eligible.length === 1) {
+      window.location.href = `forms/hearing-portal.html?appId=${encodeURIComponent(eligible[0].id)}`;
+      return;
+    }
+    window.location.href = 'forms/hearing-portal.html';
+  }
+
   PMSSidebar.init({
     user: actor,
     activePanel: 'overview',
@@ -141,15 +253,9 @@
   PMSUI.bindModalClose();
   PMSUI.bindNotificationPanel('notification-list', actor, () => refresh('notifications'));
 
-  document.getElementById('djag-prisoner-search').addEventListener('input', () => renderPrisoners());
-  document.getElementById('btn-schedule-hearing').addEventListener('click', () => {
-    const eligible = djagApps().filter((a) => ['Pre-Parole Report Prepared'].includes(a.status));
-    if (eligible.length === 1) {
-      window.location.href = `forms/hearing-portal.html?appId=${encodeURIComponent(eligible[0].id)}`;
-      return;
-    }
-    window.location.href = 'forms/hearing-portal.html';
-  });
+  document.getElementById('prisoner-search').addEventListener('input', () => renderPrisoners());
+  document.getElementById('btn-schedule-hearing').addEventListener('click', openHearingPortal);
+  document.getElementById('btn-schedule-hearing-overview')?.addEventListener('click', openHearingPortal);
 
   document.getElementById('btn-verify-docs').addEventListener('click', async () => {
     const appId = document.getElementById('review-app-id').value;
@@ -172,8 +278,7 @@
   });
 
   document.getElementById('btn-prepare-report').addEventListener('click', () => {
-    const appId = document.getElementById('review-app-id').value;
-    PMSForms.openForm(4, appId);
+    PMSForms.openForm(4, document.getElementById('review-app-id').value);
   });
 
   document.getElementById('btn-send-board').addEventListener('click', async () => {
@@ -186,6 +291,12 @@
   });
 
   document.addEventListener('click', (e) => {
+    const prisonerFormBtn = e.target.closest('[data-open-prisoner-form]');
+    if (prisonerFormBtn) {
+      e.preventDefault();
+      openPrisonerWorkflowForm(prisonerFormBtn.dataset.openPrisonerForm);
+      return;
+    }
     if (e.target.closest('[data-review]')) openReview(e.target.closest('[data-review]').dataset.review);
     if (e.target.closest('[data-open-form]')) {
       const btn = e.target.closest('[data-open-form]');
@@ -194,18 +305,12 @@
     if (e.target.closest('[data-read]')) return;
     if (e.target.closest('[data-complete-hearing]')) {
       const h = PMSStorage.getHearingById(e.target.closest('[data-complete-hearing]').dataset.completeHearing);
-      PMSStorage.saveHearing({ ...h, status: 'Completed' }, actor);
-      if (h.applicationId) {
-        try { PMSStorage.transitionApplication(h.applicationId, 'Pending Board Review', actor, 'Hearing completed — pending board decision'); } catch (_) { /* ok */ }
+      if (h && confirm('Mark this hearing as completed?')) {
+        PMSStorage.saveHearing({ ...h, status: 'Completed' }, actor);
+        refresh('hearings');
       }
-      refresh('hearings');
     }
   });
 
-  if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) {
-    refresh('overview');
-  } else {
-    const appId = PMSUI.getDeepLinkParam('app');
-    if (appId) setTimeout(() => openReview(appId), 0);
-  }
+  if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');
 })();

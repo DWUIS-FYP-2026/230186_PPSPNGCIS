@@ -16,7 +16,7 @@
 
     eligibility: ['Eligibility Verification', 'Verify parole eligibility per legal requirements'],
 
-    applications: ['Parole Applications', 'Prepare Forms 1–5 and submit to DJAG'],
+    applications: ['Parole Applications', 'Prepare Forms 1–3 and submit to DJAG'],
 
     forms: ['Forms 1–5', 'Prepare and manage parole application forms'],
 
@@ -223,6 +223,47 @@
     return null;
   }
 
+  function findApplicationForPrisoner(prisonerId) {
+    if (!prisonerId) return null;
+    return scopeApps().find((a) => a.prisonerId === prisonerId && !['Approved', 'Refused'].includes(a.status)) || null;
+  }
+
+  function resolveWorkflowFormForPrisoner(prisonerId) {
+    const app = findApplicationForPrisoner(prisonerId);
+    if (!app) return { formN: 1, appId: null, label: 'Form 1 — start application' };
+
+    const checks = PMSStorage.getFormCompletionSummary(app).checks;
+    const activeFormNumber = getActiveFormNumber(checks);
+    if (activeFormNumber) {
+      const def = FORM_WORKFLOW.find((f) => f.n === activeFormNumber);
+      return { formN: activeFormNumber, appId: app.id, label: def?.label || `Form ${activeFormNumber}` };
+    }
+
+    for (const f of FORM_WORKFLOW) {
+      if (checks[f.key]) continue;
+      if (!prereqsMet(checks, f.prereqs)) continue;
+      const canView = PMSRBAC.canAccessForm(actor, f.n, 'view');
+      const canEdit = PMSRBAC.canAccessForm(actor, f.n, 'edit');
+      if (canView || canEdit) return { formN: f.n, appId: app.id, label: f.label };
+    }
+
+    for (const f of FORM_WORKFLOW) {
+      if (!checks[f.key]) return { formN: f.n, appId: app.id, label: f.label };
+    }
+
+    const last = FORM_WORKFLOW[FORM_WORKFLOW.length - 1];
+    return { formN: last.n, appId: app.id, label: last.label };
+  }
+
+  function openPrisonerWorkflowForm(prisonerId) {
+    const target = resolveWorkflowFormForPrisoner(prisonerId);
+    if (!target.appId) {
+      openNewApplication(prisonerId);
+      return;
+    }
+    PMSForms.openForm(target.formN, target.appId);
+  }
+
   function updateAppStatusBanner(app, prisonerId) {
     const banner = document.getElementById('app-status-banner');
     if (!banner) return;
@@ -333,7 +374,9 @@
       <div class="overview-row"><strong>Form 1 completed</strong><span class="meta">${apps.filter((a) => PMSStorage.isForm1Complete(a.formData?.form1)).length} cases</span></div>
       <div class="overview-row"><strong>Active cases</strong><span class="meta">${apps.filter((a) => !['Approved', 'Refused', 'Released', 'Draft'].includes(a.status)).length}</span></div>
       <div class="overview-row"><strong>Requiring action</strong><span class="meta">${apps.filter((a) => ['Draft', 'Returned for Correction', 'Pending Commander Review'].includes(a.status)).length}</span></div>
-      ${notifs.length ? notifs.map((n) => `<div class="overview-row"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('') : ''}`;
+      ${notifs.length ? notifs.map((n) => `<div class="overview-row overview-row--${n.read ? 'read' : 'unread'}"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('') : ''}`;
+
+    if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
 
   }
 
@@ -370,8 +413,20 @@
     document.getElementById('eligibility-tbody').innerHTML = scopePrisoners().map((p) => {
 
       const prog = PMSStorage.getPrisonerProgress(p);
+      const app = findApplicationForPrisoner(p.id);
+      const workflow = resolveWorkflowFormForPrisoner(p.id);
+      const canOpenForm = prog.eligible || !!app;
+      const nameCell = canOpenForm
+        ? `<a href="#" class="eligibility-prisoner-link" data-open-prisoner-form="${PMSUI.esc(p.id)}" title="Open ${PMSUI.esc(workflow.label)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)} (${PMSUI.esc(p.prisonerNumber)})</a>`
+        : `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)} (${PMSUI.esc(p.prisonerNumber)})`;
+      const formStatus = app
+        ? `<span class="meta">${PMSUI.esc(workflow.label)}</span>`
+        : (prog.eligible ? '<span class="meta">No application yet</span>' : '—');
+      const startAction = prog.eligible && !app
+        ? `<button type="button" class="btn-icon" data-start-app="${PMSUI.esc(p.id)}">Start Application</button>`
+        : (app ? `<button type="button" class="btn-icon" data-open-prisoner-form="${PMSUI.esc(p.id)}">Continue Form ${workflow.formN}</button>` : '—');
 
-      return `<tr class="${prog.eligible ? 'row-eligible' : ''}"><td><a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)} (${PMSUI.esc(p.prisonerNumber)})</a></td><td>${PMSUI.fmtDate(p.sentenceStartDate)}</td><td>${Math.floor(prog.totalMonths / 12)}y ${prog.totalMonths % 12}m</td><td>${prog.percent.toFixed(0)}%</td><td>${PMSUI.fmtDate(prog.eligibilityDate)}${prog.eligible ? ' <span class="eligible-tag">ELIGIBLE</span>' : ''}</td><td>${PMSUI.esc(p.status)}</td><td>${prog.eligible ? `<button type="button" class="btn-icon" data-start-app="${p.id}">Start Application</button>` : '—'}</td></tr>`;
+      return `<tr class="${prog.eligible ? 'row-eligible' : ''}"><td>${nameCell}</td><td>${PMSUI.fmtDate(p.sentenceStartDate)}</td><td>${Math.floor(prog.totalMonths / 12)}y ${prog.totalMonths % 12}m</td><td>${prog.percent.toFixed(0)}%</td><td>${PMSUI.fmtDate(prog.eligibilityDate)}${prog.eligible ? ' <span class="eligible-tag">ELIGIBLE</span>' : ''}</td><td>${PMSUI.esc(p.status)}</td><td>${formStatus}</td><td>${startAction}</td></tr>`;
 
     }).join('');
 
@@ -643,6 +698,13 @@
 
 
   document.addEventListener('click', (e) => {
+
+    const prisonerFormBtn = e.target.closest('[data-open-prisoner-form]');
+    if (prisonerFormBtn) {
+      e.preventDefault();
+      openPrisonerWorkflowForm(prisonerFormBtn.dataset.openPrisonerForm);
+      return;
+    }
 
     if (e.target.closest('[data-start-app]')) openNewApplication(e.target.closest('[data-start-app]').dataset.startApp);
 

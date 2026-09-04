@@ -43,10 +43,23 @@ const PMSRBAC = (() => {
       decisions: { create: false, read: true },
       assessments: { create: false, read: true },
       reports: ['operational', 'prisoner', 'application', 'institutional'],
-      notifications: ['eligibility', 'application', 'returned', 'institutional'],
+      notifications: ['eligibility', 'application', 'returned', 'institutional', 'verification'],
+    },
+    'Jail Commander': {
+      modules: ['overview', 'prisoners', 'applications', 'verification', 'release', 'notifications', 'forms'],
+      prisoners: { create: false, read: true, update: false, delete: false, scope: 'institution', export: false },
+      applications: { create: false, read: true, update: true, delete: false, scope: 'institution' },
+      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
+      users: { create: false, read: false, update: false, delete: false },
+      institutions: { create: false, read: true, update: false, delete: false },
+      hearings: { create: false, read: true, update: false },
+      decisions: { create: false, read: true },
+      assessments: { create: false, read: true },
+      reports: ['institutional'],
+      notifications: ['verification', 'institutional', 'returned', 'application', 'release', 'board_review'],
     },
     'DJAG Parole Clerk': {
-      modules: ['overview', 'prisoners', 'applications', 'cases', 'reports', 'hearings', 'notifications', 'forms', 'documents'],
+      modules: ['overview', 'prisoners', 'applications', 'cases', 'eligibility', 'reports', 'hearings', 'notifications', 'forms', 'documents'],
       prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: true },
       applications: { create: false, read: true, update: true, delete: false, scope: 'all' },
       forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'edit', 5: 'view' },
@@ -232,6 +245,27 @@ const PMSRBAC = (() => {
     return ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(normalizeRole(user?.role));
   }
 
+  /** Form 2 section ownership: DAR/DDR = CS (PNGCS) Parole Clerk; PPR = DJAG Parole Clerk. */
+  function canEditForm2Section(user, sectionKey) {
+    const role = normalizeRole(user?.role);
+    const key = String(sectionKey || '').toLowerCase();
+    if (key === 'ddr' || key === 'dar') {
+      return ['PNGCS Parole Clerk', 'System Administrator'].includes(role);
+    }
+    if (key === 'ppr') {
+      return ['DJAG Parole Clerk', 'System Administrator'].includes(role);
+    }
+    return false;
+  }
+
+  function canVerifyApplication(user) {
+    return ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
+  }
+
+  function canAuthorizeRelease(user) {
+    return ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
+  }
+
   function canAccessForm(user, formNumber, mode = 'view') {
     const p = getPermissions(user);
     if (!p || !p.forms) return false;
@@ -282,6 +316,7 @@ const PMSRBAC = (() => {
     escalation: 'hearing',
     approval: 'board_review',
     board_review: 'board_review',
+    release: 'release',
     contract: 'system',
     document: 'application',
     system: 'system',
@@ -320,6 +355,9 @@ const PMSRBAC = (() => {
     requirePrisonerModify,
     canEditForms,
     canSubmitAssessment,
+    canEditForm2Section,
+    canVerifyApplication,
+    canAuthorizeRelease,
     canAccessForm,
     canAccessModule,
     scopeFilter,

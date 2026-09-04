@@ -9,6 +9,7 @@ const PMSSidebar = (() => {
     'System Administrator': { logo: 'images/PNG CS Logo.jpg', subtitle: 'System Administrator', wide: false },
     'CS Parole Officer': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Parole Officer', wide: false },
     'PNGCS Parole Clerk': { logo: 'images/PNG CS Logo.jpg', subtitle: 'PNGCS Parole Clerk', wide: false },
+    'Jail Commander': { logo: 'images/PNG CS Logo.jpg', subtitle: 'Jail Commander', wide: false },
     'DJAG Parole Clerk': { logo: 'images/djag.png', subtitle: 'DJAG Parole Clerk', wide: true },
     'DJAG Secretary': { logo: 'images/djag.png', subtitle: 'DJAG Secretary', wide: true },
     'Doctor': { logo: 'images/djag.png', subtitle: 'Board Medical Assessor', wide: true },
@@ -35,6 +36,11 @@ const PMSSidebar = (() => {
       { label: 'Operations', ids: ['guarantors', 'documents', 'notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
+    'Jail Commander': [
+      { label: 'Dashboard', ids: ['overview'] },
+      { label: 'Institution', ids: ['verification', 'release', 'applications', 'prisoners'] },
+      { label: 'Operations', ids: ['notifications', 'profile'] },
+    ],
     'CS Parole Officer': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1'] },
@@ -44,9 +50,9 @@ const PMSSidebar = (() => {
     ],
     'DJAG Parole Clerk': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Parole Management', ids: ['applications', 'form2', 'form4'] },
+      { label: 'Parole Management', ids: ['applications', 'eligibility', 'form2', 'form4'] },
       { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings', 'hearings-upcoming'] },
+      { label: 'Hearings', ids: ['hearing-portal', 'hearings'] },
       { label: 'Operations', ids: ['documents', 'notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
@@ -105,7 +111,7 @@ const PMSSidebar = (() => {
     ],
     'PNGCS Parole Clerk': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
       { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
       { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
       { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
@@ -119,13 +125,13 @@ const PMSSidebar = (() => {
     ],
     'DJAG Parole Clerk': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
+      { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
       { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
       { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Search', icon: 'fi fi-rr-search' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'hearings-upcoming', module: 'hearings', panel: 'hearings', label: 'Upcoming Hearings', icon: 'fi fi-rr-clock' },
       { id: 'documents', module: 'documents', panel: 'prisoners', label: 'Documents', icon: 'fi fi-rr-folder-open' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
@@ -133,7 +139,7 @@ const PMSSidebar = (() => {
     ],
     'CS Parole Officer': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
       { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
       { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
@@ -167,7 +173,7 @@ const PMSSidebar = (() => {
     'Parole Board Member': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
-      { id: 'applications', module: 'cases', panel: 'applications', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
       { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
       { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
@@ -175,6 +181,15 @@ const PMSSidebar = (() => {
       { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Decisions', icon: 'fi fi-rr-gavel' },
       { id: 'history', module: 'history', panel: 'history', label: 'Decision History', icon: 'fi fi-rr-time-past' },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
+      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
+    ],
+    'Jail Commander': [
+      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'verification', module: 'verification', panel: 'verification', label: 'Case Verification', icon: 'fi fi-rr-shield-check' },
+      { id: 'release', module: 'release', panel: 'release', label: 'Authorize Release', icon: 'fi fi-rr-door-open' },
+      { id: 'applications', module: 'applications', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
@@ -216,27 +231,26 @@ const PMSSidebar = (() => {
   function renderNavItem(item, user) {
     const active = item.id === activeNavId ? ' active' : '';
     const badge = item.badge ? '<span class="nav-badge nav-notif-badge hidden">0</span>' : '';
-    const icon = item.icon ? `<i class="${item.icon} nav-icon" aria-hidden="true"></i>` : '';
     const label = `<span class="nav-label">${esc(item.label)}</span>`;
-    const initial = esc((item.label || '?').charAt(0));
+    const title = ` title="${esc(item.label)}"`;
 
     if (linkPanels && item.panel && !item.href) {
-      return `<a href="${panelLink(item, user)}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}" data-initial="${initial}">${icon}${label}${badge}</a>`;
+      return `<a href="${panelLink(item, user)}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${label}${badge}</a>`;
     }
 
     if (item.id === 'profile') {
       const href = profileHref(user);
       if (href) {
-        return `<a href="${href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}" data-initial="${initial}">${icon}${label}</a>`;
+        return `<a href="${href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${label}</a>`;
       }
-      return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="profile" data-initial="${initial}">${icon}${label}</button>`;
+      return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="profile"${title}>${label}</button>`;
     }
 
     if (item.href) {
-      return `<a href="${item.href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}" data-initial="${initial}">${icon}${label}</a>`;
+      return `<a href="${item.href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${label}</a>`;
     }
 
-    return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="${item.panel}" data-initial="${initial}">${icon}${label}${badge}</button>`;
+    return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="${item.panel}"${title}>${label}${badge}</button>`;
   }
 
   function renderGroupedNav(user) {
@@ -253,23 +267,29 @@ const PMSSidebar = (() => {
   }
 
   function renderSidebar(user, roleLabel) {
-    const brand = ROLE_BRAND[user.role] || { logo: 'images/PNG CS Logo.jpg', subtitle: user.role, wide: false };
+    const brand = ROLE_BRAND[user.role] || { subtitle: user.role };
     const subtitle = roleLabel || brand.subtitle;
-    const logoClass = brand.wide ? 'sidebar-logo sidebar-logo--wide' : 'sidebar-logo';
     const inst = user.institutionId && PMSStorage.getInstitutionById(user.institutionId);
     const initial = (user.firstName || user.username || '?').charAt(0).toUpperCase();
+    const logosHtml = typeof PMSBrand !== 'undefined'
+      ? PMSBrand.logoBadgesHtml('', true).replace('pms-brand-logos', 'pms-brand-logos sidebar-brand-logos')
+      : `<div class="pms-brand-logos pms-brand-logos--compact sidebar-brand-logos" aria-hidden="true">
+          <span class="pms-logo-badge pms-logo-badge--pngcs"><img src="images/PNG CS Logo.jpg" alt="PNGCS"></span>
+          <span class="pms-logo-divider"></span>
+          <span class="pms-logo-badge pms-logo-badge--djag"><img src="images/djag_logo.jpg" alt="DJAG"></span>
+        </div>`;
 
     const navHtml = renderGroupedNav(user);
 
     return `
       <div class="sidebar-header">
         <button type="button" class="sidebar-collapse-btn" id="sidebar-collapse-btn" aria-label="Toggle sidebar">
-          <i class="fi fi-rr-menu-burger" aria-hidden="true"></i>
+          <span class="sidebar-collapse-btn__bars" aria-hidden="true"><span></span><span></span><span></span></span>
         </button>
         <div class="sidebar-brand">
-          <img src="${brand.logo}" alt="PMS" class="${logoClass}">
+          ${logosHtml}
           <div class="sidebar-brand-text">
-            <strong>PMS</strong>
+            <strong>Parole Management System</strong>
             <span>${esc(subtitle)}</span>
           </div>
         </div>
@@ -285,8 +305,7 @@ const PMSSidebar = (() => {
             ${user.boardPosition ? `<span class="user-inst board-position" id="board-position">${esc(user.boardPosition)}</span>` : '<span class="user-inst board-position hidden" id="board-position"></span>'}
           </div>
         </div>
-        <button type="button" class="btn-logout" id="logout-btn" data-initial="L"><span class="nav-label">Logout</span></button>
-        <p class="pms-icon-attribution">Icons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noopener noreferrer">Flaticon</a></p>
+        <button type="button" class="btn-logout" id="logout-btn"><span class="nav-label">Sign out</span></button>
       </div>`;
   }
 
@@ -314,7 +333,7 @@ const PMSSidebar = (() => {
       btn.id = 'sidebar-mobile-toggle';
       btn.className = 'sidebar-mobile-toggle';
       btn.setAttribute('aria-label', 'Open navigation menu');
-      btn.innerHTML = '<i class="fi fi-rr-menu-burger" aria-hidden="true"></i><span>Menu</span>';
+      btn.innerHTML = '<span class="sidebar-mobile-toggle__label">Menu</span>';
       header.prepend(btn);
     }
 

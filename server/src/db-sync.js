@@ -51,7 +51,7 @@ async function loadAll() {
   ]);
 
   const demoPasswords = {};
-  credentials[0].forEach((row) => { demoPasswords[row.username] = row.password; });
+  (credentials[0] || []).forEach((row) => { demoPasswords[row.username] = row.password; });
 
   const settings = settingsRows[0][0]?.settings
     ? jsonParse(settingsRows[0][0].settings, buildSeedData().seed.settings)
@@ -70,7 +70,7 @@ async function loadAll() {
   return {
     settings,
     institutions: institutions[0].map(mapInstitutionRow),
-    users: users[0].map(mapUserRow),
+    users: (users[0] || []).map(mapUserRow),
     prisoners: prisoners[0].map((row) => {
       const tableDocs = docsByPrisoner[row.id] || [];
       const legacyDocs = jsonParse(row.documents, []);
@@ -311,4 +311,73 @@ async function seedIfEmpty(force = false) {
   }
 }
 
-module.exports = { loadAll, saveAll, seedIfEmpty, countInstitutions };
+/** Upsert seed users missing from an existing database (e.g. after adding Jail Commander). */
+async function syncMissingSeedUsers() {
+  const { seed, demoPasswords } = buildSeedData();
+  const conn = await pool.getConnection();
+  try {
+    const [existingUsers] = await conn.execute('SELECT id, username FROM users');
+    const ids = new Set(existingUsers.map((u) => u.id));
+    const usernames = new Set(existingUsers.map((u) => u.username.toLowerCase()));
+
+    await conn.execute(
+      'UPDATE users SET username = ?, email = ? WHERE LOWER(username) = ? OR LOWER(email) = ?',
+      ['pkoroma@cs.gov.pg', 'pkoroma@cs.gov.pg', 'commander@cs.gov.pg', 'commander@cs.gov.pg'],
+    ).catch(() => {});
+
+    const [legacyCreds] = await conn.execute(
+      'SELECT username FROM user_credentials WHERE LOWER(username) = ?',
+      ['commander@cs.gov.pg'],
+    );
+    if (legacyCreds.length) {
+      await conn.execute(
+        'UPDATE user_credentials SET username = ? WHERE LOWER(username) = ?',
+        ['pkoroma@cs.gov.pg', 'commander@cs.gov.pg'],
+      );
+    }
+
+    let added = 0;
+    for (const user of seed.users) {
+      if (ids.has(user.id) || usernames.has(user.username.toLowerCase())) continue;
+      await conn.execute(
+        `INSERT INTO users
+          (id, officer_id, employee_number, username, email, first_name, last_name, role, \`rank\`,
+           institution_id, province, position, phone, employment_status, account_status,
+           board_position, status, date_appointed, last_login, profile_photo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          user.id, user.officerId || null, user.employeeNumber || null, user.username,
+          user.email || null, user.firstName, user.lastName, user.role, user.rank || null,
+          user.institutionId || null, user.province || null, user.position || null,
+          user.phone || null, user.employmentStatus || null, user.accountStatus || null,
+          user.boardPosition || null, user.status || 'Active', user.dateAppointed || null,
+          user.lastLogin ? toMysqlDatetime(user.lastLogin) : null, user.profilePhoto || null,
+        ],
+      );
+      const password = demoPasswords[user.username] || 'Password123!';
+      await conn.execute(
+        'INSERT INTO user_credentials (username, password) VALUES (?, ?) ON DUPLICATE KEY UPDATE password = VALUES(password)',
+        [user.username, password],
+      );
+      added += 1;
+    }
+
+    const pkoroma = seed.users.find((u) => u.username === 'pkoroma@cs.gov.pg');
+    if (pkoroma) {
+      await conn.execute(
+        'INSERT INTO user_credentials (username, password) VALUES (?, ?) ON DUPLICATE KEY UPDATE password = VALUES(password)',
+        [pkoroma.username, demoPasswords[pkoroma.username] || 'Password123!'],
+      );
+      await conn.execute(
+        'UPDATE institutions SET commander_id = ? WHERE id = ?',
+        [pkoroma.id, 'INS-000001'],
+      );
+    }
+
+    return { added, message: added ? `Added ${added} missing seed user(s).` : 'All seed users present.' };
+  } finally {
+    conn.release();
+  }
+}
+
+module.exports = { loadAll, saveAll, seedIfEmpty, syncMissingSeedUsers, countInstitutions };

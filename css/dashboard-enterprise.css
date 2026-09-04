@@ -20,37 +20,37 @@
 
 .sidebar-brand strong {
   font-family: var(--font-ui);
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
 }
 
 .sidebar-brand span {
-  color: var(--sidebar-label);
+  color: rgb(255 255 255 / 0.62);
   font-size: 0.6875rem;
 }
 
 .role-badge {
   display: inline-block;
-  margin-top: 0.35rem;
-  padding: 0.15rem 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.125rem 0.4375rem;
   font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 999px;
-  background: var(--role-accent-soft);
-  color: var(--sidebar-label);
-  border: 1px solid rgb(200 146 42 / 0.35);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.08);
+  color: rgb(255 255 255 / 0.72);
+  border: 1px solid rgb(255 255 255 / 0.12);
 }
 
 .nav-section-label {
-  padding: 0 1.25rem 0.5rem;
+  padding: 0.25rem 1.125rem 0.375rem;
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgb(255 255 255 / 0.45);
+  color: rgb(255 255 255 / 0.42);
 }
 
 .nav-item {
@@ -61,19 +61,20 @@
 }
 
 .nav-item.active {
-  background: var(--sidebar-active);
+  background: rgb(255 255 255 / 0.08);
   border-left-color: var(--sidebar-accent);
   color: var(--sidebar-text);
 }
 
 .nav-item:hover {
-  background: var(--sidebar-hover);
+  background: rgb(255 255 255 / 0.06);
 }
 
 .user-avatar {
-  background: var(--role-gradient);
+  background: rgb(255 255 255 / 0.12);
   color: #fff;
-  border: 2px solid rgb(217 164 65 / 0.5);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 6px;
 }
 
 /* ---- Workspace header ---- */
@@ -418,8 +419,50 @@
   background: var(--color-danger-bg);
 }
 
+.workspace-notif-item.unread {
+  background: #f0f6fc;
+  border-left: 3px solid var(--color-gold, #c8922a);
+}
+
+.workspace-notif-item.read {
+  background: #f8fafc;
+  border-left: 3px solid transparent;
+  opacity: 0.88;
+}
+
+.workspace-notif-item.read .workspace-notif-item__title {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.workspace-notif-item.read .workspace-notif-item__meta {
+  color: #94a3b8;
+}
+
+.notification-item.unread {
+  background: #f0f6fc;
+  border-left: 3px solid var(--sidebar-accent, #1a6b3c);
+}
+
+.notification-item.read {
+  background: #f8fafc;
+  border-left: 3px solid transparent;
+  opacity: 0.88;
+}
+
+.notification-item.read .notification-body h3 {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.notification-item.read .notification-body p,
+.notification-item.read .notification-meta {
+  color: #94a3b8;
+}
+
 .notification-item.resolved {
   opacity: 0.72;
+  background: #f1f5f9;
 }
 
 .notification-icon i {

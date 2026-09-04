@@ -1,15 +1,4 @@
 const PMSUI = (() => {
-  const DASHBOARD_URLS = {
-    'System Administrator': 'admin-dashboard.html',
-    'CS Parole Officer': 'dashboard-pngcs.html',
-    'PNGCS Parole Clerk': 'dashboard-pngcs.html',
-    'DJAG Parole Clerk': 'dashboard-djag.html',
-    'DJAG Secretary': 'dashboard-board.html',
-    'Doctor': 'dashboard-board.html',
-    'CS Commissioner': 'dashboard-board.html',
-    'Parole Board Member': 'dashboard-board.html',
-  };
-
   const NOTIF_ICONS = {
     application: 'fi fi-rr-document',
     hearing: 'fi fi-rr-calendar',
@@ -158,7 +147,8 @@ const PMSUI = (() => {
   function resolveNotificationLink(n, user) {
     if (!n || !user) return null;
     if (n.linkHref) return n.linkHref;
-    const dash = DASHBOARD_URLS[user.role] || window.location.pathname.split('/').pop();
+    const dash = (typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(user.role) : null)
+      || window.location.pathname.split('/').pop();
     if (n.applicationId) return `${dash}?panel=applications&app=${encodeURIComponent(n.applicationId)}`;
     if (n.hearingId) return `${dash}?panel=hearings&hearing=${encodeURIComponent(n.hearingId)}`;
     if (n.prisonerId && typeof PMSRBAC !== 'undefined') return PMSRBAC.prisonerProfileUrl(n.prisonerId);
@@ -172,11 +162,12 @@ const PMSUI = (() => {
     const metaParts = [fmtDateTime(n.createdAt)];
     if (n.type === 'eligibility' && n.eligibleDate) metaParts.push(`Eligible ${fmtDate(n.eligibleDate)}`);
     if (n.institutionId) metaParts.push(instName(n.institutionId));
-    const cls = n.resolved ? ' resolved' : n.read ? '' : ' unread';
-    return `<article class="notification-item${cls}">
+    const stateClass = n.resolved ? 'resolved' : n.read ? 'read' : 'unread';
+    const cls = ` ${stateClass}`;
+    return `<article class="notification-item${cls}" data-notif-id="${esc(n.id)}">
       <div class="notification-icon"><i class="${icon}" aria-hidden="true"></i></div>
       <div class="notification-body">
-        <h3>${esc(n.title)}</h3>
+        <h3>${esc(n.title)}${!n.read && !n.resolved ? '<span class="notification-unread-dot" aria-hidden="true"></span>' : ''}</h3>
         <p>${esc(n.message)}</p>
         <div class="notification-meta">${esc(metaParts.join(' · '))}</div>
       </div>
@@ -224,6 +215,15 @@ const PMSUI = (() => {
         const n = PMSStorage.getNotifications().find((x) => x.id === openLink.dataset.openNotif);
         if (n && !n.read) PMSStorage.markNotificationRead(n.id, user);
         onUpdate?.();
+        return;
+      }
+      const row = e.target.closest('.notification-item[data-notif-id]');
+      if (row && !e.target.closest('button, a')) {
+        const n = PMSStorage.getNotifications().find((x) => x.id === row.dataset.notifId);
+        if (n && !n.read) {
+          PMSStorage.markNotificationRead(n.id, user);
+          onUpdate?.();
+        }
         return;
       }
       if (e.target.closest('[data-mark-all-read]')) {
