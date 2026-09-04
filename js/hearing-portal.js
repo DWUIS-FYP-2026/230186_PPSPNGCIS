@@ -6,9 +6,9 @@ const PMSHearingPortal = (() => {
     'DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator',
     'Parole Board Member', 'Doctor', 'CS Commissioner',
   ];
-  const SCHEDULE_ROLES = ['DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator'];
+  const SCHEDULE_ROLES = ['DJAG Secretary', 'System Administrator'];
   const DECIDE_ROLES = ['Parole Board Member', 'System Administrator'];
-  const ASSESS_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
+  const ASSESS_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary', 'Parole Board Member'];
   const PANEL_ROLES = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const SCHEDULABLE_STATUSES = ['Pre-Parole Report Prepared', 'Hearing Scheduled'];
   const CLOSED_STATUSES = ['Refused', 'Approved', 'Released', 'Parole Granted', 'Parole Refused'];
@@ -191,55 +191,66 @@ const PMSHearingPortal = (() => {
   }
 
   function renderVotes(app) {
-    const assessments = PMSStorage.getBoardAssessments(app.id);
-    const panelUsers = PMSStorage.getUsers().filter((u) => PANEL_ROLES.includes(u.role) && u.status === 'Active');
+    const progress = PMSStorage.getBoardAssessmentProgress(app);
+    const assessments = PMSStorage.getBoardAssessments(app.id).filter((a) => a.submissionStatus === 'Submitted');
     let approve = 0;
     let deny = 0;
-    let abstain = 0;
+    let defer = 0;
 
     assessments.forEach((a) => {
-      if (a.score >= THRESHOLD) approve += 1;
-      else if (a.score != null) deny += 1;
-      else abstain += 1;
+      if (a.vote === 'Approved') approve += 1;
+      else if (a.vote === 'Refused') deny += 1;
+      else if (a.vote === 'Deferred') defer += 1;
     });
-
-    if (app.boardDecision?.outcome === 'Parole Granted') approve += 1;
-    else if (app.boardDecision?.outcome === 'Parole Refused') deny += 1;
-    else if (app.status === 'Deferred') abstain += 1;
 
     $('vote-approve').textContent = approve;
     $('vote-deny').textContent = deny;
-    $('vote-abstain').textContent = abstain;
-    $('vote-meta').textContent = `${assessments.length} of ${panelUsers.length} recorded`;
+    $('vote-abstain').textContent = defer || progress.pendingRoles.length;
+    $('vote-meta').textContent = progress.complete
+      ? 'All panel assessments recorded'
+      : `${progress.submitted} of ${progress.total} assessments recorded`;
+
+    const progressEl = $('assessment-progress');
+    if (progressEl) {
+      progressEl.hidden = false;
+      progressEl.innerHTML = PMSStorage.BOARD_ASSESSOR_ROLES.map((role) => {
+        const a = assessments.find((x) => x.role === role);
+        const cls = a ? 'assessment-progress__item assessment-progress__item--done' : 'assessment-progress__item';
+        const label = a ? `${role}: ${a.vote}${a.score != null ? ` · ${a.score}%` : ''} · ${PMSUI.fmtDate(a.submittedAt)}` : `${role}: pending`;
+        return `<span class="${cls}">${esc(label)}</span>`;
+      }).join('');
+    }
   }
 
   function renderPanel(app) {
-    const assessments = PMSStorage.getBoardAssessments(app.id);
-    const byAssessor = Object.fromEntries(assessments.map((a) => [a.assessorId, a]));
-    const members = PMSStorage.getUsers().filter((u) => PANEL_ROLES.includes(u.role) && u.status === 'Active');
+    const assessments = PMSStorage.getBoardAssessments(app.id).filter((a) => a.submissionStatus === 'Submitted');
+    const byRole = Object.fromEntries(assessments.map((a) => [a.role, a]));
 
-    $('panel-members').innerHTML = members.map((u) => {
-      const a = byAssessor[u.id];
-      let voteHtml = '<span class="pending">Pending</span>';
+    $('panel-members').innerHTML = PMSStorage.BOARD_ASSESSOR_ROLES.map((role) => {
+      const a = byRole[role];
+      const user = a?.assessorId
+        ? PMSStorage.getUserById(a.assessorId)
+        : PMSStorage.getUsers().find((u) => u.role === role && u.status === 'Active');
+      const name = a?.assessorName || (user ? `${user.firstName} ${user.lastName}` : role);
+      const position = a?.boardPosition || user?.boardPosition || role;
+      let voteHtml = '<span class="pending">Awaiting submission</span>';
       if (a) {
-        voteHtml = a.score >= THRESHOLD
-          ? '<span class="approved">Approve</span>'
-          : '<span class="denied">Deny</span>';
-      } else if (app.boardDecision && app.boardDecision.decidedBy === u.id) {
-        voteHtml = app.boardDecision.outcome === 'Parole Granted'
-          ? '<span class="approved">Approve</span>'
-          : '<span class="denied">Deny</span>';
+        voteHtml = a.vote === 'Approved'
+          ? `<span class="approved">${a.vote}${a.score != null ? ` · ${a.score}%` : ''}</span>`
+          : a.vote === 'Deferred'
+            ? `<span class="pending">${a.vote}</span>`
+            : `<span class="denied">${a.vote}${a.score != null ? ` · ${a.score}%` : ''}</span>`;
       }
 
-      return `<div class="panel-member">
-        <div class="avatar">${esc(initials(u.firstName, u.lastName))}</div>
+      return `<div class="panel-member${a ? ' panel-member--done' : ''}">
+        <div class="avatar">${esc(initials(name.split(' ')[0], name.split(' ')[1] || ''))}</div>
         <div class="info">
-          <div class="name">${esc(u.firstName)} ${esc(u.lastName)}</div>
-          <div class="role">${esc(u.boardPosition || u.role)}</div>
+          <div class="name">${esc(name)}</div>
+          <div class="role">${esc(position)}</div>
         </div>
         <div class="vote-indicator">${voteHtml}</div>
       </div>`;
-    }).join('') || '<div class="log-item empty">No panel members configured.</div>';
+    }).join('');
   }
 
   function renderAudit(app) {
@@ -273,7 +284,28 @@ const PMSHearingPortal = (() => {
     }
   }
 
+  function renderScheduleReadOnly(app, hearing) {
+    const area = $('schedule-readonly');
+    if (!area) return;
+    area.hidden = canSchedule;
+    if (canSchedule) return;
+
+    const pending = isScheduleCandidate(app) && !hearing;
+    area.innerHTML = `
+      <label class="section-title">Hearing Schedule</label>
+      <p class="schedule-readonly-note">Only the <strong>DJAG Secretary</strong> may set the parole hearing date. You can review the dossier and record assessments here.</p>
+      ${hearing ? `
+        <dl class="schedule-readonly-details">
+          <div><dt>Date</dt><dd>${esc(PMSUI.fmtDate(hearing.scheduledDate))}${hearing.scheduledTime ? ` · ${esc(hearing.scheduledTime)}` : ''}</dd></div>
+          <div><dt>Venue</dt><dd>${esc(hearing.location || '—')}</dd></div>
+          <div><dt>Status</dt><dd>${esc(hearing.status || 'Scheduled')}</dd></div>
+        </dl>` : pending
+        ? '<p class="schedule-readonly-pending">Awaiting DJAG Secretary to schedule this hearing (within 14 days of Form 3 verification).</p>'
+        : '<p class="schedule-readonly-pending">No hearing date set for this case.</p>'}`;
+  }
+
   function renderScheduleForm(app, hearing) {
+    renderScheduleReadOnly(app, hearing);
     const area = $('schedule-area');
     area.hidden = !canSchedule;
     if (!canSchedule) return;
@@ -299,33 +331,99 @@ const PMSHearingPortal = (() => {
     $('btn-save-draft').hidden = false;
   }
 
+  function updateOpenFormButton(app) {
+    const btn = $('btn-open-form');
+    if (!btn) return;
+    const outcome = PMSStorage.getBoardDecisionOutcome(app);
+    const progress = PMSStorage.getBoardAssessmentProgress(app);
+    const show = progress.complete && PMSStorage.isBoardDecisionFinalized(app);
+    btn.hidden = !show;
+    if (!show) return;
+    if (outcome === 'Parole Granted') {
+      btn.textContent = 'Open Form 4 — Parole Granted';
+    } else if (outcome === 'Parole Refused') {
+      btn.textContent = 'Open Form 5 — Parole Refused';
+    }
+  }
+
   function renderDecisionArea(app) {
     const area = $('decision-area');
-    const inReview = ['Hearing Scheduled', 'Pending Board Review'].includes(app.status);
+    const progress = PMSStorage.getBoardAssessmentProgress(app);
+    const outcome = PMSStorage.getBoardDecisionOutcome(app);
+    const finalized = PMSStorage.isBoardDecisionFinalized(app);
+    const inReview = ['Hearing Scheduled', 'Pending Board Review', 'Parole Granted', 'Parole Refused', 'Pending Approval', 'Refused'].includes(app.status);
+    const mine = PMSStorage.getBoardAssessmentForActor(app, actor);
+    const noteEl = $('decision-area-note');
+    const assessorForm = $('assessor-form');
+    const chairForm = $('chair-decision-form');
     const select = $('hearing-decision');
+    const recordBtn = $('btn-record-decision');
 
-    if (canAssess && !canDecide) {
-      area.hidden = !inReview;
-      select.innerHTML = `
-        <option value="">Select action…</option>
-        <option value="assess">Submit Board Assessment</option>`;
-      $('btn-record-decision').disabled = !inReview;
-      $('btn-open-form').hidden = true;
+    area.hidden = !inReview && !finalized;
+    if (!inReview && !finalized) return;
+
+    if (finalized && progress.complete) {
+      assessorForm.hidden = true;
+      chairForm.hidden = true;
+      recordBtn.hidden = true;
+      noteEl.hidden = false;
+      noteEl.textContent = `Board decision finalized: ${outcome}. ${outcome === 'Parole Granted' ? 'Complete Form 4 to issue the parole grant.' : 'Complete Form 5 to record the refusal.'}`;
+      updateOpenFormButton(app);
       return;
     }
 
+    recordBtn.hidden = false;
+
+    if (canAssess) {
+      assessorForm.hidden = false;
+      chairForm.hidden = true;
+      updateOpenFormButton(app);
+      noteEl.hidden = false;
+      noteEl.textContent = progress.complete
+        ? 'All board votes are in. The outcome will be finalized automatically.'
+        : `Panel progress: ${progress.submitted}/${progress.total}. Cast your Approve, Deny, or Defer vote when ready — other members vote separately.`;
+
+      const statusEl = $('assessor-form-status');
+      if (mine?.submissionStatus === 'Submitted') {
+        statusEl.hidden = false;
+        statusEl.innerHTML = `<strong>Your vote recorded:</strong> ${mine.vote}${mine.score != null ? ` (${mine.score}%)` : ''} on ${PMSUI.fmtDate(mine.submittedAt)}. You may update it below if needed.`;
+        $('assessment-vote').value = mine.vote || '';
+        $('assessment-score').value = mine.score ?? '';
+        $('assessment-feedback').value = mine.feedback || '';
+      } else {
+        statusEl.hidden = true;
+        $('assessment-vote').value = mine?.vote || '';
+        $('assessment-score').value = mine?.score ?? '';
+        $('assessment-feedback').value = mine?.feedback || '';
+      }
+
+      recordBtn.textContent = mine?.submissionStatus === 'Submitted' ? 'Update My Vote' : 'Submit My Vote';
+      recordBtn.disabled = false;
+      return;
+    }
+
+    assessorForm.hidden = true;
+    chairForm.hidden = false;
     select.innerHTML = `
       <option value="">Select decision…</option>
       <option value="Approved">Approve Parole</option>
       <option value="Refused">Deny Parole</option>
       <option value="Deferred">Defer / Continue</option>`;
-    $('btn-open-form').hidden = false;
+    updateOpenFormButton(app);
 
-    area.hidden = !inReview;
-    $('btn-record-decision').disabled = !canDecide || !inReview || !!app.boardDecision;
-    select.disabled = !canDecide || !!app.boardDecision;
-    $('hearing-denial-reason').disabled = !canDecide || !!app.boardDecision;
-    $('hearing-conditions').disabled = !canDecide || !!app.boardDecision;
+    if (!progress.complete) {
+      noteEl.hidden = false;
+      noteEl.textContent = `Final decision locked until all panel assessments are submitted. Awaiting: ${progress.pendingRoles.join(', ')}.`;
+    } else {
+      noteEl.hidden = true;
+    }
+
+    const finalRecorded = !!app.boardDecision;
+    recordBtn.textContent = 'Record Final Decision';
+    recordBtn.disabled = !canDecide || finalRecorded || !progress.complete;
+    select.disabled = !canDecide || finalRecorded || !progress.complete;
+    $('hearing-denial-reason').disabled = !canDecide || finalRecorded || !progress.complete;
+    $('hearing-conditions').disabled = !canDecide || finalRecorded || !progress.complete;
   }
 
   function selectCase(index) {
@@ -346,10 +444,14 @@ const PMSHearingPortal = (() => {
     $('offender-facility').textContent = institution?.name || '—';
 
     const score = PMSStorage.calculateParoleScore(app);
+    const outcome = PMSStorage.getBoardDecisionOutcome(app);
     const badge = $('eligibility-badge');
-    if (app.boardDecision?.outcome === 'Parole Refused' || app.status === 'Refused') {
+    if (outcome === 'Parole Refused' || app.status === 'Refused' || app.status === 'Parole Refused') {
       badge.className = 'eligibility-badge denied';
       badge.textContent = 'Refused';
+    } else if (outcome === 'Parole Granted' || app.status === 'Parole Granted') {
+      badge.className = 'eligibility-badge eligible';
+      badge.textContent = `Granted · ${score.calculation || 'Board approved'}`;
     } else if (score.complete && score.meetsThreshold) {
       badge.className = 'eligibility-badge eligible';
       badge.textContent = `Eligible · Score ${score.percent}%`;
@@ -464,16 +566,25 @@ const PMSHearingPortal = (() => {
     const denialReason = $('hearing-denial-reason').value.trim();
     const conditions = $('hearing-conditions').value.trim();
 
-    if (decision === 'assess' && canAssess) {
-      const score = prompt('Enter assessment score (0–100):', '85');
-      if (score == null) return;
+    if (canAssess) {
+      const vote = $('assessment-vote').value;
+      const scoreVal = $('assessment-score').value;
+      const feedback = $('assessment-feedback').value.trim();
+      if (!vote) {
+        showToast('Please select Approve, Deny, or Defer.');
+        $('assessment-vote').focus();
+        return;
+      }
+      if (vote === 'Refused' && !feedback) {
+        showToast('Please provide reasons when denying parole.');
+        $('assessment-feedback').focus();
+        return;
+      }
+      const payload = { vote, feedback, recommendation: vote };
+      if (scoreVal !== '' && !Number.isNaN(Number(scoreVal))) payload.score = Number(scoreVal);
       try {
-        PMSStorage.saveBoardAssessment(currentAppId, {
-          score: Number(score),
-          feedback: denialReason || '',
-          recommendation: Number(score) >= THRESHOLD ? 'Recommend' : 'Do not recommend',
-        }, actor);
-        showToast('Assessment submitted.');
+        PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
+        showToast('Your vote has been recorded. Other members may vote when ready.');
         selectCase(currentIndex);
       } catch (err) {
         showToast(err.message);
@@ -561,15 +672,25 @@ const PMSHearingPortal = (() => {
     $('btn-open-form')?.addEventListener('click', () => {
       if (!currentAppId) return;
       const app = PMSStorage.getApplicationById(currentAppId);
-      const score = app ? PMSStorage.calculateParoleScore(app) : { meetsThreshold: false };
+      const outcome = app ? PMSStorage.getBoardDecisionOutcome(app) : null;
+      const formN = outcome === 'Parole Granted' ? 4 : outcome === 'Parole Refused' ? 5 : null;
+      if (!formN) {
+        showToast('Board decision is not finalized yet.');
+        return;
+      }
       if (typeof PMSForms !== 'undefined') {
-        PMSForms.openForm(score.meetsThreshold ? 4 : 5, currentAppId);
+        PMSForms.openForm(formN, currentAppId);
       } else if (typeof PMSFormWorkflow !== 'undefined') {
-        PMSFormWorkflow.openForm(score.meetsThreshold ? 4 : 5, currentAppId);
+        PMSFormWorkflow.openForm(formN, currentAppId);
       }
     });
 
     $('btn-reset-decision')?.addEventListener('click', () => {
+      if (canAssess && !canDecide) {
+        $('assessment-score').value = '';
+        $('assessment-feedback').value = '';
+        return;
+      }
       $('hearing-decision').value = '';
       $('hearing-denial-reason').value = '';
       $('hearing-conditions').value = '';
@@ -583,9 +704,13 @@ const PMSHearingPortal = (() => {
     actor = PMSAuth.requireRole(PORTAL_ROLES);
     if (!actor) return;
 
-    canSchedule = SCHEDULE_ROLES.includes(actor.role);
+    canSchedule = typeof PMSRBAC !== 'undefined'
+      ? PMSRBAC.canScheduleHearing(actor)
+      : SCHEDULE_ROLES.includes(actor.role);
     canDecide = DECIDE_ROLES.includes(actor.role);
-    canAssess = ASSESS_ROLES.includes(actor.role);
+    canAssess = typeof PMSRBAC !== 'undefined'
+      ? PMSRBAC.canSubmitAssessment(actor)
+      : ASSESS_ROLES.includes(actor.role);
     currentAppId = new URLSearchParams(location.search).get('appId') || '';
 
     $('user-label').textContent = actor.boardPosition

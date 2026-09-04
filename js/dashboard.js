@@ -85,7 +85,7 @@
   function updateBadge() {
     const c = PMSStorage.getUnreadCountForUser(actor);
     document.querySelectorAll('.nav-notif-badge, #nav-notif-badge, #header-notif-badge').forEach((b) => {
-      b.textContent = c;
+      b.textContent = PMSUI.formatStat(c);
       b.classList.toggle('hidden', c === 0);
     });
     PMSWorkspace?.syncNotifBadge?.(c);
@@ -179,12 +179,9 @@
     const prisoners = PMSStorage.getPrisoners();
     const today = new Date().toISOString().split('T')[0];
 
-    const setStat = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = val;
-    };
+    const setStat = (id, val) => PMSUI.setStat(id, val);
     setStat('stat-users', stats.totalUsers);
-    setStat('stat-officers', stats.totalOfficers);
+    setStat('stat-officers', stats.totalStaff);
     setStat('stat-prisoners', stats.totalPrisoners);
     setStat('stat-institutions', stats.totalInstitutions);
     setStat('stat-applications', stats.activeParoleApplications);
@@ -197,11 +194,8 @@
     setStat('stat-board-expired', stats.expiredBoardMembers);
     setStat('stat-notifications', PMSStorage.getUnreadCountForUser(actor));
 
-    const statHearings = document.getElementById('stat-hearings');
-    if (statHearings) statHearings.textContent = hearings.filter((h) => h.status === 'Scheduled').length;
-
-    const statPending = document.getElementById('stat-pending-decisions');
-    if (statPending) statPending.textContent = apps.filter((a) => a.status === 'Pending Board Review').length;
+    setStat('stat-hearings', stats.upcomingHearings);
+    setStat('stat-pending-decisions', apps.filter((a) => a.status === 'Pending Board Review').length);
 
     const insts = PMSStorage.getInstitutions();
     renderBarChart('chart-institutions', insts.map((i) => ({
@@ -210,9 +204,9 @@
 
     const statusGroups = [
       { label: 'Submitted', value: apps.filter((a) => a.status === 'Submitted').length },
-      { label: 'Under Review', value: apps.filter((a) => ['Under DJAG Review', 'Pending Board Review', 'Hearing Scheduled'].includes(a.status)).length },
-      { label: 'Approved', value: apps.filter((a) => a.status === 'Approved').length },
-      { label: 'Refused / Deferred', value: apps.filter((a) => ['Refused', 'Deferred'].includes(a.status)).length },
+      { label: 'Under Review', value: apps.filter((a) => ['Under DJAG Review', 'Pending Board Review', 'Hearing Scheduled', 'Pending Commander Review'].includes(a.status)).length },
+      { label: 'Granted / Approved', value: apps.filter((a) => ['Approved', 'Parole Granted', 'Pending Approval'].includes(a.status)).length },
+      { label: 'Refused / Deferred', value: apps.filter((a) => ['Refused', 'Parole Refused', 'Deferred'].includes(a.status)).length },
     ];
     renderBarChart('chart-applications', statusGroups, 'var(--pngcs-navy)');
 
@@ -223,9 +217,12 @@
     if (typeof PMSCharts !== 'undefined') {
       PMSCharts.renderDonut('chart-donut-applications', statusGroups.map((s) => s.label), statusGroups.map((s) => s.value));
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const year = new Date().getFullYear();
       const monthly = months.map((_, i) => apps.filter((a) => {
         const d = a.submittedAt || a.createdAt;
-        return d && new Date(d).getMonth() === i;
+        if (!d) return false;
+        const dt = new Date(d);
+        return dt.getFullYear() === year && dt.getMonth() === i;
       }).length);
       PMSCharts.renderLine('chart-line-monthly', months, monthly, 'Submissions');
     }

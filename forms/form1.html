@@ -10,12 +10,31 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <title>Form 1 - Parole Application | PNG Parole Board</title>
-  <link rel="stylesheet" href="../css/form1-parole.css">
+  <link rel="stylesheet" href="../css/forms.css">
+  <link rel="stylesheet" href="../css/mobile.css">
 </head>
-<body class="pms-form1-parole">
+<body class="pms-form-page pms-form-page--form1">
 
-  <div class="pms-page-toolbar no-print" data-pms-dashboard-btn></div>
+  <header class="page-header no-print">
+    <div class="header-top" data-pms-dashboard-btn></div>
+    <div class="header-main">
+      <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
+      <div class="header-title-block">
+        <div class="header-title">
+          <span class="gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
+          <h1>Form 1 — Parole Application</h1>
+          <p>Particulars of detainee eligible for parole</p>
+          <p class="form-meta">
+            <strong>Application ID:</strong> <span id="applicationId">—</span>
+            &nbsp;|&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
+          </p>
+        </div>
+      </div>
+      <span class="role-badge">Form 1</span>
+    </div>
+  </header>
 
+  <main class="page-main">
   <div id="selection-panel" class="selection-panel hidden">
     <h2>Select Eligible Detainee</h2>
     <p>Choose a detainee to generate Form 1 — Particulars of detainee eligible for parole.</p>
@@ -30,18 +49,8 @@
     </div>
   </div>
 
-  <div id="form1-root" class="container hidden">
+  <div id="form1-root" class="hidden">
     <div id="form-workflow-nav" class="no-print"></div>
-    <div class="header">
-      <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
-      <div class="badge">Government of Papua New Guinea</div>
-      <h1>Form 1 — Parole Application</h1>
-      <p class="subtitle">Particulars of detainee eligible for parole</p>
-      <p class="form-id">
-        <strong>Application ID:</strong> <span id="applicationId">—</span>
-        &nbsp;|&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
-      </p>
-    </div>
 
     <div class="status-bar no-print">
       <div class="status-item">
@@ -230,7 +239,7 @@
         </p>
       </div>
 
-      <div class="actions no-print">
+      <div class="actions no-print form-actions-row">
         <div class="left-btns">
           <button type="button" class="btn btn-primary" id="btnSave">Save Draft</button>
           <button type="button" class="btn btn-success" id="btnSubmit">Submit &amp; Record Consent</button>
@@ -248,6 +257,11 @@
       </div>
     </form>
   </div>
+  </main>
+
+  <footer class="page-footer">
+    PNG Parole Regulation – Form 1 (Parole Application) · Parole Act 1991
+  </footer>
 
   <script src="../js/pms-core.js"></script>
   <script>

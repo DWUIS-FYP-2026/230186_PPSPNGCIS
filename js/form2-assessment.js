@@ -22,6 +22,7 @@ const PMSForm2Assessment = (() => {
   let canEditDar = false;
   let pprLocked = false;
   let darLocked = false;
+  let activeReportSection = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -68,11 +69,63 @@ const PMSForm2Assessment = (() => {
   }
 
   function updateStatus(elementId, text, className) {
-    const el = $(elementId);
-    if (el) {
-      el.textContent = text;
-      el.className = `status-badge ${className}`;
+    const mirrorIds = elementId === 'darStatus' ? ['darStatus', 'darHubStatus']
+      : elementId === 'pprStatus' ? ['pprStatus', 'pprHubStatus']
+        : [elementId];
+    mirrorIds.forEach((id) => {
+      const el = $(id);
+      if (el) {
+        el.textContent = text;
+        el.className = `status-badge ${className}`;
+      }
+    });
+  }
+
+  function syncUrlSection(section) {
+    const params = new URLSearchParams(window.location.search);
+    if (section) params.set('section', section);
+    else params.delete('section');
+    const qs = params.toString();
+    window.history.replaceState({}, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  }
+
+  function updateFormActionsVisibility() {
+    const onHub = !activeReportSection;
+    $('btnPreview')?.classList.toggle('hidden', onHub);
+    document.body.classList.toggle('form2-view-workspace', !onHub);
+  }
+
+  function showReportsHub() {
+    activeReportSection = null;
+    $('reportsHub')?.classList.remove('hidden');
+    $('reportsWorkspace')?.classList.add('hidden');
+    $('darCard')?.classList.add('hidden');
+    $('pprCard')?.classList.add('hidden');
+    syncUrlSection(null);
+    updateFormActionsVisibility();
+  }
+
+  function openReportSection(section) {
+    const isPpr = section === 'ppr';
+    const isDar = section === 'dar' || section === 'ddr';
+    if (!isPpr && !isDar) return;
+
+    activeReportSection = isPpr ? 'ppr' : 'dar';
+    $('reportsHub')?.classList.add('hidden');
+    $('reportsWorkspace')?.classList.remove('hidden');
+    $('darCard')?.classList.toggle('hidden', !isDar);
+    $('pprCard')?.classList.toggle('hidden', !isPpr);
+
+    const title = $('reportsWorkspaceTitle');
+    if (title) {
+      title.textContent = isDar
+        ? 'Detainee Assessment Report (DAR)'
+        : 'Pre-Parole Report (PPR)';
     }
+
+    syncUrlSection(activeReportSection);
+    updateFormActionsVisibility();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function setupFileUpload(inputId, previewId) {
@@ -293,6 +346,15 @@ const PMSForm2Assessment = (() => {
     return true;
   }
 
+  function resolveApplicationForPrisoner(prisonerId, apps) {
+    const candidates = apps.filter((a) => a.prisonerId === prisonerId);
+    if (!candidates.length) return null;
+    const terminal = ['Approved', 'Refused', 'Released', 'Deferred'];
+    const active = candidates.filter((a) => !terminal.includes(a.status));
+    const pool = active.length ? active : candidates;
+    return pool.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0];
+  }
+
   async function saveDraft(sectionKey) {
     const isPpr = sectionKey === 'ppr';
     if (isPpr && !canEditPpr) {
@@ -303,14 +365,18 @@ const PMSForm2Assessment = (() => {
       showToast('Only CS Parole Clerk may edit the DAR section.', 'error');
       return;
     }
-    const raw = isPpr ? collectPPR() : collectDAR();
-    const mapped = isPpr ? mapPprForStorage(raw) : mapDarForStorage(raw);
-    const form2 = app.formData?.form2 || { sections: {} };
-    form2.sections = { ...(form2.sections || {}), [sectionKey]: { ...mapped, savedAt: new Date().toISOString() } };
-    PMSStorage.saveFormData(appId, 'form2', form2, actor);
-    app = PMSStorage.getApplicationById(appId);
-    updateStatus(isPpr ? 'pprStatus' : 'darStatus', 'IN PROGRESS', 'in-progress');
-    showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} draft saved.`, 'success');
+    try {
+      const raw = isPpr ? collectPPR() : collectDAR();
+      const mapped = isPpr ? mapPprForStorage(raw) : mapDarForStorage(raw);
+      const form2 = app.formData?.form2 || { sections: {} };
+      form2.sections = { ...(form2.sections || {}), [sectionKey]: { ...mapped, savedAt: new Date().toISOString() } };
+      PMSStorage.saveFormData(appId, 'form2', form2, actor);
+      app = PMSStorage.getApplicationById(appId);
+      updateStatus(isPpr ? 'pprStatus' : 'darStatus', 'IN PROGRESS', 'in-progress');
+      showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} draft saved.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Could not save draft.', 'error');
+    }
   }
 
   async function submitSection(sectionKey) {
@@ -354,6 +420,7 @@ const PMSForm2Assessment = (() => {
       checkBothSubmitted();
       if (!PMSStorage.isForm2Complete(app.formData?.form2)) {
         showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} submitted successfully.`, 'success');
+        showReportsHub();
       }
     } catch (err) {
       showToast(err.message || 'Submission failed.', 'error');
@@ -729,7 +796,18 @@ const PMSForm2Assessment = (() => {
     $('btnSubmitDar')?.addEventListener('click', () => submitSection('ddr'));
     $('btnEditDar')?.addEventListener('click', () => unlockSection('ddr'));
     $('btnSubmitBoth')?.addEventListener('click', submitBothReports);
-    $('btnPreview')?.addEventListener('click', () => window.print());
+    $('btnOpenDar')?.addEventListener('click', () => openReportSection('dar'));
+    $('btnOpenPpr')?.addEventListener('click', () => openReportSection('ppr'));
+    $('btnBackToHub')?.addEventListener('click', showReportsHub);
+    $('btnPreview')?.addEventListener('click', () => {
+      if (!activeReportSection) {
+        showToast('Open a report to preview or print.', 'info');
+        return;
+      }
+      document.body.classList.add(`form2-print-${activeReportSection}`);
+      window.print();
+      document.body.classList.remove(`form2-print-${activeReportSection}`);
+    });
     $('btnBackForm1')?.addEventListener('click', () => {
       if (typeof PMSFormWorkflow !== 'undefined' && appId) {
         PMSFormWorkflow.openForm(1, appId);
@@ -754,7 +832,7 @@ const PMSForm2Assessment = (() => {
       return;
     }
 
-    institution = PMSStorage.getInstitutionById(prisoner.institutionId);
+    institution = PMSStorage.getInstitutionById(prisoner.institutionId || app.institutionId);
     const role = normalizeRole(actor.role);
     canEditPpr = typeof PMSRBAC !== 'undefined'
       ? PMSRBAC.canEditForm2Section(actor, 'ppr')
@@ -762,6 +840,10 @@ const PMSForm2Assessment = (() => {
     canEditDar = typeof PMSRBAC !== 'undefined'
       ? PMSRBAC.canEditForm2Section(actor, 'ddr')
       : ['PNGCS Parole Clerk', 'System Administrator'].includes(role);
+
+    if (['Approved', 'Refused', 'Released'].includes(app.status)) {
+      showToast(`This case is already ${app.status.toLowerCase()}. Form 2 changes are saved for the record only.`, 'warning');
+    }
 
     if (typeof mountForm2PprSection === 'function') mountForm2PprSection();
 
@@ -772,6 +854,15 @@ const PMSForm2Assessment = (() => {
 
     if (typeof PMSFormWorkflow !== 'undefined') {
       PMSFormWorkflow.mountFormChrome(2, appId);
+    }
+
+    const sectionParam = new URLSearchParams(window.location.search).get('section');
+    if (sectionParam === 'ppr') {
+      openReportSection('ppr');
+    } else if (sectionParam === 'dar' || sectionParam === 'ddr') {
+      openReportSection('dar');
+    } else {
+      showReportsHub();
     }
 
     $('form2-root')?.classList.remove('hidden');
@@ -807,7 +898,7 @@ const PMSForm2Assessment = (() => {
     }
 
     $('selection-panel')?.classList.remove('hidden');
-    const apps = PMSStorage.getApplications().filter((a) => {
+    const apps = PMSStorage.getParoleApplications().filter((a) => {
       const fd = a.formData || {};
       return PMSStorage.isForm1Complete(fd.form1) || fd.form1?.status === 'submitted';
     });
@@ -816,7 +907,7 @@ const PMSForm2Assessment = (() => {
     PMSPrisonerCombobox.mount({
       prisonerList: PMSRBAC.filterPrisonersForUser(actor, prisoners),
       onSelect: async (prisonerId) => {
-        const match = apps.find((a) => a.prisonerId === prisonerId);
+        const match = resolveApplicationForPrisoner(prisonerId, apps);
         if (!match) return;
         window.history.replaceState({}, '', `${window.location.pathname}?appId=${encodeURIComponent(match.id)}`);
         await boot(match.id);

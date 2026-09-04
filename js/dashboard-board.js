@@ -5,7 +5,9 @@
 
   const isBoardMember = actor.role === 'Parole Board Member';
   const canAssess = PMSRBAC.canSubmitAssessment(actor);
-  const canScheduleHearings = ['DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator'].includes(actor.role);
+  const canScheduleHearings = typeof PMSRBAC !== 'undefined'
+    ? PMSRBAC.canScheduleHearing(actor)
+    : ['DJAG Secretary', 'System Administrator'].includes(actor.role);
 
   const panelTitles = {
     overview: ['Board Overview', canAssess && !isBoardMember ? `${actor.role} — assessment portal` : 'Parole Board — collective review and decision-making'],
@@ -69,12 +71,17 @@
   function renderOverview() {
     const pending = pendingDecisionApps();
     const apps = PMSStorage.getParoleApplications();
-    document.getElementById('stat-pending').textContent = apps.filter((a) => a.status === 'Pending Board Review').length;
-    document.getElementById('stat-hearings').textContent = PMSStorage.getHearings().filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).length;
-    document.getElementById('stat-awaiting').textContent = canScheduleHearings
+    const pendingReview = apps.filter((a) => a.status === 'Pending Board Review').length;
+    const hearings = PMSStorage.countUpcomingHearings();
+    const awaiting = canScheduleHearings
       ? apps.filter((a) => a.status === 'Pre-Parole Report Prepared').length
       : pending.length;
-    document.getElementById('stat-decided').textContent = apps.filter((a) => ['Approved', 'Deferred', 'Refused', 'Parole Granted', 'Parole Refused'].includes(a.status)).length;
+    const decided = apps.filter((a) => ['Approved', 'Deferred', 'Refused', 'Parole Granted', 'Parole Refused'].includes(a.status)).length;
+
+    PMSUI.setStat('stat-pending', pendingReview);
+    PMSUI.setStat('stat-hearings', hearings);
+    PMSUI.setStat('stat-awaiting', awaiting);
+    PMSUI.setStat('stat-decided', decided);
 
     const awaitingLabel = document.querySelector('#panel-overview .stat-card--featured .stat-label');
     if (awaitingLabel) {
@@ -95,8 +102,9 @@
 
     PMSUI.renderBarChart('chart-decisions', [
       { label: 'Approved', value: apps.filter((a) => a.status === 'Approved').length },
+      { label: 'Parole Granted', value: apps.filter((a) => a.status === 'Parole Granted').length },
       { label: 'Deferred', value: apps.filter((a) => a.status === 'Deferred').length },
-      { label: 'Refused', value: apps.filter((a) => a.status === 'Refused').length },
+      { label: 'Refused', value: apps.filter((a) => ['Refused', 'Parole Refused'].includes(a.status)).length },
     ], 'var(--color-navy)');
     if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
   }
@@ -116,10 +124,12 @@
       const months = p ? PMSStorage.getSentenceDurationMonths(p) : 0;
       const summary = PMSStorage.getFormCompletionSummary(a);
       const preParoleReady = summary.checks.form4 || !!a.formData?.form4?.investigationSummary || !!a.preParoleReport;
-      const score = PMSStorage.calculateParoleScore(a);
-      const formBtn = ['Hearing Scheduled', 'Pending Board Review'].includes(a.status)
-        ? ` <button type="button" class="btn-icon" data-open-form="${score.meetsThreshold ? 4 : 5}" data-app="${a.id}">Form ${score.meetsThreshold ? 4 : 5}</button> <button type="button" class="btn-icon" data-decide="${a.id}">Review Case</button>`
-        : '';
+      const outcome = PMSStorage.getBoardDecisionOutcome(a);
+      const formBtn = PMSStorage.isBoardDecisionFinalized(a)
+        ? ` <button type="button" class="btn-icon" data-open-form="${outcome === 'Parole Granted' ? 4 : 5}" data-app="${a.id}">Form ${outcome === 'Parole Granted' ? 4 : 5}</button>`
+        : (['Hearing Scheduled', 'Pending Board Review'].includes(a.status)
+          ? ` <button type="button" class="btn-icon" data-decide="${a.id}">Review Case</button>`
+          : '');
       const profileLink = p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : '';
       return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td>${PMSUI.instName(a.institutionId)}</td><td>${Math.floor(months / 12)}y ${months % 12}m</td><td>${preParoleReady ? 'Available' : '—'}</td><td>${summary.completed}/5</td><td>${profileLink}${formBtn}</td></tr>`;
     }).join('') || '<tr><td colspan="6" class="empty-state">No applications.</td></tr>';
@@ -147,23 +157,46 @@
 
   function renderDecisions() {
     if (canAssess) {
-      document.getElementById('decisions-list').innerHTML = pendingDecisionApps().map((a) => {
-        const p = PMSStorage.getPrisonerById(a.prisonerId);
-        const score = PMSStorage.calculateParoleScore(a);
-        const mine = PMSStorage.getBoardAssessments(a.id).find((x) => x.assessorId === actor.id);
-        return `<div class="decision-card"><strong>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</strong> — ${PMSUI.esc(a.caseNumber || a.id)}<br>
-          <span class="meta">Parole score: ${score.percent}% · ${mine ? 'Assessment submitted' : 'Assessment pending'}</span>
-          <button type="button" class="btn-primary btn-sm" data-assess="${a.id}">${mine ? 'Update Assessment' : 'Submit Assessment'}</button></div>`;
-      }).join('') || '<p class="empty-state">No applications awaiting your assessment.</p>';
+      const pending = pendingDecisionApps();
+      const submitted = PMSStorage.getParoleApplications().filter((a) =>
+        ['Hearing Scheduled', 'Pending Board Review'].includes(a.status)
+        && PMSStorage.hasSubmittedBoardAssessment(a, actor)
+      );
+      document.getElementById('decisions-list').innerHTML = `
+      <p class="toolbar-note">Each board member casts an independent Approve, Deny, or Defer vote when ready.</p>
+        ${pending.length ? `<h3 class="decisions-subheading">Awaiting your assessment</h3>${pending.map((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          const progress = PMSStorage.getBoardAssessmentProgress(a);
+          const score = PMSStorage.calculateParoleScore(a);
+          return `<div class="decision-card"><strong>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</strong> — ${PMSUI.esc(a.caseNumber || a.id)}<br>
+            <span class="meta">Panel progress: ${progress.submitted}/${progress.total} · Current score: ${score.percent}%${score.pendingRoles.length ? ` · Awaiting ${score.pendingRoles.join(', ')}` : ''}</span>
+            <a href="forms/hearing-portal.html?appId=${encodeURIComponent(a.id)}" class="btn-primary btn-sm">Submit My Assessment</a></div>`;
+        }).join('')}` : ''}
+        ${submitted.length ? `<h3 class="decisions-subheading">Your assessments submitted</h3>${submitted.map((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          const mine = PMSStorage.getBoardAssessmentForActor(a, actor);
+          const progress = PMSStorage.getBoardAssessmentProgress(a);
+          const outcome = PMSStorage.getBoardDecisionOutcome(a);
+          const formLink = PMSStorage.isBoardDecisionFinalized(a)
+            ? `<a href="forms/form${outcome === 'Parole Granted' ? 4 : 5}.html?appId=${encodeURIComponent(a.id)}" class="btn-primary btn-sm">Open Form ${outcome === 'Parole Granted' ? 4 : 5}</a>`
+            : (progress.complete ? '<span class="meta"> · Outcome finalizing…</span>' : '');
+          return `<div class="decision-card decision-card--done"><strong>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</strong> — ${PMSUI.esc(a.caseNumber || a.id)}<br>
+            <span class="meta">Your vote: ${mine?.vote || '—'} · Panel: ${progress.submitted}/${progress.total}${progress.complete && outcome ? ` · ${outcome}` : ''}</span>
+            <a href="forms/hearing-portal.html?appId=${encodeURIComponent(a.id)}" class="btn-outline btn-sm">Review / Update</a> ${formLink}</div>`;
+        }).join('')}` : ''}
+        ${!pending.length && !submitted.length ? '<p class="empty-state">No applications awaiting your assessment.</p>' : ''}`;
       return;
     }
     document.getElementById('decisions-list').innerHTML = pendingDecisionApps().map((a) => {
       const p = PMSStorage.getPrisonerById(a.prisonerId);
       const score = PMSStorage.calculateParoleScore(a);
-      const assessments = PMSStorage.getBoardAssessments(a.id);
+      const progress = PMSStorage.getBoardAssessmentProgress(a);
+      const assessments = PMSStorage.getBoardAssessments(a.id).filter((x) => x.submissionStatus === 'Submitted');
+      const ready = progress.complete;
       return `<div class="decision-card"><strong>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</strong> — ${PMSUI.esc(a.status)}<br>
-        <span class="meta">${PMSUI.instName(a.institutionId)} · Score ${score.percent}% · Assessments ${assessments.length}/3</span>
-        <button type="button" class="btn-primary btn-sm" data-decide="${a.id}">Record Decision</button></div>`;
+        <span class="meta">${PMSUI.instName(a.institutionId)} · Score ${score.percent}% · Assessments ${progress.submitted}/${progress.total}${ready ? '' : ` · Awaiting ${progress.pendingRoles.join(', ')}`}</span>
+        <button type="button" class="btn-primary btn-sm" data-decide="${a.id}" ${ready ? '' : 'disabled title="Awaiting all panel assessments"'}>${ready ? 'Record Final Decision' : 'Awaiting Panel Assessments'}</button>
+        <a href="forms/hearing-portal.html?appId=${encodeURIComponent(a.id)}" class="btn-outline btn-sm">View Panel Progress</a></div>`;
     }).join('') || '<p class="empty-state">No applications awaiting decision.</p>';
   }
 
@@ -182,11 +215,12 @@
     const apps = PMSStorage.getParoleApplications();
     document.getElementById('meeting-summary').innerHTML = `
       <p><strong>Parole Board Meeting Summary</strong> — ${PMSUI.fmtDate(new Date().toISOString())}</p>
-      <ul><li>Total applications reviewed: ${boardApps().length}</li>
-      <li>Approved: ${apps.filter((a) => a.status === 'Approved').length}</li>
-      <li>Deferred: ${apps.filter((a) => a.status === 'Deferred').length}</li>
-      <li>Refused: ${apps.filter((a) => a.status === 'Refused').length}</li>
-      <li>Pending decision: ${pendingDecisionApps().length}</li></ul>`;
+      <ul><li>Total applications reviewed: ${PMSUI.formatStat(boardApps().length)}</li>
+      <li>Approved: ${PMSUI.formatStat(apps.filter((a) => a.status === 'Approved').length)}</li>
+      <li>Parole granted: ${PMSUI.formatStat(apps.filter((a) => a.status === 'Parole Granted').length)}</li>
+      <li>Deferred: ${PMSUI.formatStat(apps.filter((a) => a.status === 'Deferred').length)}</li>
+      <li>Refused: ${PMSUI.formatStat(apps.filter((a) => ['Refused', 'Parole Refused'].includes(a.status)).length)}</li>
+      <li>Pending decision: ${PMSUI.formatStat(pendingDecisionApps().length)}</li></ul>`;
     if (typeof PMSReports !== 'undefined') PMSReports.mount('reports-body', 'reports-filter-bar', actor);
   }
 
@@ -215,10 +249,16 @@
       ? `<p><strong>Scheduled hearing:</strong> ${PMSUI.fmtDate(hearing.scheduledDate)} ${PMSUI.esc(hearing.scheduledTime || '')} · ${PMSUI.esc(hearing.location)}</p>`
       : '<p class="empty-state">No linked hearing record on file.</p>';
     const score = PMSStorage.calculateParoleScore(app);
-    const assessments = PMSStorage.getBoardAssessments(appId);
+    const progress = PMSStorage.getBoardAssessmentProgress(app);
+    const assessments = PMSStorage.getBoardAssessments(appId).filter((a) => a.submissionStatus === 'Submitted');
     document.getElementById('dec-hearing-info').innerHTML += `<div class="score-panel"><p><strong>Parole score (system calculated):</strong> ${score.percent}% — ${score.result || (score.meetsThreshold ? 'ELIGIBLE FOR PAROLE' : 'NOT ELIGIBLE')}</p>
-      <p><strong>Calculation:</strong> ${score.calculation || 'Pending all assessments'}</p>
-      <p><strong>Individual assessments:</strong> ${score.assessments?.map((a) => `${a.role}: ${a.score}%`).join(' · ') || assessments.map((a) => `${a.role}: ${a.score}%`).join(', ') || 'None'}</p></div>`;
+      <p><strong>Calculation:</strong> ${score.calculation || 'Pending panel assessments'}</p>
+      <p><strong>Panel progress:</strong> ${progress.submitted}/${progress.total}${progress.pendingRoles.length ? ` · Awaiting ${progress.pendingRoles.join(', ')}` : ' · All assessments in'}</p>
+      <p><strong>Individual assessments:</strong> ${assessments.map((a) => `${a.role}: ${a.score}% (${PMSUI.esc(a.assessorName)})`).join(' · ') || 'None yet — members submit independently'}</p></div>`;
+    if (!progress.complete && isBoardMember) {
+      alert(`Panel assessments are still in progress (${progress.submitted}/${progress.total}). Final decision will be available when Doctor, CS Commissioner, and DJAG Secretary have each submitted.`);
+      return;
+    }
     document.getElementById('dec-outcome').value = 'Approved';
     document.getElementById('dec-conditions').value = '';
     document.getElementById('dec-deliberation').value = '';
@@ -268,17 +308,6 @@
 
   document.addEventListener('click', (e) => {
     if (e.target.closest('[data-decide]') && isBoardMember) openDecisionModal(e.target.closest('[data-decide]').dataset.decide);
-    if (e.target.closest('[data-assess]')) {
-      const appId = e.target.closest('[data-assess]').dataset.assess;
-      const score = prompt('Enter assessment score (0–100):', '85');
-      if (score == null) return;
-      const feedback = prompt('Assessment feedback:', '') || '';
-      try {
-        PMSStorage.saveBoardAssessment(appId, { score: Number(score), feedback, recommendation: Number(score) >= 80 ? 'Recommend' : 'Do not recommend' }, actor);
-        refresh(document.querySelector('.nav-item.active')?.dataset.panel || 'decisions');
-        alert('Assessment submitted.');
-      } catch (err) { alert(err.message); }
-    }
     if (e.target.closest('[data-open-form]')) {
       const btn = e.target.closest('[data-open-form]');
       PMSForms.openForm(parseInt(btn.dataset.openForm, 10), btn.dataset.app);

@@ -65,7 +65,7 @@ const PMSRBAC = (() => {
       forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'edit', 5: 'view' },
       users: { create: false, read: false, update: false, delete: false },
       institutions: { create: false, read: true, update: false, delete: false },
-      hearings: { create: true, read: true, update: true },
+      hearings: { create: false, read: true, update: false },
       decisions: { create: false, read: true },
       assessments: { create: false, read: true },
       reports: ['application', 'pre-parole', 'hearing'],
@@ -242,7 +242,7 @@ const PMSRBAC = (() => {
   }
 
   function canSubmitAssessment(user) {
-    return ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(normalizeRole(user?.role));
+    return ['Doctor', 'CS Commissioner', 'DJAG Secretary', 'Parole Board Member'].includes(normalizeRole(user?.role));
   }
 
   /** Form 2 section ownership: DAR/DDR = CS (PNGCS) Parole Clerk; PPR = DJAG Parole Clerk. */
@@ -264,6 +264,11 @@ const PMSRBAC = (() => {
 
   function canAuthorizeRelease(user) {
     return ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
+  }
+
+  /** Only DJAG Secretary may set or change parole hearing dates (System Administrator for support). */
+  function canScheduleHearing(user) {
+    return ['DJAG Secretary', 'System Administrator'].includes(normalizeRole(user?.role));
   }
 
   function canAccessForm(user, formNumber, mode = 'view') {
@@ -358,6 +363,7 @@ const PMSRBAC = (() => {
     canEditForm2Section,
     canVerifyApplication,
     canAuthorizeRelease,
+    canScheduleHearing,
     canAccessForm,
     canAccessModule,
     scopeFilter,

@@ -741,37 +741,6 @@
 
     @keyframes lpSpin { to { transform: rotate(360deg); } }
 
-    .lp-demo {
-      margin-top: 1rem;
-      border-top: 1px solid var(--lp-border-soft);
-      padding-top: 0.75rem;
-    }
-
-    .lp-demo summary {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--lp-text-md);
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .lp-demo ul {
-      margin-top: 0.65rem;
-      padding-left: 1.1rem;
-      font-size: 0.75rem;
-      line-height: 1.6;
-      color: var(--lp-text-light);
-    }
-
-    .lp-demo code {
-      background: var(--lp-bg);
-      padding: 0.1rem 0.35rem;
-      border-radius: 4px;
-      font-size: 0.7rem;
-    }
-
-    .lp-demo-note { margin-top: 0.5rem; font-size: 0.75rem; color: var(--lp-text-light); }
-
     /* ---- Toast ---- */
     .lp-toast-wrap {
       position: fixed;
@@ -1094,21 +1063,6 @@
           <label><input type="checkbox" id="remember" name="remember"> Remember me</label>
           <a href="#" onclick="return false;">Forgot password?</a>
         </div>
-        <details class="lp-demo">
-          <summary>Demo accounts by role</summary>
-          <ul>
-            <li><strong>admin</strong> · System Administrator</li>
-            <li><strong>john.dole@cs.gov.pg</strong> · PNGCS Parole Clerk</li>
-            <li><strong>pkoroma@cs.gov.pg</strong> · Jail Commander (Bomana)</li>
-            <li><strong>officer.tau@cs.gov.pg</strong> · CS Parole Officer</li>
-            <li><strong>mary.kila@djag.gov.pg</strong> · DJAG Parole Clerk</li>
-            <li><strong>secretary.morris@djag.gov.pg</strong> · DJAG Secretary</li>
-            <li><strong>judge.kakaraya@justice.gov.pg</strong> · Parole Board Member</li>
-            <li><strong>dr.sine@health.gov.pg</strong> · Doctor</li>
-            <li><strong>commissioner.bain@cs.gov.pg</strong> · CS Commissioner</li>
-          </ul>
-          <p class="lp-demo-note">Password: <code>Password123!</code> (admin uses <code>admin123</code>)</p>
-        </details>
       </form>
     </div>
   </div>
@@ -1169,14 +1123,7 @@
         }, 4000);
       };
 
-      window.showLoginWelcome = function(user) {
-        const banner = document.getElementById('login-welcome-banner');
-        if (!banner || !user) return;
-        const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'User';
-        banner.textContent = `Welcome, ${name} (${user.role}). Redirecting to your workspace…`;
-        banner.classList.remove('hidden');
-        banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      };
+      window.showLoginWelcome = function() {};
     })();
   </script>
 

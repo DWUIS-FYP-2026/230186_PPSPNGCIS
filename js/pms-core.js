@@ -4,7 +4,6 @@
 const PMSCore = (() => {
   const DASHBOARD_CHAIN = [
     'workspace-shell.js',
-    'command-bar.js',
     'id-generator.js',
     'eligibility-engine.js',
     'storage.js',

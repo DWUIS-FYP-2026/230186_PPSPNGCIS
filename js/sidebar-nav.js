@@ -23,7 +23,7 @@ const PMSSidebar = (() => {
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['cases', 'eligibility', 'form1', 'form2', 'form3', 'form4', 'form5'] },
       { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings-upcoming', 'hearings-completed'] },
+      { label: 'Hearings', ids: ['hearing-portal', 'hearings-upcoming'] },
       { label: 'Release', ids: ['release-pending', 'release-done'] },
       { label: 'Operations', ids: ['guarantors', 'documents', 'notifications'] },
       { label: 'Reports & Analytics', ids: ['reports', 'analytics', 'audit'] },
@@ -58,13 +58,15 @@ const PMSSidebar = (() => {
     ],
     'DJAG Secretary': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings', 'hearings-upcoming'] },
+      { label: 'Hearings', ids: ['hearing-portal', 'hearings'] },
       { label: 'Board', ids: ['decisions'] },
       { label: 'Operations', ids: ['notifications', 'profile'] },
     ],
     'Doctor': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Board', ids: ['hearing-portal', 'decisions'] },
+      { label: 'Parole Management', ids: ['applications', 'prisoners'] },
+      { label: 'Hearings', ids: ['hearing-portal', 'hearings'] },
+      { label: 'Medical Board', ids: ['evaluations', 'decisions'] },
       { label: 'Operations', ids: ['notifications', 'profile'] },
     ],
     'CS Commissioner': [
@@ -93,8 +95,7 @@ const PMSSidebar = (() => {
       { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-user-lock' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
-      { id: 'hearings-upcoming', module: 'hearings', href: 'dashboard-djag.html?panel=hearings', label: 'Upcoming Hearings', icon: 'fi fi-rr-calendar' },
-      { id: 'hearings-completed', module: 'hearings', href: 'dashboard-djag.html?panel=hearings', label: 'Completed Hearings', icon: 'fi fi-rr-calendar-check' },
+      { id: 'hearings-upcoming', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
       { id: 'release-pending', module: 'release', panel: 'prisoners', label: 'Pending Release', icon: 'fi fi-rr-hourglass' },
       { id: 'release-done', module: 'release', panel: 'prisoners', label: 'Released Prisoners', icon: 'fi fi-rr-door-open' },
       { id: 'guarantors', module: 'guarantors', panel: 'prisoners', label: 'Guarantors', icon: 'fi fi-rr-users' },
@@ -151,15 +152,18 @@ const PMSSidebar = (() => {
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'hearings-upcoming', module: 'hearings', panel: 'hearings', label: 'Upcoming Hearings', icon: 'fi fi-rr-clock' },
       { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Assessments', icon: 'fi fi-rr-gavel' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'Doctor': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
+      { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Cases', icon: 'fi fi-rr-folder' },
+      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
-      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Medical Assessments', icon: 'fi fi-rr-stethoscope' },
+      { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
+      { id: 'evaluations', module: 'decisions', panel: 'evaluations', label: 'Medical Evaluations', icon: 'fi fi-rr-stethoscope' },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Votes', icon: 'fi fi-rr-gavel' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
@@ -231,26 +235,27 @@ const PMSSidebar = (() => {
   function renderNavItem(item, user) {
     const active = item.id === activeNavId ? ' active' : '';
     const badge = item.badge ? '<span class="nav-badge nav-notif-badge hidden">0</span>' : '';
+    const icon = item.icon ? `<i class="${item.icon} nav-icon" aria-hidden="true"></i>` : '';
     const label = `<span class="nav-label">${esc(item.label)}</span>`;
     const title = ` title="${esc(item.label)}"`;
 
     if (linkPanels && item.panel && !item.href) {
-      return `<a href="${panelLink(item, user)}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${label}${badge}</a>`;
+      return `<a href="${panelLink(item, user)}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${icon}${label}${badge}</a>`;
     }
 
     if (item.id === 'profile') {
       const href = profileHref(user);
       if (href) {
-        return `<a href="${href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${label}</a>`;
+        return `<a href="${href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${icon}${label}</a>`;
       }
-      return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="profile"${title}>${label}</button>`;
+      return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="profile"${title}>${icon}${label}</button>`;
     }
 
     if (item.href) {
-      return `<a href="${item.href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${label}</a>`;
+      return `<a href="${item.href}" class="nav-item nav-item--link${active}" data-nav-id="${item.id}"${title}>${icon}${label}</a>`;
     }
 
-    return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="${item.panel}"${title}>${label}${badge}</button>`;
+    return `<button type="button" class="nav-item${active}" data-nav-id="${item.id}" data-panel="${item.panel}"${title}>${icon}${label}${badge}</button>`;
   }
 
   function renderGroupedNav(user) {
@@ -322,25 +327,15 @@ const PMSSidebar = (() => {
     return backdrop;
   }
 
+  function bindMobileToggle() {
+    const btn = document.getElementById('sidebar-mobile-toggle');
+    if (!btn || btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => toggleMobile(true));
+  }
+
   function ensureTopbarToggle() {
-    const header = document.querySelector('.workspace-header, .topbar, .command-bar');
-    if (!header) return;
-
-    let btn = document.getElementById('sidebar-mobile-toggle');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.type = 'button';
-      btn.id = 'sidebar-mobile-toggle';
-      btn.className = 'sidebar-mobile-toggle';
-      btn.setAttribute('aria-label', 'Open navigation menu');
-      btn.innerHTML = '<span class="sidebar-mobile-toggle__label">Menu</span>';
-      header.prepend(btn);
-    }
-
-    if (!btn.dataset.bound) {
-      btn.dataset.bound = '1';
-      btn.addEventListener('click', () => toggleMobile(true));
-    }
+    /* Mobile menu lives in workspace-header — do not inject a second toggle. */
   }
 
   function ensureProfilePanel(user) {
@@ -488,8 +483,8 @@ const PMSSidebar = (() => {
 
     setActive(activeNavId, activePanel);
     if (typeof PMSWorkspace !== 'undefined') PMSWorkspace.init(user);
-    ensureTopbarToggle();
+    bindMobileToggle();
   }
 
-  return { init, setActive, closeMobile, toggleCollapse };
+  return { init, setActive, closeMobile, toggleCollapse, toggleMobile, bindMobileToggle };
 })();

@@ -27,8 +27,16 @@
 
   function needsVerification(app) {
     if (PMSStorage.isCommanderVerified(app)) return false;
+    return PMSStorage.isVerificationReady(app);
+  }
+
+  function verificationReadiness(app) {
     const summary = PMSStorage.getFormCompletionSummary(app);
-    return summary.checks.form3 || app.status === 'Pending Commander Review';
+    const blockers = [];
+    if (!summary.checks.form1) blockers.push('Form 1 incomplete');
+    if (!summary.checks.form2) blockers.push('Form 2 incomplete');
+    if (!summary.checks.form3) blockers.push('Form 3 incomplete');
+    return { ready: blockers.length === 0, blockers };
   }
 
   function verificationQueue() {
@@ -63,7 +71,7 @@
     const complete = PMSStorage.requiredBoardAssessmentsComplete(app);
     if (complete) return '<span class="status-pill status-pill--success">Complete</span>';
     const done = assessments.length;
-    return `<span class="status-pill status-pill--warn">${done}/3 interviews</span>`;
+    return `<span class="status-pill status-pill--warn">${done}/${PMSStorage.BOARD_VOTING_ROLES.length} votes</span>`;
   }
 
   function releaseReadinessLabel(app) {
@@ -91,20 +99,22 @@
   function renderOverview() {
     const queue = verificationQueue();
     const apps = scopeApps();
-    const verified = apps.filter((a) => PMSStorage.isCommanderVerified(a)).length;
+    const verified = apps.filter((a) => PMSStorage.isActiveParoleApplication(a) && PMSStorage.isCommanderVerified(a)).length;
+    const unread = PMSStorage.getUnreadCountForUser(actor);
 
-    document.getElementById('stat-pending').textContent = queue.length;
-    document.getElementById('stat-release-ready').textContent = releaseReadyQueue().length;
-    document.getElementById('stat-verified').textContent = verified;
-    document.getElementById('stat-prisoners').textContent = scopePrisoners().length;
-    document.getElementById('stat-notifications').textContent = PMSStorage.getUnreadCountForUser(actor);
+    PMSUI.setStat('stat-pending', queue.length);
+    PMSUI.setStat('stat-release-ready', releaseReadyQueue().length);
+    PMSUI.setStat('stat-verified', verified);
+    PMSUI.setStat('stat-prisoners', scopePrisoners().length);
+    PMSUI.setStat('stat-notifications', unread);
 
     const note = document.getElementById('institution-note');
     if (note && inst) note.textContent = `Institutional verification for ${inst.name} (${inst.province}).`;
 
-    const notifs = PMSStorage.getNotificationsForUser(actor).slice(0, 5);
+    PMSUI.syncOverviewNotifHeader(unread);
+    const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = notifs.length
-      ? notifs.map((n) => `<div class="overview-row overview-row--${n.read ? 'read' : 'unread'}"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('')
+      ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n)).join('')
       : '<p class="empty-state">No notifications.</p>';
   }
 
@@ -113,7 +123,11 @@
     document.getElementById('verification-tbody').innerHTML = rows.length
       ? rows.map((a) => {
         const p = PMSStorage.getPrisonerById(a.prisonerId);
-        return `<tr><td>${PMSUI.esc(a.caseNumber || a.id)}</td><td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${formsSummary(a)}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td><button type="button" class="btn-primary btn-sm" data-verify="${PMSUI.esc(a.id)}">Verify</button> ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}</td></tr>`;
+        const readiness = verificationReadiness(a);
+        const verifyBtn = readiness.ready
+          ? `<button type="button" class="btn-primary btn-sm" data-verify="${PMSUI.esc(a.id)}">Verify</button>`
+          : `<button type="button" class="btn-secondary btn-sm" disabled title="${PMSUI.esc(readiness.blockers.join('; '))}">Awaiting Forms</button>`;
+        return `<tr><td>${PMSUI.esc(a.caseNumber || a.id)}</td><td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${formsSummary(a)}${readiness.ready ? '' : `<br><span class="meta">${PMSUI.esc(readiness.blockers.join(' · '))}</span>`}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td>${verifyBtn} ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}</td></tr>`;
       }).join('')
       : '<tr><td colspan="6" class="empty-state">No cases awaiting verification.</td></tr>';
   }
@@ -201,6 +215,11 @@
   function openVerifyModal(appId) {
     const app = PMSStorage.getApplicationById(appId);
     if (!app) return;
+    const readiness = verificationReadiness(app);
+    if (!readiness.ready) {
+      alert(`This case is not ready for verification.\n\n${readiness.blockers.join('\n')}`);
+      return;
+    }
     const p = PMSStorage.getPrisonerById(app.prisonerId);
     document.getElementById('verify-app-id').value = appId;
     document.getElementById('verify-decision').value = '';

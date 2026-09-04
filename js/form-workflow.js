@@ -194,6 +194,21 @@ const PMSFormWorkflow = (() => {
     for (const key of def.prereqs) {
       if (!checks[key]) return FORM_DEFS.find((f) => f.key === key) || null;
     }
+    if ((formN === 4 || formN === 5) && appId && appId !== '_default' && typeof PMSStorage !== 'undefined') {
+      const app = PMSStorage.getApplicationById(appId);
+      if (app) {
+        if (!PMSStorage.isBoardDecisionFinalized(app)) {
+          return { n: 0, key: 'board', title: 'Board Decision — awaiting all panel votes' };
+        }
+        const outcome = PMSStorage.getBoardDecisionOutcome(app);
+        if (formN === 4 && outcome === 'Parole Refused') {
+          return { n: 5, key: 'form5', title: 'Form 5 — Parole Refused' };
+        }
+        if (formN === 5 && outcome === 'Parole Granted') {
+          return { n: 4, key: 'form4', title: 'Form 4 — Parole Granted' };
+        }
+      }
+    }
     return null;
   }
 
@@ -201,7 +216,13 @@ const PMSFormWorkflow = (() => {
     const checks = getChecks(appId);
     const def = getDef(formN);
     if (!def) return false;
-    return prereqsMet(checks, def.prereqs);
+    if (!prereqsMet(checks, def.prereqs)) return false;
+    if (!appId || appId === '_default' || typeof PMSStorage === 'undefined') return true;
+    const app = PMSStorage.getApplicationById(appId);
+    if (!app) return false;
+    if (formN === 4) return PMSStorage.canProceedToForm4(app);
+    if (formN === 5) return PMSStorage.canProceedToForm5(app);
+    return true;
   }
 
   function markComplete(formN, appId, meta) {
@@ -301,7 +322,18 @@ const PMSFormWorkflow = (() => {
   function canAccessHearingPortal() {
     const user = getSessionUser();
     if (!user) return false;
-    return ['DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator'].includes(user.role);
+    return [
+      'DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator',
+      'Parole Board Member', 'Doctor', 'CS Commissioner',
+    ].includes(user.role);
+  }
+
+  function canScheduleHearing() {
+    const user = getSessionUser();
+    if (!user) return false;
+    return typeof PMSRBAC !== 'undefined'
+      ? PMSRBAC.canScheduleHearing(user)
+      : user.role === 'DJAG Secretary';
   }
 
   function hearingPortalHref(appId) {
@@ -437,15 +469,19 @@ const PMSFormWorkflow = (() => {
     gate.innerHTML = `
       <div class="wf-gate__panel" role="dialog">
         <h2>Form Locked</h2>
-        <p>Complete <strong>${blocker?.title || 'the previous form'}</strong> before accessing <strong>${def?.title || 'this form'}</strong>.</p>
+        <p>${blocker?.key === 'board'
+          ? `All four board members must submit their Approve, Deny, or Defer votes before <strong>${def?.title || 'this form'}</strong> can be opened.`
+          : `Complete <strong>${blocker?.title || 'the previous form'}</strong> before accessing <strong>${def?.title || 'this form'}</strong>.`}</p>
         <div class="wf-gate__actions">
-          ${blocker ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-blocker">Open ${blocker.title}</button>` : ''}
+          ${blocker?.key === 'board' ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-hearing">Open Hearing Portal</button>` : ''}
+          ${blocker && blocker.n > 0 ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-blocker">Open ${blocker.title}</button>` : ''}
           <button type="button" class="wf-gate__btn wf-gate__btn--secondary" id="wf-gate-back">Back to Dashboard</button>
         </div>
       </div>`;
     document.body.appendChild(gate);
     document.getElementById('wf-gate-back')?.addEventListener('click', () => { window.location.href = getDashboardHref(); });
-    document.getElementById('wf-gate-open-blocker')?.addEventListener('click', () => { if (blocker) openForm(blocker.n, appId); });
+    document.getElementById('wf-gate-open-blocker')?.addEventListener('click', () => { if (blocker?.n) openForm(blocker.n, appId); });
+    document.getElementById('wf-gate-open-hearing')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
   }
 
   function showContinueBanner(formN, appId) {
@@ -462,8 +498,16 @@ const PMSFormWorkflow = (() => {
         || document.getElementById('form2-root')?.appendChild(banner);
     }
 
+    if (formN === 3 && canScheduleHearing()) {
+      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 completed — schedule the parole hearing date for this prisoner</span>
+        <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Portal →</button>`;
+      banner.classList.add('show');
+      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
+      return;
+    }
+
     if (formN === 3 && canAccessHearingPortal()) {
-      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 completed — schedule the parole hearing for this prisoner</span>
+      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 completed — view case in the Hearing Portal (DJAG Secretary will set the hearing date)</span>
         <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Portal →</button>`;
       banner.classList.add('show');
       document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
@@ -528,7 +572,7 @@ const PMSFormWorkflow = (() => {
   return {
     FORM_DEFS, getAppId, getDataStorageKey, getChecks, canAccess, getBlockingForm,
     markComplete, openForm, initPage, isFormDataComplete, prereqsMet, canUserEditForms, canUserEditForm,
-    hearingPortalHref, canAccessHearingPortal, mountFormChrome, navigateAfterSubmit,
+    hearingPortalHref, canAccessHearingPortal, canScheduleHearing, mountFormChrome, navigateAfterSubmit,
     getNextForm, getPrevForm, formHref,
   };
 })();

@@ -15,31 +15,18 @@
   <div class="dashboard">
     <aside class="sidebar" id="app-sidebar"></aside>
     <main class="main-content">
-      <header class="topbar command-bar">
-        <div class="command-bar__identity">
-          <div class="command-bar__badges" aria-hidden="true">
-            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
-            <span class="command-badge-divider"></span>
-            <img src="images/djag_logo.jpg" alt="" class="command-badge command-badge--djag">
-          </div>
-          <div class="command-bar__titles">
+      <header class="workspace-header">
+        <div class="workspace-header__primary">
+          <div class="workspace-header__titles">
             <h1 id="panel-title">Overview</h1>
             <p id="panel-subtitle">DJAG Parole Clerk Dashboard</p>
           </div>
         </div>
-        <aside class="command-bar__status">
-          <div class="command-ticker"><i class="fi fi-rr-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
-          <div class="command-status-row">
-            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
-            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
-          </div>
-        </aside>
       </header>
 
       <section class="panel active" id="panel-overview">
         <div class="panel-toolbar">
-          <p class="toolbar-note">Review PNGCS submissions, complete Form 2 (PPR), and prepare Form 4 investigations.</p>
-          <button type="button" class="btn-primary" id="btn-schedule-hearing-overview">+ Schedule Hearing</button>
+          <p class="toolbar-note">Review PNGCS submissions, complete Form 2 (PPR), and prepare Form 4 investigations. The DJAG Secretary sets hearing dates — you will be notified when scheduled.</p>
         </div>
         <div class="stats-grid">
           <article class="stat-card stat-card--alert stat-card--featured"><span class="stat-label">Active Cases</span><strong class="stat-value" id="stat-eligible">0</strong></article>
@@ -95,7 +82,7 @@
 
       <section class="panel" id="panel-hearings">
         <div class="panel-toolbar">
-          <p class="toolbar-note">Schedule and manage parole board hearings.</p>
+          <p class="toolbar-note">View scheduled parole board hearings. Only the DJAG Secretary may set hearing dates.</p>
           <button type="button" class="btn-primary" id="btn-schedule-hearing">+ Schedule Hearing</button>
         </div>
         <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Prisoner</th><th>Application</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody id="hearings-tbody"></tbody></table></div></div>

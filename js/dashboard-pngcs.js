@@ -354,27 +354,25 @@
 
 
   function renderOverview() {
-
     const prisoners = scopePrisoners();
-
     const apps = scopeApps();
+    const eligible = prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible).length;
+    const form1Pending = apps.filter((a) => PMSStorage.isActiveParoleApplication(a) && !PMSStorage.isForm1Complete(a.formData?.form1)).length;
+    const activeCases = apps.filter((a) => PMSStorage.isActiveParoleApplication(a)).length;
+    const unread = PMSStorage.getUnreadCountForUser(actor);
 
-    document.getElementById('stat-prisoners').textContent = prisoners.length;
+    PMSUI.setStat('stat-prisoners', prisoners.length);
+    PMSUI.setStat('stat-eligible', eligible);
+    PMSUI.setStat('stat-drafts', form1Pending);
+    PMSUI.setStat('stat-notifications', unread);
 
-    document.getElementById('stat-eligible').textContent = prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible).length;
-
-    const form1Pending = apps.filter((a) => !PMSStorage.isForm1Complete(a.formData?.form1)).length;
-    document.getElementById('stat-drafts').textContent = form1Pending;
-
-    document.getElementById('stat-notifications').textContent = PMSStorage.getUnreadCountForUser(actor);
-
-    const notifs = PMSStorage.getNotificationsForUser(actor).slice(0, 5);
-
+    PMSUI.syncOverviewNotifHeader(unread);
+    const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = `
-      <div class="overview-row"><strong>Form 1 completed</strong><span class="meta">${apps.filter((a) => PMSStorage.isForm1Complete(a.formData?.form1)).length} cases</span></div>
-      <div class="overview-row"><strong>Active cases</strong><span class="meta">${apps.filter((a) => !['Approved', 'Refused', 'Released', 'Draft'].includes(a.status)).length}</span></div>
-      <div class="overview-row"><strong>Requiring action</strong><span class="meta">${apps.filter((a) => ['Draft', 'Returned for Correction', 'Pending Commander Review'].includes(a.status)).length}</span></div>
-      ${notifs.length ? notifs.map((n) => `<div class="overview-row overview-row--${n.read ? 'read' : 'unread'}"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('') : ''}`;
+      <div class="overview-row"><strong>Form 1 completed</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => PMSStorage.isForm1Complete(a.formData?.form1)).length)} cases</span></div>
+      <div class="overview-row"><strong>Active cases</strong><span class="meta">${PMSUI.formatStat(activeCases)}</span></div>
+      <div class="overview-row"><strong>Requiring action</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => ['Draft', 'Returned for Correction', 'Pending Commander Review'].includes(a.status)).length)}</span></div>
+      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n)).join('') : ''}`;
 
     if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
 
@@ -645,7 +643,6 @@
   });
 
   document.getElementById('btn-new-app').addEventListener('click', () => openNewApplication());
-  document.getElementById('btn-new-app-overview')?.addEventListener('click', () => openNewApplication());
   document.getElementById('btn-start-form1')?.addEventListener('click', startForm1);
   document.getElementById('btn-start-form1-footer')?.addEventListener('click', startForm1);
 

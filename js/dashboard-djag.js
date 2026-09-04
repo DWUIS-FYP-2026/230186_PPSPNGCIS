@@ -10,7 +10,7 @@
     applications: ['Parole Applications', 'Review PNGCS submissions and advance the legal workflow'],
     notifications: ['Notifications', 'Application and workflow alerts'],
     reports: ['Operational Reports', 'Pre-parole and hearing reports'],
-    hearings: ['Hearing Calendar', 'Schedule and manage parole board hearings'],
+    hearings: ['Hearing Calendar', 'View scheduled hearings — DJAG Secretary sets hearing dates'],
     profile: ['Profile', 'Your account information'],
   };
 
@@ -122,19 +122,23 @@
 
   function renderOverview() {
     const apps = djagApps();
-    const prisoners = scopePrisoners();
+    const activeCases = apps.filter((a) => PMSStorage.isActiveParoleApplication(a)).length;
+    const underReview = apps.filter((a) => ['Submitted', 'Under DJAG Review'].includes(a.status)).length;
+    const pprPending = apps.filter((a) => PMSStorage.needsDjagForm2Ppr(a)).length;
+    const unread = PMSStorage.getUnreadCountForUser(actor);
 
-    document.getElementById('stat-eligible').textContent = apps.filter((a) => !['Approved', 'Refused', 'Released'].includes(a.status)).length;
-    document.getElementById('stat-prisoners').textContent = apps.filter((a) => ['Submitted', 'Under DJAG Review'].includes(a.status)).length;
-    document.getElementById('stat-drafts').textContent = apps.filter((a) => PMSStorage.needsDjagForm2Ppr(a)).length;
-    document.getElementById('stat-notifications').textContent = PMSStorage.getUnreadCountForUser(actor);
+    PMSUI.setStat('stat-eligible', activeCases);
+    PMSUI.setStat('stat-prisoners', underReview);
+    PMSUI.setStat('stat-drafts', pprPending);
+    PMSUI.setStat('stat-notifications', unread);
 
-    const notifs = PMSStorage.getNotificationsForUser(actor).slice(0, 5);
+    PMSUI.syncOverviewNotifHeader(unread);
+    const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = `
-      <div class="overview-row"><strong>Submitted from PNGCS</strong><span class="meta">${apps.filter((a) => a.status === 'Submitted').length} cases</span></div>
-      <div class="overview-row"><strong>Under DJAG review</strong><span class="meta">${apps.filter((a) => a.status === 'Under DJAG Review').length}</span></div>
-      <div class="overview-row"><strong>Hearings scheduled</strong><span class="meta">${PMSStorage.getHearings().filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).length}</span></div>
-      ${notifs.length ? notifs.map((n) => `<div class="overview-row overview-row--${n.read ? 'read' : 'unread'}"><strong>${PMSUI.esc(n.title)}</strong><span class="meta">${PMSUI.esc(n.message.slice(0, 80))}${n.message.length > 80 ? '…' : ''}</span></div>`).join('') : ''}`;
+      <div class="overview-row"><strong>Submitted from PNGCS</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => a.status === 'Submitted').length)} cases</span></div>
+      <div class="overview-row"><strong>Under DJAG review</strong><span class="meta">${PMSUI.formatStat(underReview)}</span></div>
+      <div class="overview-row"><strong>Hearings scheduled</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countUpcomingHearings())}</span></div>
+      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n)).join('') : ''}`;
 
     if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
   }
@@ -235,6 +239,25 @@
     document.getElementById('review-modal').showModal();
   }
 
+  const canScheduleHearings = typeof PMSRBAC !== 'undefined'
+    ? PMSRBAC.canScheduleHearing(actor)
+    : actor.role === 'DJAG Secretary';
+
+  function syncHearingsToolbar() {
+    const toolbar = document.querySelector('#panel-hearings .panel-toolbar');
+    const btn = document.getElementById('btn-schedule-hearing');
+    const note = toolbar?.querySelector('.toolbar-note');
+    if (note) {
+      note.textContent = canScheduleHearings
+        ? 'Set parole board hearing dates in the Hearing Portal (after Form 3 verification).'
+        : 'View scheduled hearings. Only the DJAG Secretary may set hearing dates — stakeholders are notified automatically.';
+    }
+    if (btn) {
+      btn.textContent = canScheduleHearings ? '+ Schedule Hearing' : 'Open Hearing Portal';
+      btn.hidden = false;
+    }
+  }
+
   function openHearingPortal() {
     const eligible = djagApps().filter((a) => ['Pre-Parole Report Prepared'].includes(a.status));
     if (eligible.length === 1) {
@@ -255,7 +278,7 @@
 
   document.getElementById('prisoner-search').addEventListener('input', () => renderPrisoners());
   document.getElementById('btn-schedule-hearing').addEventListener('click', openHearingPortal);
-  document.getElementById('btn-schedule-hearing-overview')?.addEventListener('click', openHearingPortal);
+  syncHearingsToolbar();
 
   document.getElementById('btn-verify-docs').addEventListener('click', async () => {
     const appId = document.getElementById('review-app-id').value;

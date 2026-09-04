@@ -7,6 +7,7 @@ const PMSWorkspace = (() => {
     'System Administrator': 'theme-admin',
     'PNGCS Parole Clerk': 'theme-corrections',
     'CS Parole Officer': 'theme-corrections',
+    'Jail Commander': 'theme-corrections',
     'DJAG Parole Clerk': 'theme-djag',
     'DJAG Secretary': 'theme-djag',
     'Doctor': 'theme-board',
@@ -29,52 +30,65 @@ const PMSWorkspace = (() => {
   }
 
   function tickDate() {
-    const el = document.getElementById('workspace-date') || document.getElementById('command-datetime');
+    const el = document.getElementById('workspace-date');
     if (!el) return;
     const now = new Date();
     const text = now.toLocaleDateString('en-PG', {
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
     });
-    if (el.tagName === 'TIME') {
-      el.textContent = text;
-      el.setAttribute('datetime', now.toISOString());
-    } else {
-      el.textContent = text;
+    el.textContent = text;
+    el.setAttribute('datetime', now.toISOString());
+  }
+
+  function ensureHeaderChrome(header, title, subtitle, subtitleId) {
+    if (!header.querySelector('#sidebar-mobile-toggle')) {
+      header.insertAdjacentHTML('afterbegin', `
+        <button type="button" class="sidebar-mobile-toggle" id="sidebar-mobile-toggle" aria-label="Open navigation menu">
+          <i class="fi fi-rr-menu-burger" aria-hidden="true"></i><span>Menu</span>
+        </button>`);
+    }
+    if (!header.querySelector('.workspace-header__primary')) {
+      header.insertAdjacentHTML('beforeend', `
+        <div class="workspace-header__primary">
+          <div class="workspace-header__titles">
+            <h1 id="panel-title">${esc(title)}</h1>
+            <p id="${subtitleId}">${esc(subtitle)}</p>
+          </div>
+        </div>`);
+    }
+    if (!header.querySelector('.workspace-header__tools')) {
+      header.insertAdjacentHTML('beforeend', `
+        <div class="workspace-header__tools">
+          <time class="workspace-date" id="workspace-date"></time>
+          <label class="workspace-search">
+            <i class="fi fi-rr-search" aria-hidden="true"></i>
+            <input type="search" id="workspace-search" placeholder="Search records…" aria-label="Search records">
+          </label>
+        </div>`);
     }
   }
 
   function upgradeHeader(user) {
-    const header = document.querySelector('.workspace-header') || document.querySelector('.command-bar, .topbar');
-    if (!header || header.dataset.workspaceReady) return;
+    let header = document.querySelector('.workspace-header');
+    const legacy = document.querySelector('.command-bar, .topbar:not(.workspace-header)');
 
-    const titleEl = document.getElementById('panel-title');
-    const subtitleEl = document.getElementById('panel-subtitle') || document.getElementById('page-subtitle');
-    const title = titleEl?.textContent || header.querySelector('h1')?.textContent || 'Dashboard';
-    const subtitle = subtitleEl?.textContent || '';
-    const actionsExtra = header.querySelector('.inst-topbar-actions');
-    const actionsHtml = actionsExtra ? actionsExtra.outerHTML : '';
+    const titleEl = document.getElementById('panel-title') || legacy?.querySelector('h1');
+    const subtitleEl = document.getElementById('panel-subtitle') || document.getElementById('page-subtitle') || legacy?.querySelector('p');
+    const title = titleEl?.textContent?.trim() || 'Dashboard';
+    const subtitle = subtitleEl?.textContent?.trim() || '';
+    const subtitleId = subtitleEl?.id === 'page-subtitle' ? 'page-subtitle' : 'panel-subtitle';
 
-    header.className = 'workspace-header' + (header.classList.contains('inst-topbar') ? ' inst-topbar' : '');
+    if (!header && legacy) {
+      legacy.classList.add('workspace-header');
+      legacy.classList.remove('command-bar', 'topbar');
+      header = legacy;
+      header.innerHTML = '';
+    }
+
+    if (!header) return;
+
+    ensureHeaderChrome(header, title, subtitle, subtitleId);
     header.dataset.workspaceReady = 'true';
-    header.innerHTML = `
-      <button type="button" class="sidebar-mobile-toggle" id="sidebar-mobile-toggle" aria-label="Open navigation menu">
-        <i class="fi fi-rr-menu-burger" aria-hidden="true"></i><span>Menu</span>
-      </button>
-      <div class="workspace-header__primary">
-        <div class="workspace-header__titles">
-          <h1 id="panel-title">${esc(title)}</h1>
-          <p id="${subtitleEl?.id === 'page-subtitle' ? 'page-subtitle' : 'panel-subtitle'}">${esc(subtitle)}</p>
-        </div>
-      </div>
-      <div class="workspace-header__tools">
-        <time class="workspace-date" id="workspace-date"></time>
-        <label class="workspace-search">
-          <i class="fi fi-rr-search" aria-hidden="true"></i>
-          <input type="search" id="workspace-search" placeholder="Search records…" aria-label="Search records">
-        </label>
-        ${actionsHtml}
-      </div>`;
-
     tickDate();
     window.setInterval(tickDate, 60000);
   }
@@ -83,6 +97,8 @@ const PMSWorkspace = (() => {
     document.querySelectorAll('.nav-notif-badge').forEach((el) => {
       el.textContent = count;
       el.classList.toggle('hidden', !count);
+      el.classList.toggle('nav-notif-badge--active', count > 0);
+      el.setAttribute('aria-label', count ? `${count} unread notifications` : 'No unread notifications');
     });
   }
 
@@ -93,7 +109,8 @@ const PMSWorkspace = (() => {
 
   function bindGlobalSearch() {
     const input = document.getElementById('workspace-search');
-    if (!input) return;
+    if (!input || input.dataset.bound) return;
+    input.dataset.bound = '1';
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       const q = input.value.trim().toLowerCase();
@@ -116,6 +133,7 @@ const PMSWorkspace = (() => {
     applyRoleTheme(user.role);
     upgradeHeader(user);
     bindGlobalSearch();
+    if (typeof PMSSidebar !== 'undefined') PMSSidebar.bindMobileToggle?.();
     if (typeof PMSGlobalSearch !== 'undefined') PMSGlobalSearch.bind(user);
     PMSUI?.updateNotifBadge?.(user);
   }

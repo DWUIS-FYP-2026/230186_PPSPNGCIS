@@ -108,6 +108,16 @@ const PMSForm4Grant = (() => {
       issuedBanner.classList.toggle('show', issued);
     }
 
+    function persistDraft(status = 'draft') {
+      const state = { ...getState(), status, savedAt: new Date().toISOString() };
+      if (app?.id) {
+        PMSStorage.saveFormData(app.id, 'form4', state, actor);
+      } else {
+        saveState();
+      }
+      return state;
+    }
+
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(getState()));
     }
@@ -116,34 +126,52 @@ const PMSForm4Grant = (() => {
       try {
         applyState(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
       } catch (_) { /* ignore */ }
-      if (app?.formData?.form4) applyState(app.formData.form4);
+      if (app?.formData?.form4) {
+        applyState(app.formData.form4);
+        if (app.formData.form4.justification && !additionalConditions.value) {
+          additionalConditions.value = app.formData.form4.boardDecisionSummary || '';
+        }
+      }
+      if (app?.boardDecision?.conditions && !additionalConditions.value) {
+        additionalConditions.value = app.boardDecision.conditions;
+      }
     }
 
     document.getElementById('btn-save').addEventListener('click', () => {
       if (!validateForm()) return;
-      saveState();
-      showToast('Parole approval record saved successfully.');
+      if (!app?.id) {
+        saveState();
+        showToast('Draft saved locally. Open Form 4 from a linked application to save to the system.');
+        return;
+      }
+      persistDraft('draft');
+      showToast('Parole approval record saved to the application.');
     });
 
     document.getElementById('btn-issue').addEventListener('click', async () => {
       if (!validateForm()) return;
       if (!app || !prisoner) { showToast('Application context is required.'); return; }
-      const score = PMSStorage.calculateParoleScore(app);
-      if (!score.meetsThreshold) {
-        showToast(`Score ${score.percent}% is below 80%. Use Form 5 for refusal.`);
+      const outcome = PMSStorage.getBoardDecisionOutcome(app);
+      if (outcome !== 'Parole Granted') {
+        showToast('Board decision must be Parole Granted. Use Form 5 if parole was refused.');
         return;
       }
-      if (!window.confirm('Record official Parole Grant based on the calculated score?')) return;
+      if (!PMSStorage.requiredBoardAssessmentsComplete(app)) {
+        showToast('All board member votes must be recorded before issuing Form 4.');
+        return;
+      }
+      if (!window.confirm('Issue official Form 4 — Parole Granted based on the board decision?')) return;
       try {
-        PMSStorage.routeParoleOutcome(app.id, actor);
+        const draft = persistDraft('draft');
+        PMSStorage.issueForm4Grant(app.id, draft, actor);
         issued = true;
         saveState();
         wf.markCompleteAndAdvance({ issued: true });
         issuedBanner.classList.add('show');
-        showToast('Form 4 — Parole Granted recorded.');
+        showToast('Form 4 — Parole Granted issued.');
         PMSFormWorkflow.navigateAfterSubmit(4, app.id);
       } catch (err) {
-        showToast(err.message || 'Could not record parole grant.');
+        showToast(err.message || 'Could not issue parole grant.');
       }
     });
 

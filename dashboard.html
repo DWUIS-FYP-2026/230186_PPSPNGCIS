@@ -17,6 +17,9 @@
       background: #f4f6f8;
       color: #1a2332;
     }
+    body:not(.hub-error) .hub-card {
+      visibility: hidden;
+    }
     .hub-card {
       width: min(420px, calc(100vw - 2rem));
       padding: 2rem;
@@ -61,8 +64,8 @@
 <body>
   <div class="hub-card" role="status" aria-live="polite">
     <div class="hub-spinner" id="hub-spinner" aria-hidden="true"></div>
-    <p id="hub-status">Loading your workspace…</p>
-    <p id="hub-detail">Preparing your dashboard</p>
+    <p id="hub-status"></p>
+    <p id="hub-detail"></p>
     <div id="hub-actions" hidden></div>
   </div>
   <script src="js/id-generator.js"></script>

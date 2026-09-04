@@ -24,6 +24,7 @@ const PMSDashboardHub = (() => {
   }
 
   function showError(title, detail, actionsHtml = '') {
+    document.body.classList.add('hub-error');
     const { status, detail: detailEl, actions, spinner } = getEls();
     if (spinner) spinner.hidden = true;
     if (status) status.textContent = title;
@@ -81,8 +82,6 @@ const PMSDashboardHub = (() => {
   }
 
   async function route() {
-    setStatus('Loading your workspace…', 'Preparing your dashboard');
-
     try {
       await withTimeout(PMSStorage.ensureLoaded(), LOAD_TIMEOUT_MS, 'Data load');
 
@@ -99,6 +98,7 @@ const PMSDashboardHub = (() => {
       const target = PMSAuth.getDashboardForRole(role);
 
       if (!target || target === 'index.html') {
+        document.body.classList.add('hub-error');
         showError(
           'No workspace assigned',
           `Your account role (“${role || 'unknown'}”) is not linked to a dashboard. Contact your system administrator.`,
@@ -108,6 +108,7 @@ const PMSDashboardHub = (() => {
 
       const loopCount = trackRedirectLoop();
       if (loopCount > MAX_REDIRECTS) {
+        document.body.classList.add('hub-error');
         showError(
           'Could not open your dashboard',
           'The app redirected repeatedly without loading a workspace. This usually means a role or permission mismatch. Try signing in again, or contact support.',
@@ -121,15 +122,15 @@ const PMSDashboardHub = (() => {
         return;
       }
 
-      setStatus('Opening your dashboard…', '');
       window.location.replace(buildTargetUrl(target));
     } catch (err) {
+      document.body.classList.add('hub-error');
       console.error('Dashboard hub error:', err);
       const offline = /timed out|fetch|network|reach/i.test(err.message || '');
       showError(
         offline ? 'Connection is taking too long' : 'Something went wrong',
         offline
-          ? 'The server may be starting up or MySQL is unavailable. You can retry or sign in offline using demo credentials on the login page.'
+          ? 'The server may be starting up or MySQL is unavailable. Try again or contact your system administrator.'
           : (err.message || 'An unexpected error occurred while loading your workspace.'),
       );
     }

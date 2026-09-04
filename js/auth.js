@@ -8,7 +8,7 @@ const PMSAuth = (() => {
     'Jail Commander': 'dashboard-commander.html',
     'DJAG Parole Clerk': 'dashboard-djag.html',
     'DJAG Secretary': 'dashboard-board.html',
-    'Doctor': 'dashboard-board.html',
+    'Doctor': 'dashboard-doctor.html',
     'CS Commissioner': 'dashboard-board.html',
     'Parole Board Member': 'dashboard-board.html',
     Admin: 'admin-dashboard.html',
@@ -24,7 +24,7 @@ const PMSAuth = (() => {
     'Jail Commander': 'Jail Commander Dashboard',
     'DJAG Parole Clerk': 'DJAG Dashboard',
     'DJAG Secretary': 'Board Dashboard',
-    'Doctor': 'Board Dashboard',
+    'Doctor': 'Medical Board Dashboard',
     'CS Commissioner': 'Board Dashboard',
     'Parole Board Member': 'Board Dashboard',
     Admin: 'Admin Dashboard',
@@ -168,7 +168,7 @@ const PMSAuth = (() => {
   function redirectAfterLogin(user) {
     touchSession();
     const target = getDashboardForRole(user?.role);
-    window.location.href = target && target !== 'index.html' ? target : getDashboardHub();
+    window.location.replace(target && target !== 'index.html' ? target : getDashboardHub());
   }
 
   function canAccessInstitution(user, institutionId) {

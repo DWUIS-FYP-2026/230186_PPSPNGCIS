@@ -8,13 +8,32 @@
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
   <title>Form 2 - Assessment Reports | DJAG PNG</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/form2-assessment.css">
+  <link rel="stylesheet" href="../css/forms.css">
   <link rel="stylesheet" href="../css/form2-ppr.css">
+  <link rel="stylesheet" href="../css/mobile.css">
 </head>
-<body class="pms-form2-assessment">
+<body class="pms-form-page pms-form-page--form2">
 
-  <div class="pms-page-toolbar no-print" data-pms-dashboard-btn></div>
+  <header class="page-header no-print">
+    <div class="header-top" data-pms-dashboard-btn></div>
+    <div class="header-main">
+      <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
+      <div class="header-title-block">
+        <div class="header-title">
+          <span class="gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
+          <h1>Form 2 — Assessment Reports</h1>
+          <p>Pre-Parole Report (PPR) &amp; Detainee Assessment Report (DAR)</p>
+          <p class="form-meta">
+            <strong>Application ID:</strong> <span id="applicationId">—</span>
+            &nbsp;·&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
+          </p>
+        </div>
+      </div>
+      <span class="role-badge">Form 2</span>
+    </div>
+  </header>
 
+  <main class="page-main">
   <div id="selection-panel" class="selection-panel hidden">
     <h2>Select Application</h2>
     <p>Choose a detainee with Form 1 completed to open Form 2 — Assessment Reports.</p>
@@ -29,18 +48,8 @@
     </div>
   </div>
 
-  <div id="form2-root" class="container hidden">
+  <div id="form2-root" class="hidden">
     <div id="form-workflow-nav" class="no-print"></div>
-    <div class="header">
-      <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
-      <p class="gov-text">Department of Justice &amp; Attorney General · PNG Correctional Service</p>
-      <h1>Form 2 — Assessment Reports</h1>
-      <p class="subtitle">Pre-Parole Report (PPR) &amp; Detainee Assessment Report (DAR)</p>
-      <p class="form-id">
-        <strong>Application ID:</strong> <span id="applicationId">—</span>
-        &nbsp;·&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
-      </p>
-    </div>
 
     <div class="status-banner no-print" id="applicantSummary">
       <div class="status-item"><span class="label">Detainee:</span> <span class="value" id="detaineeName">—</span></div>
@@ -51,9 +60,48 @@
       <div class="status-item"><span class="label">Status:</span> <span class="status-badge in-progress" id="reportStatus">REPORTS IN PROGRESS</span></div>
     </div>
 
-    <div class="reports-grid">
+    <div class="reports-hub" id="reportsHub">
+      <p class="reports-hub__intro">Select a report to complete. Each assessment opens in its own workspace — DAR (Correctional Services) and PPR (DJAG) are prepared separately.</p>
+      <div class="reports-hub__grid">
+        <article class="report-launcher report-launcher--dar">
+          <div class="report-launcher__head">
+            <span class="report-launcher__icon" aria-hidden="true"><i class="fi fi-rr-building"></i></span>
+            <div>
+              <h2>Detainee Assessment Report (DAR)</h2>
+              <p class="report-launcher__meta">Institution-focused · CS Parole Clerk</p>
+            </div>
+          </div>
+          <p class="report-launcher__desc">Behavior, rehabilitation, health, and recidivism assessment from the correctional institution.</p>
+          <div class="report-launcher__foot">
+            <span class="status-badge pending" id="darHubStatus">PENDING</span>
+            <button type="button" class="btn btn-primary" id="btnOpenDar">Open DAR</button>
+          </div>
+        </article>
+        <article class="report-launcher report-launcher--ppr">
+          <div class="report-launcher__head">
+            <span class="report-launcher__icon" aria-hidden="true"><i class="fi fi-rr-document"></i></span>
+            <div>
+              <h2>Pre-Parole Report (PPR)</h2>
+              <p class="report-launcher__meta">Community assessment · DJAG Parole Clerk</p>
+            </div>
+          </div>
+          <p class="report-launcher__desc">Social case study, community acceptance, reintegration plan, and board recommendation.</p>
+          <div class="report-launcher__foot">
+            <span class="status-badge pending" id="pprHubStatus">PENDING</span>
+            <button type="button" class="btn btn-primary" id="btnOpenPpr">Open PPR</button>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <div class="reports-workspace hidden" id="reportsWorkspace">
+      <div class="reports-workspace__bar no-print">
+        <button type="button" class="btn btn-outline btn-sm" id="btnBackToHub">← Form 2 Overview</button>
+        <span class="reports-workspace__title" id="reportsWorkspaceTitle"></span>
+      </div>
+      <div class="reports-grid reports-grid--single">
       <!-- DAR (CS) -->
-      <div class="report-card report-card--dar" id="darCard">
+      <div class="report-card report-card--dar hidden" id="darCard">
         <div class="card-header">
           <div class="title-group">
             <div>
@@ -207,10 +255,11 @@
       </div>
 
       <!-- PPR (mounted from js/form2-ppr-template.js) -->
-      <div class="report-card report-card--ppr" id="pprCard"></div>
+      <div class="report-card report-card--ppr hidden" id="pprCard"></div>
+      </div>
     </div>
 
-    <div class="actions no-print">
+    <div class="actions no-print form-actions-row">
       <div class="left-btns">
         <button type="button" class="btn btn-success" id="btnSubmitBoth">Submit Both Reports to Board</button>
         <button type="button" class="btn btn-outline" id="btnPreview">Preview / Print</button>
@@ -226,6 +275,11 @@
       <p>This document contains confidential assessment information. Unauthorized distribution is prohibited.</p>
     </div>
   </div>
+  </main>
+
+  <footer class="page-footer">
+    PNG Parole Regulation – Form 2 (Pre-Parole Report &amp; Detainee Assessment) · Parole Act 1991
+  </footer>
 
   <script src="../js/pms-core.js"></script>
   <script>

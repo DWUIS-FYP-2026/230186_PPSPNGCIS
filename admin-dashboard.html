@@ -18,28 +18,13 @@
     <aside class="sidebar" id="app-sidebar"></aside>
 
     <main class="main-content">
-      <header class="topbar command-bar">
-        <div class="command-bar__identity">
-          <div class="command-bar__badges" aria-hidden="true">
-            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
-            <span class="command-badge-divider"></span>
-            <img src="images/djag_logo.jpg" alt="" class="command-badge command-badge--djag">
-          </div>
-          <div class="command-bar__titles">
+      <header class="workspace-header">
+        <div class="workspace-header__primary">
+          <div class="workspace-header__titles">
             <h1 id="panel-title">Dashboard Overview</h1>
             <p id="panel-subtitle">Parole Management System — Central Administration</p>
           </div>
         </div>
-        <aside class="command-bar__status">
-          <div class="command-ticker">
-            <i class="fi fi-rr-clock" aria-hidden="true"></i>
-            <time id="command-datetime">—</time>
-          </div>
-          <div class="command-status-row">
-            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
-            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
-          </div>
-        </aside>
       </header>
 
       <!-- Overview -->
@@ -85,7 +70,7 @@
 
         <div class="metrics-strip">
           <div class="metric-chip"><strong id="stat-users">0</strong><span>Users</span></div>
-          <div class="metric-chip"><strong id="stat-officers">0</strong><span>Officers</span></div>
+          <div class="metric-chip"><strong id="stat-officers">0</strong><span>Staff Users</span></div>
           <div class="metric-chip"><strong id="stat-prisoners">0</strong><span>Prisoners</span></div>
           <div class="metric-chip"><strong id="stat-institutions">0</strong><span>Institutions</span></div>
           <div class="metric-chip"><strong id="stat-eligible">0</strong><span>Eligible</span></div>

@@ -107,14 +107,7 @@ function withTimeout(promise, ms, label) {
 
 function handleLoginSuccess(user) {
   closeLoginFloater();
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'User';
-  if (typeof window.showLandingToast === 'function') {
-    window.showLandingToast(`Signed in as ${name} (${user.role})`, 'success');
-  }
-  if (typeof window.showLoginWelcome === 'function') {
-    window.showLoginWelcome(user);
-  }
-  setTimeout(() => PMSAuth.redirectAfterLogin(user), 1400);
+  PMSAuth.redirectAfterLogin(user);
 }
 
 [emailInput, passwordInput].forEach((input) => {
@@ -131,6 +124,7 @@ form?.addEventListener('submit', async (e) => {
   setLoading(true);
   const identifier = emailInput.value.trim();
   const password = passwordInput.value;
+  let redirecting = false;
 
   try {
     if (typeof PMSApi !== 'undefined') {
@@ -138,6 +132,7 @@ form?.addEventListener('submit', async (e) => {
         const { token, user } = await PMSApi.login(identifier, password);
         PMSStorage.setSession(user, token);
         await withTimeout(PMSStorage.reloadAll(), 12000, 'Syncing data');
+        redirecting = true;
         handleLoginSuccess(user);
         return;
       } catch (apiErr) {
@@ -162,6 +157,7 @@ form?.addEventListener('submit', async (e) => {
       return;
     }
 
+    redirecting = true;
     handleLoginSuccess(user);
   } catch (err) {
     setFieldError(passwordInput, passwordError, err.message || 'Login failed.');
@@ -169,6 +165,6 @@ form?.addEventListener('submit', async (e) => {
       window.showLandingToast(err.message || 'Login failed.', 'error');
     }
   } finally {
-    setLoading(false);
+    if (!redirecting) setLoading(false);
   }
 });

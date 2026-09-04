@@ -98,6 +98,20 @@ const PMSForm3Institutional = (() => {
       if (data.conductSummary) conductSummary.value = data.conductSummary;
     }
 
+    function persistDraft(status = 'draft') {
+      const payload = {
+        ...getFormPayload(),
+        status,
+        savedAt: new Date().toISOString(),
+      };
+      if (app?.id) {
+        PMSStorage.saveFormData(app.id, 'form3', payload, actor);
+      } else {
+        saveState();
+      }
+      return payload;
+    }
+
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(getFormPayload()));
     }
@@ -111,8 +125,13 @@ const PMSForm3Institutional = (() => {
 
     document.getElementById('btn-save')?.addEventListener('click', () => {
       if (!validateForm()) return;
-      saveState();
-      showToast('Institutional report draft saved.');
+      if (!app?.id) {
+        saveState();
+        showToast('Draft saved locally. Open Form 3 from a linked application to save to the system.');
+        return;
+      }
+      persistDraft('draft');
+      showToast('Institutional report draft saved to the application.');
     });
 
     document.getElementById('btn-submit')?.addEventListener('click', async () => {
@@ -124,8 +143,7 @@ const PMSForm3Institutional = (() => {
       saveState();
       try {
         const payload = {
-          ...getFormPayload(),
-          status: 'approved',
+          ...persistDraft('approved'),
           submitted: true,
           submittedAt: new Date().toISOString(),
           commanderId: actor.id,

@@ -35,6 +35,25 @@ const PMSUI = (() => {
     });
   }
 
+  function formatStat(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return '0';
+    return n.toLocaleString('en-US');
+  }
+
+  function setStat(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = formatStat(value);
+  }
+
+  function recentNotifications(actor, limit = 5) {
+    if (typeof PMSStorage === 'undefined' || !actor) return [];
+    return PMSStorage.getNotificationsForUser(actor)
+      .slice()
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, limit);
+  }
+
   function statusClass(s) {
     const map = {
       Active: 'active', 'Awaiting Eligibility': 'in-custody', 'In Custody': 'in-custody',
@@ -82,10 +101,55 @@ const PMSUI = (() => {
   function updateNotifBadge(user) {
     const count = PMSStorage.getUnreadCountForUser(user);
     document.querySelectorAll('.nav-notif-badge, #nav-notif-badge, #header-notif-badge').forEach((badge) => {
-      badge.textContent = count;
+      badge.textContent = formatStat(count);
       badge.classList.toggle('hidden', count === 0);
+      badge.classList.toggle('nav-notif-badge--active', count > 0);
+      badge.setAttribute('aria-label', count ? `${count} unread notifications` : 'No unread notifications');
+    });
+    document.querySelectorAll('.sidebar-nav .nav-item[data-nav-id="notifications"]').forEach((el) => {
+      el.classList.toggle('nav-item--has-unread', count > 0);
     });
     PMSWorkspace?.syncNotifBadge?.(count);
+  }
+
+  function notificationStatusBadge(n) {
+    if (n.resolved) {
+      return '<span class="notification-status-badge notification-status-badge--resolved">Resolved</span>';
+    }
+    if (!n.read) {
+      return '<span class="notification-status-badge notification-status-badge--unread">Unread</span>';
+    }
+    return '<span class="notification-status-badge notification-status-badge--read">Read</span>';
+  }
+
+  function renderOverviewNotificationRow(n) {
+    const state = n.resolved ? 'resolved' : n.read ? 'read' : 'unread';
+    const preview = n.message.length > 80 ? `${n.message.slice(0, 80)}…` : n.message;
+    return `<div class="overview-row overview-row--${state}" role="listitem">
+      <div class="overview-row__main">
+        <strong>${esc(n.title)}</strong>
+        ${!n.read && !n.resolved ? '<span class="overview-unread-dot" aria-hidden="true"></span>' : ''}
+        <span class="meta">${esc(preview)}</span>
+      </div>
+      ${notificationStatusBadge(n)}
+    </div>`;
+  }
+
+  function syncOverviewNotifHeader(unreadCount) {
+    const card = document.getElementById('overview-notifications')?.closest('.card');
+    const header = card?.querySelector('.card-header');
+    if (!header) return;
+    let badge = header.querySelector('.overview-notif-count');
+    if (unreadCount > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'overview-notif-count';
+        header.appendChild(badge);
+      }
+      badge.textContent = `${unreadCount} unread`;
+    } else if (badge) {
+      badge.remove();
+    }
   }
 
   function switchPanel(panelId, panelTitles, onSwitch, navId) {
@@ -164,16 +228,25 @@ const PMSUI = (() => {
     if (n.institutionId) metaParts.push(instName(n.institutionId));
     const stateClass = n.resolved ? 'resolved' : n.read ? 'read' : 'unread';
     const cls = ` ${stateClass}`;
-    return `<article class="notification-item${cls}" data-notif-id="${esc(n.id)}">
-      <div class="notification-icon"><i class="${icon}" aria-hidden="true"></i></div>
+    const iconCls = n.resolved ? 'notification-icon--resolved' : n.read ? 'notification-icon--read' : 'notification-icon--unread';
+    const ariaLabel = n.resolved
+      ? `${n.title} — resolved notification`
+      : n.read
+        ? `${n.title} — read notification`
+        : `${n.title} — unread notification`;
+    return `<article class="notification-item${cls}" data-notif-id="${esc(n.id)}" aria-label="${esc(ariaLabel)}">
+      <div class="notification-icon ${iconCls}"><i class="${icon}" aria-hidden="true"></i></div>
       <div class="notification-body">
-        <h3>${esc(n.title)}${!n.read && !n.resolved ? '<span class="notification-unread-dot" aria-hidden="true"></span>' : ''}</h3>
+        <div class="notification-item-header">
+          <h3>${esc(n.title)}${!n.read && !n.resolved ? '<span class="notification-unread-dot" aria-hidden="true"></span>' : ''}</h3>
+          ${notificationStatusBadge(n)}
+        </div>
         <p>${esc(n.message)}</p>
         <div class="notification-meta">${esc(metaParts.join(' · '))}</div>
       </div>
       <div class="notification-actions">
         ${link ? `<a href="${esc(link)}" class="btn-icon" data-open-notif="${esc(n.id)}">Open record</a>` : ''}
-        ${!n.read ? `<button type="button" class="btn-icon" data-read="${esc(n.id)}">Mark read</button>` : ''}
+        ${!n.read ? `<button type="button" class="btn-icon btn-icon--mark-read" data-read="${esc(n.id)}">Mark read</button>` : '<span class="notification-read-label"><i class="fi fi-rr-check" aria-hidden="true"></i> Read</span>'}
         ${options.allowResolve && n.type === 'eligibility' && !n.resolved ? `<button type="button" class="btn-icon" data-resolve-notif="${esc(n.id)}">Resolve</button>` : ''}
         ${options.allowResolve && n.type === 'eligibility' && n.resolved ? '<span class="meta">Resolved</span>' : ''}
       </div>
@@ -183,14 +256,27 @@ const PMSUI = (() => {
   function renderNotificationPanel(containerId, user, options = {}) {
     const el = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
     if (!el || !user) return;
-    const list = PMSStorage.getNotificationsForUser(user).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    const unread = list.filter((n) => !n.read).length;
+    const list = PMSStorage.getNotificationsForUser(user).sort((a, b) => {
+      if (a.read !== b.read) return a.read ? 1 : -1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+    const unread = list.filter((n) => !n.read && !n.resolved).length;
+    const readCount = list.filter((n) => n.read || n.resolved).length;
     const showToolbar = options.showMarkAll !== false;
+    const summary = list.length
+      ? `<div class="notification-summary" role="status" aria-live="polite">
+          <div class="notification-summary__counts">
+            ${unread ? `<span class="notification-count notification-count--unread">${unread} unread</span>` : '<span class="notification-count notification-count--clear">All caught up</span>'}
+            ${readCount ? `<span class="notification-count notification-count--read">${readCount} read</span>` : ''}
+          </div>
+          ${unread ? '<span class="notification-summary__hint">Unread items appear first</span>' : ''}
+        </div>`
+      : '';
     const toolbar = showToolbar && unread
       ? `<div class="notification-toolbar"><button type="button" class="btn-secondary btn-sm" data-mark-all-read>Mark all as read</button></div>`
       : '';
-    el.innerHTML = toolbar + (list.length
-      ? list.map((n) => renderNotificationItem(n, user, options)).join('')
+    el.innerHTML = summary + toolbar + (list.length
+      ? `<div class="notification-list-body">${list.map((n) => renderNotificationItem(n, user, options)).join('')}</div>`
       : '<p class="empty-state">No notifications.</p>');
     if (options.countEl) {
       const countEl = document.getElementById(options.countEl);
@@ -413,10 +499,11 @@ const PMSUI = (() => {
   }
 
   return {
-    esc, fmtDate, fmtDateTime, statusClass, instName, prisonerName,
+    esc, fmtDate, fmtDateTime, formatStat, setStat, recentNotifications, statusClass, instName, prisonerName,
     initShell, updateNotifBadge, switchPanel, bindNav, renderBarChart,
     renderAuditFeed, auditStatusLabel, auditStatusClass,
     renderNotificationPanel, bindNotificationPanel, resolveNotificationLink,
+    renderOverviewNotificationRow, syncOverviewNotifHeader, notificationStatusBadge,
     bindModalClose, progressBar, applyDeepLinkNav, highlightDeepLinkRow, getDeepLinkParam, showToast,
     confirmDialog, showLoading, hideLoading, createPaginator,
     renderCaseTracker,

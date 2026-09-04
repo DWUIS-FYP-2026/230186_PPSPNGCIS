@@ -79,6 +79,16 @@ const PMSForm5Refusal = (() => {
       issuedBanner.classList.toggle('show', issued);
     }
 
+    function persistDraft(status = 'draft') {
+      const state = { ...getState(), status, savedAt: new Date().toISOString() };
+      if (app?.id) {
+        PMSStorage.saveFormData(app.id, 'form5', state, actor);
+      } else {
+        saveState();
+      }
+      return state;
+    }
+
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(getState()));
     }
@@ -87,34 +97,52 @@ const PMSForm5Refusal = (() => {
       try {
         applyState(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
       } catch (_) { /* ignore */ }
-      if (app?.formData?.form5) applyState(app.formData.form5);
+      if (app?.formData?.form5) {
+        applyState(app.formData.form5);
+        if (app.formData.form5.refusalReason && !refusalReason.value) {
+          refusalReason.value = app.formData.form5.refusalReason;
+        }
+        if (app.formData.form5.justification && !justification.value) {
+          justification.value = app.formData.form5.justification;
+        }
+      }
     }
 
     document.getElementById('btn-save').addEventListener('click', () => {
       if (!validateForm()) return;
-      saveState();
-      showToast('Refusal record saved successfully.');
+      if (!app?.id) {
+        saveState();
+        showToast('Draft saved locally. Open Form 5 from a linked application to save to the system.');
+        return;
+      }
+      persistDraft('draft');
+      showToast('Refusal record saved to the application.');
     });
 
     document.getElementById('btn-issue').addEventListener('click', async () => {
       if (!validateForm()) return;
       if (!app) { showToast('Application context is required.'); return; }
-      const score = PMSStorage.calculateParoleScore(app);
-      if (score.meetsThreshold) {
-        showToast(`Score ${score.percent}% meets 80% threshold. Use Form 4 for parole grant.`);
+      const outcome = PMSStorage.getBoardDecisionOutcome(app);
+      if (outcome !== 'Parole Refused') {
+        showToast('Board decision must be Parole Refused. Use Form 4 if parole was granted.');
         return;
       }
-      if (!window.confirm('Record official Parole Refusal based on the calculated score?')) return;
+      if (!PMSStorage.requiredBoardAssessmentsComplete(app)) {
+        showToast('All board member votes must be recorded before issuing Form 5.');
+        return;
+      }
+      if (!window.confirm('Issue official Form 5 — Parole Refused based on the board decision?')) return;
       try {
-        PMSStorage.routeParoleOutcome(app.id, actor);
+        const draft = persistDraft('draft');
+        PMSStorage.issueForm5Refusal(app.id, draft, actor);
         issued = true;
         saveState();
         wf.markCompleteAndAdvance({ issued: true });
         issuedBanner.classList.add('show');
-        showToast('Form 5 — Parole Refused recorded.');
+        showToast('Form 5 — Parole Refused issued.');
         PMSFormWorkflow.navigateAfterSubmit(5, app.id);
       } catch (err) {
-        showToast(err.message || 'Could not record refusal.');
+        showToast(err.message || 'Could not issue refusal.');
       }
     });
 

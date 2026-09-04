@@ -79,14 +79,34 @@ const PMSValidation = (() => {
   function validateForm2Section(sectionKey, data) {
     const errors = [];
     if (!data) return { valid: false, errors: ['Section data is missing.'] };
-    if (sectionKey === 'ddr') {
+    const key = String(sectionKey || '').toLowerCase();
+    const isDar = key === 'ddr' || key === 'dar';
+    const isPpr = key === 'ppr';
+    if (isDar) {
       errors.push(required(data.officerName || data.darOfficer, 'Officer name'));
-      errors.push(required(data.institutionName || data.facilityName, 'Institution'));
-      errors.push(required(data.assessmentSummary || data.conductLog || data.summary, 'Assessment summary'));
+      errors.push(required(
+        data.institutionName || data.facilityName || data.pprFacility,
+        'Institution'
+      ));
+      errors.push(required(
+        data.assessmentSummary
+          || data.conductLog
+          || data.summary
+          || data.trainingProgress
+          || [data.conductLog, data.trainingProgress, data.recidivismNotes].filter(Boolean).join('\n\n'),
+        'Assessment summary'
+      ));
     }
-    if (sectionKey === 'ppr') {
+    if (isPpr) {
       errors.push(required(data.clerkName || data.pprOfficer, 'Clerk name'));
-      errors.push(required(data.personalParticulars || data.victimStatements || data.communitySummary, 'Personal particulars review'));
+      errors.push(required(
+        data.personalParticulars
+          || data.pprFamilyHistory
+          || data.victimStatements
+          || data.communitySummary
+          || data.communityStatements,
+        'Personal particulars review'
+      ));
     }
     if (data.confirmed !== true) errors.push('Section must be confirmed before submission.');
     return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
@@ -102,9 +122,12 @@ const PMSValidation = (() => {
 
   function validateAssessment(assessment) {
     const errors = [];
-    errors.push(required(assessment.score, 'Assessment score'));
-    errors.push(percentage(assessment.score, 'Assessment score'));
-    errors.push(required(assessment.feedback, 'Assessment feedback'));
+    const vote = assessment?.vote;
+    if (!vote) errors.push('Board vote is required (Approve, Deny, or Defer).');
+    else if (!['Approved', 'Refused', 'Deferred'].includes(vote)) errors.push('Invalid board vote.');
+    if (assessment?.score != null && assessment.score !== '') {
+      errors.push(percentage(assessment.score, 'Assessment score'));
+    }
     return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
   }
 

@@ -15,31 +15,18 @@
   <div class="dashboard">
     <aside class="sidebar" id="app-sidebar"></aside>
     <main class="main-content">
-      <header class="topbar command-bar">
-        <div class="command-bar__identity">
-          <div class="command-bar__badges" aria-hidden="true">
-            <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
-            <span class="command-badge-divider"></span>
-            <img src="images/djag_logo.jpg" alt="" class="command-badge command-badge--djag">
-          </div>
-          <div class="command-bar__titles">
+      <header class="workspace-header">
+        <div class="workspace-header__primary">
+          <div class="workspace-header__titles">
             <h1 id="panel-title">Overview</h1>
             <p id="panel-subtitle">PNGCS Parole Clerk Dashboard</p>
           </div>
         </div>
-        <aside class="command-bar__status">
-          <div class="command-ticker"><i class="fi fi-rr-clock" aria-hidden="true"></i><time id="command-datetime">—</time></div>
-          <div class="command-status-row">
-            <span class="system-status system-status--secure"><span class="status-dot"></span> Secure Session</span>
-            <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
-          </div>
-        </aside>
       </header>
 
       <section class="panel active" id="panel-overview">
         <div class="panel-toolbar">
-          <p class="toolbar-note">Start a new parole application with Form 1 for an eligible detainee.</p>
-          <button type="button" class="btn-primary" id="btn-new-app-overview">+ New Application</button>
+          <p class="toolbar-note">Start a new parole application with Form 1 for an eligible detainee. Use Parole Applications in the sidebar to create a case.</p>
         </div>
         <div class="stats-grid">
           <article class="stat-card stat-card--alert stat-card--featured"><span class="stat-label">Eligible for Parole</span><strong class="stat-value" id="stat-eligible">0</strong></article>

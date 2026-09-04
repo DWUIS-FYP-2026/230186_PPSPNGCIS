@@ -379,7 +379,8 @@
 .notification-toolbar {
   display: flex;
   justify-content: flex-end;
-  padding: 0 0 0.75rem;
+  padding: 0.75rem 1.25rem 0;
+  background: var(--color-surface);
 }
 
 .overview-grid--single {
@@ -572,6 +573,7 @@
   font-weight: 700;
   line-height: 1;
   color: var(--color-heading);
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
 }
 
@@ -621,6 +623,7 @@
 .metric-chip strong {
   font-weight: 700;
   color: var(--color-heading);
+  font-variant-numeric: tabular-nums;
 }
 
 .metric-chip span {
