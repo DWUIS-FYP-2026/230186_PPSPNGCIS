@@ -20,7 +20,7 @@
           <div class="command-bar__badges" aria-hidden="true">
             <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
             <span class="command-badge-divider"></span>
-            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+            <img src="images/djag_logo.jpg" alt="" class="command-badge command-badge--djag">
           </div>
           <div class="command-bar__titles">
             <h1 id="panel-title">Overview</h1>
@@ -37,50 +37,68 @@
       </header>
 
       <section class="panel active" id="panel-overview">
-        <div class="stats-grid">
-          <article class="stat-card"><span class="stat-label">Submitted</span><strong class="stat-value" id="stat-submitted">0</strong></article>
-          <article class="stat-card"><span class="stat-label">Under Review</span><strong class="stat-value" id="stat-review">0</strong></article>
-          <article class="stat-card"><span class="stat-label">Reports Prepared</span><strong class="stat-value" id="stat-reports">0</strong></article>
-          <article class="stat-card"><span class="stat-label">Hearings Scheduled</span><strong class="stat-value" id="stat-hearings">0</strong></article>
+        <div class="panel-toolbar">
+          <p class="toolbar-note">Review PNGCS submissions, complete Form 2 (PPR), and prepare Form 4 investigations.</p>
+          <button type="button" class="btn-primary" id="btn-schedule-hearing-overview">+ Schedule Hearing</button>
         </div>
-        <div class="overview-grid overview-grid--single">
-          <div class="card"><div class="card-header"><h2>Application Pipeline</h2></div><div class="card-body chart-body" id="chart-pipeline"></div></div>
+        <div class="stats-grid">
+          <article class="stat-card stat-card--alert stat-card--featured"><span class="stat-label">Active Cases</span><strong class="stat-value" id="stat-eligible">0</strong></article>
+          <article class="stat-card"><span class="stat-label">Under Review</span><strong class="stat-value" id="stat-prisoners">0</strong></article>
+          <article class="stat-card"><span class="stat-label">Form 2 / PPR Pending</span><strong class="stat-value" id="stat-drafts">0</strong></article>
+          <article class="stat-card stat-card--warn"><span class="stat-label">Pending Alerts</span><strong class="stat-value" id="stat-notifications">0</strong></article>
+        </div>
+        <div class="overview-grid">
+          <div class="card card--calendar">
+            <div class="card-header"><h2>Calendar</h2></div>
+            <div class="card-body" id="dashboard-calendar"></div>
+          </div>
+          <div class="card"><div class="card-header"><h2>Recent Notifications</h2></div><div class="card-body" id="overview-notifications"></div></div>
         </div>
       </section>
 
       <section class="panel" id="panel-prisoners">
         <div class="panel-toolbar">
-          <input type="search" class="search-input" id="djag-prisoner-search" placeholder="Search prisoners by name or ID…">
+          <input type="search" class="search-input" id="prisoner-search" placeholder="Search prisoners…">
           <p class="toolbar-note">Read-only access. Records maintained by PNG Correctional Services.</p>
         </div>
-        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Institution</th><th>Offense</th><th>Status</th><th></th></tr></thead><tbody id="djag-prisoners-tbody"></tbody></table></div></div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>No.</th><th>Name</th><th>Institution</th><th>SSD</th><th>SED</th><th>Progress</th><th>Status</th><th></th></tr></thead><tbody id="prisoners-tbody"></tbody></table></div></div>
+      </section>
+
+      <section class="panel" id="panel-eligibility">
+        <div class="card"><div class="card-header"><h2>Parole Eligibility Verification</h2><span class="badge" id="eligibility-rule"></span></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>SSD</th><th>Duration</th><th>% Served</th><th>Eligibility Date</th><th>Status</th><th>Current Form</th><th></th></tr></thead><tbody id="eligibility-tbody"></tbody></table></div>
+        </div>
       </section>
 
       <section class="panel" id="panel-applications">
-        <div class="card"><div class="card-header"><h2>Applications from PNGCS</h2></div>
-          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Institution</th><th>Status</th><th>Forms</th><th>Submitted</th><th>Actions</th></tr></thead><tbody id="apps-tbody"></tbody></table></div>
+        <div class="panel-toolbar">
+          <p class="toolbar-note">Review applications submitted by PNGCS and advance the legal workflow.</p>
         </div>
-      </section>
-
-      <section class="panel" id="panel-reports">
-        <div class="card"><div class="card-header"><h2>Pre-Parole Reports (Form 4)</h2></div>
-          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Report Status</th><th>Documentation</th><th>Actions</th></tr></thead><tbody id="reports-tbody"></tbody></table></div>
-        </div>
-        <div class="card" style="margin-top:1rem"><div class="card-header"><h2>Management Analytics</h2></div>
-          <div class="card-body"><div id="reports-filter-bar"></div><div id="reports-body"></div></div>
-        </div>
-      </section>
-
-      <section class="panel" id="panel-hearings">
-        <div class="panel-toolbar"><button type="button" class="btn-primary" id="btn-schedule-hearing">+ Schedule Hearing</button></div>
-        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Prisoner</th><th>Application</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody id="hearings-tbody"></tbody></table></div></div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Status</th><th>Forms 1–5</th><th>Submitted</th><th></th></tr></thead><tbody id="applications-tbody"></tbody></table></div></div>
       </section>
 
       <section class="panel" id="panel-notifications">
         <div class="panel-toolbar">
-          <p class="toolbar-note">Application and hearing alerts for DJAG review workflows.</p>
+          <p class="toolbar-note">Workflow alerts for your role. Open a notification to view the related record.</p>
         </div>
         <div class="notification-list" id="notification-list"></div>
+      </section>
+
+      <section class="panel" id="panel-reports">
+        <div class="card"><div class="card-header"><h2>Operational Reports</h2></div>
+          <div class="card-body">
+            <div id="reports-filter-bar"></div>
+            <div id="reports-body"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-hearings">
+        <div class="panel-toolbar">
+          <p class="toolbar-note">Schedule and manage parole board hearings.</p>
+          <button type="button" class="btn-primary" id="btn-schedule-hearing">+ Schedule Hearing</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Prisoner</th><th>Application</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody id="hearings-tbody"></tbody></table></div></div>
       </section>
     </main>
   </div>
@@ -98,7 +116,8 @@
     </div>
   </dialog>
 
-  <script src="js/workspace-shell.js"></script><script src="js/command-bar.js"></script><script src="js/id-generator.js"></script><script src="js/eligibility-engine.js"></script><script src="js/storage.js"></script><script src="js/pms-validation.js"></script><script src="js/global-search.js"></script><script src="js/form-workflow.js"></script><script src="js/auth.js"></script><script src="js/rbac.js"></script><script src="js/workflow.js"></script><script src="js/forms-engine.js"></script><script src="js/sidebar-nav.js"></script><script src="js/ui-shared.js"></script><script src="js/reports-engine.js"></script><script src="js/dashboard-djag.js"></script>
+  <script src="js/pms-core.js"></script>
+  <script>PMSCore.bootDashboard('dashboard-djag.js');</script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

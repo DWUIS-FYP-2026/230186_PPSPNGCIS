@@ -14,19 +14,21 @@
 </head>
 <body class="pms-form-page pms-form-page--refuse">
   <header class="page-header">
-    <div class="header-top">
-      <a href="../dashboard-board.html" class="back-link">← Back to Dashboard</a>
-    </div>
+    <div class="header-top" data-pms-dashboard-btn></div>
     <div class="header-main">
-      <div class="header-title">
-        <h1>Form 5 – Parole Refused</h1>
-        <p>Papua New Guinea Parole System · Official refusal record (below 80% eligibility)</p>
+      <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
+      <div class="header-title-block">
+        <div class="header-title">
+          <h1>Form 5 – Parole Refused</h1>
+          <p>Papua New Guinea Parole System · Official refusal record (below 80% eligibility)</p>
+        </div>
       </div>
       <span class="role-badge">Form 5</span>
     </div>
   </header>
 
   <main class="page-main">
+    <div id="form-workflow-nav" class="no-print"></div>
     <form id="form5-refusal" novalidate>
       <div class="issued-banner" id="issued-banner" role="status">
         ⛔ Parole Refused — Form 5 has been issued and recorded.
@@ -47,7 +49,7 @@
             </div>
             <div class="field">
               <label for="facility">Facility</label>
-              <input type="text" id="facility" class="readonly-field" value="Bomana Correctional Facility" readonly>
+              <input type="text" id="facility" class="readonly-field" value="Correctional Facility" readonly>
             </div>
             <div class="field">
               <label for="hearing-date">Hearing Date</label>
@@ -119,8 +121,8 @@
             </div>
             <div class="field field--full">
               <label for="notice-recipients">Official Notice Sent To</label>
-              <textarea id="notice-recipients" class="readonly-field" rows="4" readonly>Michael K. Warupi (Detainee) – Bomana Correctional Facility
-Superintendent, Bomana Correctional Facility
+              <textarea id="notice-recipients" class="readonly-field" rows="4" readonly>Detainee — Correctional Facility
+Superintendent, Correctional Facility
 Legal Representative – Ms. Grace A. Tomure, Public Solicitor's Office
 Department of Justice & Attorney General – Parole Secretariat
 Correctional Services HQ – Parole Records Unit</textarea>
@@ -132,6 +134,8 @@ Correctional Services HQ – Parole Records Unit</textarea>
       <div class="actions-bar">
         <button type="button" class="btn btn-danger" id="btn-issue">Record Parole Refusal (Form 5)</button>
         <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
+        <button type="button" class="btn btn-outline" id="btn-prev-form">← Form 3</button>
+        <button type="button" class="btn btn-outline" id="btn-switch-form4">Form 4 (Grant) →</button>
         <button type="button" class="btn btn-secondary" id="btn-print">Print Form 5</button>
       </div>
     </form>
@@ -143,142 +147,9 @@ Correctional Services HQ – Parole Records Unit</textarea>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="../js/id-generator.js"></script>
-  <script src="../js/storage.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/rbac.js"></script>
-  <script src="../js/ui-shared.js"></script>
-  <script src="../js/pms-validation.js"></script>
-  <script src="../js/form-workflow.js"></script>
-  <script src="../js/forms-engine.js"></script>
+  <script src="../js/pms-core.js"></script>
   <script>
-    (async function () {
-      await PMSStorage.ensureLoaded();
-      const actor = PMSAuth.requireRole(['Parole Board Member', 'System Administrator']);
-      if (!actor) return;
-
-      var wf = PMSFormWorkflow.initPage(5);
-      if (wf.blocked) return;
-
-      const appId = wf.appId;
-      const app = appId && appId !== '_default' ? PMSStorage.getApplicationById(appId) : null;
-      const prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
-      const institution = prisoner ? PMSStorage.getInstitutionById(prisoner.institutionId) : null;
-      const hearing = app ? (PMSStorage.getHearingsByApplication(app.id)[0] || null) : null;
-
-      if (prisoner) {
-        document.getElementById('cs-number').value = prisoner.prisonerNumber || prisoner.id;
-        document.getElementById('full-name').value = [prisoner.firstName, prisoner.middleName, prisoner.lastName].filter(Boolean).join(' ');
-        document.getElementById('facility').value = institution?.name || '—';
-        if (hearing) {
-          document.getElementById('hearing-date').value = hearing.scheduledDate
-            ? new Date(hearing.scheduledDate).toLocaleDateString('en-GB')
-            : '—';
-        }
-      }
-
-      var STORAGE_KEY = wf.getDataKey();
-      var issued = false;
-
-      var refusalReason = document.getElementById('refusal-reason');
-      var justification = document.getElementById('justification');
-      var reapplyDate = document.getElementById('reapply-date');
-      var issuedBanner = document.getElementById('issued-banner');
-      var toast = document.getElementById('toast');
-
-      reapplyDate.value = '2027-08-25';
-
-      function showToast(msg) {
-        toast.textContent = msg;
-        toast.classList.add('show');
-        setTimeout(function () { toast.classList.remove('show'); }, 3500);
-      }
-
-      function validateForm() {
-        if (!refusalReason.value) {
-          showToast('Please select a reason for refusal.');
-          refusalReason.focus();
-          return false;
-        }
-        if (!justification.value.trim()) {
-          showToast('Please provide a detailed justification.');
-          justification.focus();
-          return false;
-        }
-        if (!reapplyDate.value) {
-          showToast('Please set the reapplication eligible date.');
-          reapplyDate.focus();
-          return false;
-        }
-        return true;
-      }
-
-      function getState() {
-        return {
-          refusalReason: refusalReason.value,
-          justification: justification.value,
-          reapplyDate: reapplyDate.value,
-          issued: issued
-        };
-      }
-
-      function applyState(data) {
-        if (!data) return;
-        if (data.refusalReason) refusalReason.value = data.refusalReason;
-        if (data.justification) justification.value = data.justification;
-        if (data.reapplyDate) reapplyDate.value = data.reapplyDate;
-        issued = !!data.issued;
-        issuedBanner.classList.toggle('show', issued);
-      }
-
-      function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(getState()));
-      }
-
-      function loadState() {
-        try {
-          var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-          applyState(data);
-        } catch (e) { /* ignore */ }
-      }
-
-      document.getElementById('btn-save').addEventListener('click', function () {
-        if (!validateForm()) return;
-        saveState();
-        showToast('Refusal record saved successfully.');
-      });
-
-      document.getElementById('btn-issue').addEventListener('click', async function () {
-        if (!validateForm()) return;
-        if (!app) {
-          showToast('Application context is required.');
-          return;
-        }
-        const score = PMSStorage.calculateParoleScore(app);
-        if (score.meetsThreshold) {
-          showToast(`Score ${score.percent}% meets 80% threshold. Use Form 4 for parole grant.`);
-          return;
-        }
-        if (!window.confirm('Record official Parole Refusal based on the calculated score?')) return;
-        try {
-          PMSStorage.routeParoleOutcome(app.id, actor);
-          issued = true;
-          saveState();
-          wf.markCompleteAndAdvance({ issued: true });
-          issuedBanner.classList.add('show');
-          showToast('Form 5 — Parole Refused recorded.');
-        } catch (err) {
-          showToast(err.message || 'Could not record refusal.');
-        }
-      });
-
-      document.getElementById('btn-print').addEventListener('click', function () {
-        if (!validateForm()) return;
-        window.print();
-      });
-
-      loadState();
-    })();
+    PMSCore.bootForm(['form5-refusal.js']).then(function () { PMSForm5Refusal.init(); });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

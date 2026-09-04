@@ -1,17 +1,20 @@
 /**
- * PMS Design System — PNG Parole Management System
- * PNG Correctional Service (PNGCS) + Department of Justice & Attorney General (DJAG)
- * Single source of truth for colors, typography, spacing, and component tokens.
+ * PMS Design System — aligned with index.html landing page (Inter, navy #0d2b4e, green #1a6b3c).
  */
 
 :root {
-  /* ── Brand: PNGCS ── */
-  --pngcs-navy: #0e2a47;
-  --pngcs-navy-mid: #163d66;
-  --pngcs-navy-deep: #081c30;
-  --pngcs-gold: #c8922a;
-  --pngcs-gold-light: #e0ad4a;
-  --pngcs-gold-soft: rgb(200 146 42 / 0.12);
+  /* ── Brand: PNGCS + DJAG (landing page tokens) ── */
+  --lp-primary: #0d2b4e;
+  --lp-secondary: #1a6b3c;
+  --lp-bg: #f0f4f8;
+  --lp-border: #e2e8f0;
+
+  --pngcs-navy: #0d2b4e;
+  --pngcs-navy-mid: #134067;
+  --pngcs-navy-deep: #081f38;
+  --pngcs-gold: #1a6b3c;
+  --pngcs-gold-light: #228b4a;
+  --pngcs-gold-soft: rgb(26 107 60 / 0.12);
 
   /* ── Brand: DJAG ── */
   --djag-purple: #4b2e83;
@@ -25,7 +28,7 @@
   --color-primary-active: var(--pngcs-navy-deep);
   --color-secondary: var(--djag-purple);
   --color-accent: var(--pngcs-gold);
-  --color-success: #0f6e4a;
+  --color-success: #1a6b3c;
   --color-success-bg: #ecfdf5;
   --color-success-border: #a7f3d0;
   --color-warning: #b45309;
@@ -40,7 +43,7 @@
 
   /* ── Surfaces & backgrounds ── */
   --color-white: #ffffff;
-  --color-bg: #eef2f7;
+  --color-bg: #f0f4f8;
   --color-bg-subtle: #e2e8f0;
   --color-surface: #ffffff;
   --color-surface-elevated: #f8fafc;
@@ -62,13 +65,13 @@
 
   /* ── Sidebar (dark nav — light text) ── */
   --sidebar-bg: linear-gradient(180deg, var(--pngcs-navy-deep) 0%, var(--pngcs-navy) 55%, var(--pngcs-navy-mid) 100%);
-  --sidebar-border: rgb(200 146 42 / 0.22);
+  --sidebar-border: rgb(26 107 60 / 0.25);
   --sidebar-text: #f8fafc;
   --sidebar-text-muted: #cbd5e1;
-  --sidebar-label: var(--pngcs-gold-light);
+  --sidebar-label: #7dd4a0;
   --sidebar-hover: rgb(255 255 255 / 0.08);
   --sidebar-active: rgb(255 255 255 / 0.12);
-  --sidebar-accent: var(--pngcs-gold);
+  --sidebar-accent: var(--lp-secondary);
 
   /* ── Legacy aliases (keep dashboards working) ── */
   --color-navy: var(--pngcs-navy);
@@ -188,9 +191,9 @@ body.theme-corrections {
 }
 
 body.theme-djag {
-  --role-accent: var(--djag-purple);
-  --role-accent-soft: rgb(75 46 131 / 0.1);
-  --role-gradient: linear-gradient(135deg, var(--djag-purple) 0%, var(--djag-maroon) 100%);
+  --role-accent: var(--lp-secondary);
+  --role-accent-soft: rgb(26 107 60 / 0.1);
+  --role-gradient: linear-gradient(135deg, var(--lp-primary) 0%, var(--lp-secondary) 100%);
 }
 
 body.theme-board {

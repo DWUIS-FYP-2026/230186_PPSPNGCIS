@@ -48,26 +48,38 @@ body.pms-portal-page {
 
 .portal-header .brand {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 1.5rem;
-  font-weight: 600;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
-.portal-header .brand i { color: var(--pngcs-gold-light); }
+.portal-header .brand-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.portal-header .brand-sub {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.65);
+  letter-spacing: 0.02em;
+}
+
+.portal-header .brand i { display: none; }
 
 .portal-header .hearing-badge {
-  background: rgb(255 255 255 / 0.12);
-  padding: 0.5rem 1.5rem;
-  border-radius: 60px;
-  font-size: 0.9rem;
-  border: 1px solid rgb(255 255 255 / 0.15);
+  background: rgb(255 255 255 / 0.1);
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  letter-spacing: 0.02em;
 }
 
-.portal-header .hearing-badge i {
-  margin-right: 8px;
-  color: var(--pngcs-gold-light);
-}
+.portal-header .hearing-badge i { display: none; }
 
 .portal-header .user-info {
   display: flex;
@@ -300,17 +312,29 @@ body.pms-portal-page {
 .doc-item {
   background: var(--portal-surface);
   padding: 0.3rem 0.8rem;
-  border-radius: 40px;
+  border-radius: 6px;
   border: 1px solid var(--portal-border);
   font-size: 0.75rem;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   color: var(--pngcs-navy-mid);
+  font-weight: 500;
 }
 
 .doc-item.missing { opacity: 0.55; border-style: dashed; }
-.doc-item i { color: var(--color-danger); }
+
+.section-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--portal-text);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.session-current-id {
+  font-weight: 400;
+  color: var(--portal-muted);
+}
 
 .dossier-note { margin-top: 0.5rem; font-size: 0.75rem; color: var(--portal-muted); }
 
@@ -398,12 +422,14 @@ body.pms-portal-page {
 
 .vote-tracker .vote-item {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.9rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--portal-muted);
 }
 
-.vote-tracker .vote-item .count { font-weight: 700; font-size: 1.2rem; }
+.vote-tracker .vote-item .count { font-weight: 700; font-size: 1.2rem; line-height: 1; }
 .vote-tracker .vote-item.approve .count { color: var(--color-success); }
 .vote-tracker .vote-item.deny .count { color: var(--color-danger); }
 .vote-tracker .vote-item.abstain .count { color: var(--color-warning); }

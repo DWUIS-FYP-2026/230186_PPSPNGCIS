@@ -8,23 +8,21 @@
   <script src="../js/page-zoom.js"></script>
   <title>Parole Hearing Portal · Board View | PNG Parole System</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/hearing-portal.css">
+  <link rel="stylesheet" href="../css/page-chrome.css">
 </head>
 <body class="pms-portal-page">
   <div class="portal">
     <header class="portal-header">
       <div class="brand">
-        <i class="fi fi-rr-gavel" aria-hidden="true"></i>
-        Parole Hearing Portal
+        <span class="brand-title">Parole Hearing Portal</span>
+        <span class="brand-sub">Board review &amp; scheduling</span>
       </div>
-      <div class="hearing-badge" id="session-badge">
-        <i class="fi fi-rr-circle" aria-hidden="true"></i> Session · Active
-      </div>
+      <div class="hearing-badge" id="session-badge">Session · Active</div>
       <div class="user-info">
-        <a href="../dashboard-board.html" class="back-dash" id="back-link"><i class="fi fi-rr-arrow-left" aria-hidden="true"></i> Dashboard</a>
+        <a href="#" class="back-dash" id="back-link" data-pms-dashboard-btn><span>Dashboard</span></a>
         <span id="user-label">Board Member</span>
-        <div class="avatar" id="user-avatar"><i class="fi fi-rr-user" aria-hidden="true"></i></div>
+        <div class="avatar" id="user-avatar" aria-hidden="true">?</div>
       </div>
     </header>
 
@@ -35,9 +33,9 @@
         <span><span class="label">Current:</span> <span class="value" id="session-current">—</span></span>
       </div>
       <div class="session-controls">
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-prev"><i class="fi fi-rr-angle-left" aria-hidden="true"></i> Prev</button>
-        <button type="button" class="btn btn-primary btn-sm" id="btn-next">Next <i class="fi fi-rr-angle-right" aria-hidden="true"></i></button>
-        <button type="button" class="btn btn-outline btn-sm" id="btn-print"><i class="fi fi-rr-print" aria-hidden="true"></i></button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-prev">Previous</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-next">Next</button>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-print">Print</button>
       </div>
     </div>
 
@@ -51,7 +49,7 @@
         </h4>
         <div id="queue-list"></div>
         <div class="queue-footer" id="queue-footer">
-          <i class="fi fi-rr-rotate-right" aria-hidden="true"></i> <span id="queue-remaining">0 remaining</span>
+          <span id="queue-remaining">0 remaining</span>
         </div>
       </div>
 
@@ -60,27 +58,25 @@
           <div class="main-info">
             <h2 id="offender-name">Select a case</h2>
             <div class="sub" id="offender-sub">
-              <span><i class="fi fi-rr-id-badge" aria-hidden="true"></i> <span id="offender-id">—</span></span>
-              <span><i class="fi fi-rr-calendar" aria-hidden="true"></i> <span id="offender-offense">—</span></span>
-              <span><i class="fi fi-rr-building" aria-hidden="true"></i> <span id="offender-facility">—</span></span>
+              <span>ID: <span id="offender-id">—</span></span>
+              <span>Offense: <span id="offender-offense">—</span></span>
+              <span>Facility: <span id="offender-facility">—</span></span>
             </div>
           </div>
-          <div class="eligibility-badge" id="eligibility-badge">
-            <i class="fi fi-rr-clock" aria-hidden="true"></i> Awaiting selection
-          </div>
+          <div class="eligibility-badge" id="eligibility-badge">Awaiting selection</div>
         </div>
 
         <div class="dossier-viewer">
           <div class="dossier-head">
-            <strong><i class="fi fi-rr-folder-open" aria-hidden="true"></i> Digital Dossier</strong>
-            <span class="dossier-status" id="dossier-status"><i class="fi fi-rr-clock" aria-hidden="true"></i> Pending</span>
+            <strong>Digital Dossier</strong>
+            <span class="dossier-status" id="dossier-status">Pending</span>
           </div>
           <div class="doc-list" id="doc-list"></div>
-          <div class="dossier-note"><i class="fi fi-rr-eye" aria-hidden="true"></i> Board View · accessible anywhere</div>
+          <div class="dossier-note">Board view · read-only case documentation</div>
         </div>
 
         <div class="schedule-area" id="schedule-area" hidden>
-          <label><i class="fi fi-rr-calendar-plus" aria-hidden="true"></i> Schedule Hearing <span class="hint">(after Form 3)</span></label>
+          <label class="section-title">Schedule Hearing <span class="hint">(after Form 3 verification)</span></label>
           <div class="schedule-grid">
             <div>
               <label class="field-label" for="hearing-date">Date *</label>
@@ -92,7 +88,7 @@
             </div>
             <div class="schedule-full">
               <label class="field-label" for="hearing-venue">Venue *</label>
-              <input type="text" id="hearing-venue" placeholder="DJAG Parole Board Conference Room, Port Moresby">
+              <input type="text" id="hearing-venue" placeholder="Parole Board hearing venue">
             </div>
             <div class="schedule-full">
               <label class="field-label" for="hearing-notes">Notes</label>
@@ -104,30 +100,30 @@
             </div>
           </div>
           <div class="action-buttons">
-            <button type="button" class="btn btn-success" id="btn-schedule"><i class="fi fi-rr-calendar-check" aria-hidden="true"></i> Schedule &amp; Notify</button>
-            <button type="button" class="btn btn-secondary" id="btn-save-draft"><i class="fi fi-rr-disk" aria-hidden="true"></i> Save Draft</button>
-            <button type="button" class="btn btn-danger" id="btn-cancel" hidden><i class="fi fi-rr-ban" aria-hidden="true"></i> Cancel Hearing</button>
+            <button type="button" class="btn btn-success" id="btn-schedule">Schedule &amp; Notify</button>
+            <button type="button" class="btn btn-secondary" id="btn-save-draft">Save Draft</button>
+            <button type="button" class="btn btn-danger" id="btn-cancel" hidden>Cancel Hearing</button>
           </div>
         </div>
 
         <div class="vote-tracker" id="vote-tracker">
           <div class="vote-item approve">
-            <i class="fi fi-rr-thumbs-up" aria-hidden="true"></i>
-            <span class="count" id="vote-approve">0</span> Approve
+            <span class="count" id="vote-approve">0</span>
+            <span>Approve</span>
           </div>
           <div class="vote-item deny">
-            <i class="fi fi-rr-thumbs-down" aria-hidden="true"></i>
-            <span class="count" id="vote-deny">0</span> Deny
+            <span class="count" id="vote-deny">0</span>
+            <span>Deny</span>
           </div>
           <div class="vote-item abstain">
-            <i class="fi fi-rr-minus" aria-hidden="true"></i>
-            <span class="count" id="vote-abstain">0</span> Abstain
+            <span class="count" id="vote-abstain">0</span>
+            <span>Abstain</span>
           </div>
-          <div class="vote-meta" id="vote-meta"><i class="fi fi-rr-clock" aria-hidden="true"></i> 0 of 0 recorded</div>
+          <div class="vote-meta" id="vote-meta">0 of 0 recorded</div>
         </div>
 
         <div class="decision-area" id="decision-area">
-          <label><i class="fi fi-rr-gavel" aria-hidden="true"></i> Record Decision</label>
+          <label class="section-title">Record Decision</label>
           <select id="hearing-decision">
             <option value="">Select decision…</option>
             <option value="Approved">Approve Parole</option>
@@ -139,36 +135,34 @@
           <label>Parole Conditions <span class="hint">(if approved)</span></label>
           <textarea id="hearing-conditions" placeholder="Conditions of parole if approved…"></textarea>
           <div class="action-buttons">
-            <button type="button" class="btn btn-success" id="btn-record-decision"><i class="fi fi-rr-check" aria-hidden="true"></i> Record Decision</button>
-            <button type="button" class="btn btn-secondary" id="btn-open-form"><i class="fi fi-rr-document" aria-hidden="true"></i> Generate Form 4/5</button>
-            <button type="button" class="btn btn-outline" id="btn-reset-decision"><i class="fi fi-rr-rotate-left" aria-hidden="true"></i> Reset</button>
+            <button type="button" class="btn btn-success" id="btn-record-decision">Record Decision</button>
+            <button type="button" class="btn btn-secondary" id="btn-open-form">Generate Form 4/5</button>
+            <button type="button" class="btn btn-outline" id="btn-reset-decision">Reset</button>
           </div>
         </div>
 
         <div class="history-log">
-          <div class="history-title"><i class="fi fi-rr-time-past" aria-hidden="true"></i> Audit Trail</div>
+          <div class="history-title">Audit Trail</div>
           <div id="audit-trail"><div class="log-item empty">Select a case to view audit trail.</div></div>
         </div>
       </div>
 
       <div class="panel-panel">
-        <h4><i class="fi fi-rr-users" aria-hidden="true"></i> Board Panel</h4>
+        <h4>Board Panel</h4>
         <div id="panel-members"></div>
-        <div class="panel-footer"><i class="fi fi-rr-check-circle" aria-hidden="true"></i> Vote tracking · digital</div>
+        <div class="panel-footer">Individual assessments &amp; final decision</div>
       </div>
     </div>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="../js/id-generator.js"></script>
-  <script src="../js/storage.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/rbac.js"></script>
-  <script src="../js/workflow.js"></script>
-  <script src="../js/pms-validation.js"></script>
-  <script src="../js/ui-shared.js"></script>
-  <script src="../js/forms-engine.js"></script>
-  <script src="../js/hearing-portal.js"></script>
+  <script src="../js/pms-core.js"></script>
+  <script>
+    PMSCore.bootForm(['workflow.js', 'hearing-portal.js']).then(function () {
+      PMSPageChrome.init({ basePath: '../' });
+      return PMSHearingPortal.init();
+    });
+  </script>
 </body>
 </html>

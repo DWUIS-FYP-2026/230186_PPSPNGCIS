@@ -98,6 +98,7 @@
       { label: 'Deferred', value: apps.filter((a) => a.status === 'Deferred').length },
       { label: 'Refused', value: apps.filter((a) => a.status === 'Refused').length },
     ], 'var(--color-navy)');
+    if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
   }
 
   function prisonerProfileHtml(p) {

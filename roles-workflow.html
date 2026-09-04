@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="css/dashboard.css" rel="stylesheet">
   <link href="css/forms.css" rel="stylesheet">
+  <link href="css/page-chrome.css" rel="stylesheet">
 </head>
 <body class="pms-ref-page">
   <header class="ref-header">
@@ -26,6 +27,7 @@
     <a href="#forms">Official Forms</a>
     <a href="#statuses">Application Statuses</a>
     <a href="#theme">UI Theme</a>
+    <span data-pms-dashboard-btn></span>
     <a href="index.html">← Back to Login</a>
   </div></nav>
 
@@ -92,7 +94,7 @@
           <tr><td>2</td><td>Automatic eligibility calculation (one-third / 1/3 of sentence from SSD)</td><td>Eligible for Parole</td><td>System (Automated)</td></tr>
           <tr><td>3</td><td>Eligibility notification to PNGCS Parole Clerk, CS Parole Officer, and System Administrator</td><td>—</td><td>System (Automated)</td></tr>
           <tr><td>4</td><td>Prepare Form 1 (Application) and Form 2 (Personal Particulars)</td><td>Draft</td><td>PNGCS Parole Clerk</td></tr>
-          <tr><td>5</td><td>Complete Form 3 (Institutional Report) — Bomana, Port Moresby</td><td>Draft</td><td>PNGCS Parole Clerk</td></tr>
+          <tr><td>5</td><td>Complete Form 3 (Institutional Report)</td><td>Draft</td><td>PNGCS Parole Clerk</td></tr>
           <tr><td>6</td><td>Submit complete application package to DJAG</td><td>Submitted</td><td>PNGCS Parole Clerk</td></tr>
           <tr><td>7</td><td>Review documentation and verify forms</td><td>Under DJAG Review</td><td>DJAG Parole Clerk</td></tr>
           <tr><td>8</td><td>Return for correction (if incomplete)</td><td>Returned for Correction</td><td>DJAG Parole Clerk</td></tr>
@@ -119,7 +121,7 @@
         </div></div></div>
         <div class="col-md-6"><div class="card h-100"><div class="card-body">
           <h5>Form 3 — Institutional Report</h5>
-          <p class="small">PNGCS Parole Clerk · Step 5 · Conduct, programs, institutional recommendation (Bomana, Port Moresby)</p>
+          <p class="small">PNGCS Parole Clerk · Step 5 · Conduct, programs, and institutional recommendation</p>
         </div></div></div>
         <div class="col-md-6"><div class="card h-100"><div class="card-body">
           <h5>Form 4 — Pre-Parole Investigation Report</h5>
@@ -160,6 +162,10 @@
       </div>
     </section>
   </main>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/page-chrome.js"></script>
+  <script>PMSStorage.ensureLoaded().then(() => PMSPageChrome.init());</script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

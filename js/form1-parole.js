@@ -14,6 +14,7 @@ const PMSForm1Parole = (() => {
   let app = null;
   let institution = null;
   let locked = false;
+  let viewOnly = false;
 
   function $(id) { return document.getElementById(id); }
 
@@ -108,7 +109,7 @@ const PMSForm1Parole = (() => {
     $('courtOfConviction').value = prisoner.courtOfConviction || prisoner.court_of_conviction || '';
     $('sentenceStartDate').value = formatInputDate(prisoner.sentenceStartDate || prisoner.sentence_start_date);
 
-    const facilityName = institution?.name || 'Bomana Correctional Institution';
+    const facilityName = institution?.name || 'Correctional Institution';
     $('facility').value = facilityName;
     $('facilityCode').value = institution?.code || 'BOM-001';
     $('cellBlock').value = prisoner.cellBlockUnit || prisoner.cell_block_unit || '';
@@ -304,9 +305,13 @@ const PMSForm1Parole = (() => {
 
       mapStatusBadge('REPORT_PREPARATION');
       showToast('Form 1 submitted. Proceeding to Report Preparation phase.', 'success');
-      setTimeout(() => {
-        window.location.href = `form2.html?appId=${encodeURIComponent(appId)}&from=form1`;
-      }, 1500);
+      if (typeof PMSFormWorkflow !== 'undefined') {
+        PMSFormWorkflow.navigateAfterSubmit(1, appId);
+      } else {
+        setTimeout(() => {
+          window.location.href = `form2.html?appId=${encodeURIComponent(appId)}&from=form1`;
+        }, 1500);
+      }
     } catch (err) {
       showToast(err.message || 'Submission failed.', 'error');
     }
@@ -335,6 +340,9 @@ const PMSForm1Parole = (() => {
     $('btnSubmit').addEventListener('click', submitForm);
     $('btnPreview').addEventListener('click', previewForm);
     $('btnReset').addEventListener('click', resetForm);
+    $('btnNextForm2')?.addEventListener('click', () => {
+      if (typeof PMSFormWorkflow !== 'undefined' && appId) PMSFormWorkflow.openForm(2, appId);
+    });
   }
 
   function fillProvinceSelect() {
@@ -349,13 +357,37 @@ const PMSForm1Parole = (() => {
     sel.value = institution?.province || 'National Capital District';
   }
 
+  function applyViewOnlyLock() {
+    locked = true;
+    document.querySelectorAll('#paroleForm input:not([type=hidden]), #paroleForm select, #paroleForm textarea').forEach((el) => {
+      if (el.type === 'checkbox' || el.type === 'radio') el.disabled = true;
+      else if (!el.classList.contains('readonly-input')) {
+        el.readOnly = true;
+        el.classList.add('readonly-field');
+      }
+    });
+    $('prisonerConsent') && ($('prisonerConsent').disabled = true);
+    $('btnSave') && ($('btnSave').style.display = 'none');
+    $('btnSubmit') && ($('btnSubmit').style.display = 'none');
+    $('btnReset') && ($('btnReset').style.display = 'none');
+    if (!$('form1-view-banner')) {
+      const banner = document.createElement('div');
+      banner.id = 'form1-view-banner';
+      banner.className = 'wf-readonly-banner';
+      banner.innerHTML = '🔒 <strong>View only</strong> — Reviewing Form 1 submitted by PNGCS.';
+      $('form1-root')?.insertBefore(banner, $('form1-root').firstChild);
+    }
+  }
+
   async function boot(resolvedAppId) {
     appId = resolvedAppId;
     app = PMSStorage.getApplicationById(appId);
     prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
     if (!app || !prisoner) {
       alert('Application or detainee record not found.');
-      window.location.href = '../dashboard-pngcs.html';
+      window.location.href = typeof PMSPageChrome !== 'undefined'
+        ? PMSPageChrome.getDashboardHref('../')
+        : '../dashboard.html';
       return;
     }
 
@@ -369,11 +401,17 @@ const PMSForm1Parole = (() => {
     populateForm();
     bindEvents();
 
+    if (typeof PMSFormWorkflow !== 'undefined') {
+      PMSFormWorkflow.mountFormChrome(1, appId);
+    }
+
     if (app.formData?.form1?.status === 'submitted' || app.status === 'REPORT_PREPARATION') {
       locked = true;
       $('btnSave').disabled = true;
       $('btnSubmit').disabled = true;
     }
+
+    if (viewOnly) applyViewOnlyLock();
 
     $('form1-root').classList.remove('hidden');
     $('selection-panel').classList.add('hidden');
@@ -381,21 +419,49 @@ const PMSForm1Parole = (() => {
 
   async function init() {
     await PMSStorage.ensureLoaded();
-    actor = PMSAuth.requireRole(['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator']);
-    if (!actor) return;
+    const session = PMSStorage.getSession();
+    if (!session) {
+      window.location.replace('../index.html');
+      return;
+    }
+    actor = PMSStorage.getUserById(session.id) || session;
+    actor.role = PMSAuth.normalizeRole(actor.role);
+    if (!PMSRBAC.requireFormAccess(actor, 1, 'view')) return;
+    viewOnly = !PMSRBAC.canAccessForm(actor, 1, 'edit');
 
     const params = new URLSearchParams(window.location.search);
     let resolvedAppId = params.get('appId');
     const prisonerIdParam = params.get('prisonerId');
 
+    if (viewOnly && !resolvedAppId && !prisonerIdParam) {
+      window.location.href = typeof PMSPageChrome !== 'undefined'
+        ? PMSPageChrome.getDashboardHref('../')
+        : `../${PMSAuth.getDashboardForRole(actor.role)}`;
+      return;
+    }
+
     if (!resolvedAppId && prisonerIdParam) {
-      const created = PMSStorage.getOrCreateDraftApplication(prisonerIdParam, actor);
-      resolvedAppId = created.id;
-      window.history.replaceState({}, '', `${window.location.pathname}?appId=${encodeURIComponent(resolvedAppId)}`);
+      if (viewOnly) {
+        const existing = PMSStorage.getParoleApplications().find((a) => a.prisonerId === prisonerIdParam && !['Approved', 'Refused', 'Released'].includes(a.status));
+        resolvedAppId = existing?.id || null;
+      } else {
+        const created = PMSStorage.getOrCreateDraftApplication(prisonerIdParam, actor);
+        resolvedAppId = created.id;
+      }
+      if (resolvedAppId) {
+        window.history.replaceState({}, '', `${window.location.pathname}?appId=${encodeURIComponent(resolvedAppId)}`);
+      }
     }
 
     if (resolvedAppId) {
       await boot(resolvedAppId);
+      return;
+    }
+
+    if (viewOnly) {
+      window.location.href = typeof PMSPageChrome !== 'undefined'
+        ? PMSPageChrome.getDashboardHref('../')
+        : `../${PMSAuth.getDashboardForRole(actor.role)}`;
       return;
     }
 

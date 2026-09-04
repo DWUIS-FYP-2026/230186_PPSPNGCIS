@@ -104,7 +104,7 @@ SESSION_TTL_HOURS=8
 |------|----------|----------|
 | System Administrator | admin | admin123 |
 | PNGCS Parole Clerk | john.dole@cs.gov.pg | Password123! |
-| Jail Commander (Bomana) | commander@cs.gov.pg | Password123! |
+| Jail Commander (Bomana) | pkoroma@cs.gov.pg | Password123! |
 
 ## Verify in MySQL Workbench
 

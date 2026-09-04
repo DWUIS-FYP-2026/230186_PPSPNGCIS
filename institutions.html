@@ -6,11 +6,12 @@
   <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
   <script src="js/auth-guard.js"></script>
   <script src="js/page-zoom.js"></script>
-  <title>Port Moresby Institution — PMS</title>
+  <title>Correctional Institutions — PMS</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="css/dashboard.css" rel="stylesheet">
   <link href="css/institutions.css" rel="stylesheet">
+  <link href="css/page-chrome.css" rel="stylesheet">
 </head>
 <body>
   <div class="dashboard">
@@ -22,11 +23,11 @@
           <div class="command-bar__badges" aria-hidden="true">
             <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
             <span class="command-badge-divider"></span>
-            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+            <img src="images/djag_logo.jpg" alt="" class="command-badge command-badge--djag">
           </div>
           <div class="command-bar__titles">
-            <h1>Port Moresby Correctional Institution</h1>
-            <p id="page-subtitle">Bomana Correctional Institution — National Capital District</p>
+            <h1>Correctional Institutions</h1>
+            <p id="page-subtitle">PNG Correctional Service — nationwide institution registry</p>
           </div>
         </div>
         <aside class="command-bar__status">
@@ -36,7 +37,8 @@
             <span class="system-status system-status--online"><span class="status-dot"></span> System Online</span>
           </div>
         </aside>
-        <div class="inst-topbar-actions">
+        <div class="command-bar__actions">
+          <div data-pms-dashboard-btn></div>
           <button type="button" class="btn btn-pms-primary btn-sm d-none" id="btn-add-institution">+ Add Institution</button>
         </div>
       </header>
@@ -194,6 +196,8 @@
   <script src="js/rbac.js"></script>
   <script src="js/sidebar-nav.js"></script>
   <script src="js/ui-shared.js"></script>
+  <script src="js/page-chrome.js"></script>
   <script src="js/institutions.js"></script>
+  <script>PMSStorage.ensureLoaded().then(() => PMSPageChrome.init());</script>
 </body>
 </html>

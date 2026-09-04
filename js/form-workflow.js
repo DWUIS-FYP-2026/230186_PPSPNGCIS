@@ -10,7 +10,7 @@ const PMSFormWorkflow = (() => {
       key: 'form1',
       title: 'Form 1 — Parole Eligibility Screening',
       prereqs: [],
-      dashboard: '../dashboard-pngcs.html',
+      dashboard: '../dashboard.html',
       dataKey: 'png_form1_screening',
       path: 'forms/form1.html',
     },
@@ -19,7 +19,7 @@ const PMSFormWorkflow = (() => {
       key: 'form2',
       title: 'Form 2 — Assessment Records (DDR & PPR)',
       prereqs: ['form1'],
-      dashboard: '../dashboard-pngcs.html',
+      dashboard: '../dashboard.html',
       dataKey: 'png_form2_assessments',
       path: 'forms/form2.html',
       sections: ['ddr', 'ppr'],
@@ -29,7 +29,7 @@ const PMSFormWorkflow = (() => {
       key: 'form3',
       title: 'Form 3 — Institutional Report',
       prereqs: ['form1', 'form2'],
-      dashboard: '../dashboard-pngcs.html',
+      dashboard: '../dashboard.html',
       dataKey: 'png_form3_institutional',
       path: 'forms/form3.html',
     },
@@ -38,7 +38,7 @@ const PMSFormWorkflow = (() => {
       key: 'form4',
       title: 'Form 4 — Parole Granted',
       prereqs: ['form1', 'form2', 'form3'],
-      dashboard: '../dashboard-board.html',
+      dashboard: '../dashboard.html',
       dataKey: 'png_form4_granted',
       path: 'forms/form4.html',
     },
@@ -47,7 +47,7 @@ const PMSFormWorkflow = (() => {
       key: 'form5',
       title: 'Form 5 — Parole Refused',
       prereqs: ['form1', 'form2', 'form3'],
-      dashboard: '../dashboard-board.html',
+      dashboard: '../dashboard.html',
       dataKey: 'png_form5_refused',
       path: 'forms/form5.html',
     },
@@ -67,16 +67,24 @@ const PMSFormWorkflow = (() => {
     return PMSRBAC.canEditForms(user);
   }
 
-  function getDashboardHref() {
+  function canUserEditForm(formN) {
     const user = getSessionUser();
-    if (user && typeof PMSAuth !== 'undefined') {
-      return '../' + PMSAuth.getDashboardForRole(user.role);
-    }
-    return '../dashboard-pngcs.html';
+    if (!user) return false;
+    if (typeof PMSRBAC !== 'undefined') return PMSRBAC.canAccessForm(user, formN, 'edit');
+    return canUserEditForms();
   }
 
-  function applyViewOnlyMode() {
-    if (canUserEditForms()) return false;
+  function getDashboardHref() {
+    if (typeof PMSPageChrome !== 'undefined') {
+      return PMSPageChrome.getDashboardHref('../');
+    }
+    const user = getSessionUser();
+    const dash = typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(user?.role) : 'dashboard.html';
+    return `../${dash}`;
+  }
+
+  function applyViewOnlyMode(formN) {
+    if (canUserEditForm(formN)) return false;
     injectStyles();
 
     const main = document.querySelector('.page-main');
@@ -92,7 +100,7 @@ const PMSFormWorkflow = (() => {
 
     document.querySelectorAll('input:not([type="hidden"]), select, textarea, button').forEach((el) => {
       if (el.closest('.wf-gate') || el.closest('.wf-readonly-banner')) return;
-      if (el.classList.contains('back-link')) return;
+      if (el.classList.contains('back-link') || el.classList.contains('pms-dashboard-btn')) return;
       if (el.id && (el.id.includes('print') || el.id === 'btn-print' || el.id === 'btn-print-conditions')) return;
       if (el.type === 'checkbox' || el.type === 'radio') el.disabled = true;
       else if (el.tagName === 'SELECT') el.disabled = true;
@@ -197,7 +205,7 @@ const PMSFormWorkflow = (() => {
   }
 
   function markComplete(formN, appId, meta) {
-    if (!canUserEditForms() && formN <= 2) return null;
+    if (!canUserEditForm(formN)) return null;
     const id = appId || getAppId();
     const all = loadAll();
     if (!all[id]) all[id] = { forms: {} };
@@ -263,6 +271,32 @@ const PMSFormWorkflow = (() => {
   }
 
   function getNextForm(formN) { return FORM_DEFS.find((f) => f.n === formN + 1) || null; }
+  function getPrevForm(formN) { return FORM_DEFS.find((f) => f.n === formN - 1) || null; }
+
+  function getProgressMountParent() {
+    return document.getElementById('form-workflow-nav')
+      || document.querySelector('.page-main')
+      || document.getElementById('form1-root')
+      || document.getElementById('form2-root')
+      || document.querySelector('.container');
+  }
+
+  function navigateAfterSubmit(formN, appId, { delay = 1500 } = {}) {
+    if (!appId || appId === '_default') return;
+    markComplete(formN, appId, { submitted: true });
+    const go = () => {
+      if (formN === 1) openForm(2, appId);
+      else if (formN === 2) openForm(3, appId);
+      else if (formN === 3) {
+        if (canAccessHearingPortal()) window.location.href = hearingPortalHref(appId);
+        else window.location.href = getDashboardHref();
+      } else {
+        window.location.href = getDashboardHref();
+      }
+    };
+    if (delay > 0) setTimeout(go, delay);
+    else go();
+  }
 
   function canAccessHearingPortal() {
     const user = getSessionUser();
@@ -302,6 +336,15 @@ const PMSFormWorkflow = (() => {
       .wf-continue__btn { padding:.5rem 1rem;background:#1e6b32;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit; }
       body.wf-blocked .page-main { pointer-events:none;opacity:.45;user-select:none;filter:grayscale(.2); }
       .wf-readonly-banner { background:#fff8e1;border:1px solid #ffe082;border-left:4px solid #ffc107;border-radius:8px;padding:.875rem 1rem;margin-bottom:1.25rem;font-size:.875rem;color:#664d03; }
+      .wf-form-nav { display:flex;flex-wrap:wrap;gap:.5rem .75rem;align-items:center;margin-bottom:1.25rem;padding:.75rem 1rem;background:#f8fafc;border:1px solid #dce3ed;border-radius:8px; }
+      .wf-form-nav__label { font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5a6b7d;margin-right:.25rem; }
+      .wf-form-nav__btn { padding:.45rem .9rem;border-radius:6px;font-weight:600;font-size:.8125rem;cursor:pointer;border:1px solid #d0d8e4;background:#fff;color:#002b5c;font-family:inherit; }
+      .wf-form-nav__btn:hover { background:#eef2f7;border-color:#002b5c; }
+      .wf-form-nav__btn--primary { background:#002b5c;color:#fff;border-color:#002b5c; }
+      .wf-form-nav__btn--primary:hover { background:#001a3d; }
+      .wf-form-nav__btn:disabled { opacity:.45;cursor:not-allowed; }
+      .wf-step { cursor:pointer; }
+      .wf-step--locked { cursor:not-allowed; }
     `;
     document.head.appendChild(style);
   }
@@ -312,16 +355,75 @@ const PMSFormWorkflow = (() => {
     document.getElementById('wf-progress')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'wf-progress';
-    wrap.className = 'wf-progress';
+    wrap.className = 'wf-progress no-print';
     wrap.innerHTML = `<div class="wf-progress__title">Parole Case Workflow</div>
       <div class="wf-progress__steps">${FORM_DEFS.map((f) => {
         const done = checks[f.key];
         const current = f.n === currentFormN;
-        const locked = !done && !current && !canAccess(appId, f.n);
+        const accessible = canAccess(appId, f.n) || done || current;
+        const locked = !accessible;
         const cls = ['wf-step', done ? 'wf-step--done' : '', current ? 'wf-step--current' : '', locked ? 'wf-step--locked' : ''].filter(Boolean).join(' ');
-        return `<div class="${cls}" title="${f.title}">Form ${f.n}${done ? ' ✓' : ''}</div>`;
+        return `<div class="${cls}" data-form-n="${f.n}" title="${f.title}">Form ${f.n}${done ? ' ✓' : ''}</div>`;
       }).join('')}</div>`;
-    document.querySelector('.page-main')?.insertBefore(wrap, document.querySelector('.page-main')?.firstChild);
+
+    const mount = getProgressMountParent();
+    if (mount) {
+      if (mount.id === 'form-workflow-nav') mount.innerHTML = '';
+      mount.insertBefore(wrap, mount.firstChild);
+    }
+
+    wrap.querySelectorAll('.wf-step[data-form-n]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const n = Number(el.dataset.formN);
+        if (Number.isNaN(n)) return;
+        if (n === currentFormN) return;
+        if (!canAccess(appId, n) && !getChecks(appId)[`form${n}`]) {
+          const blocker = getBlockingForm(appId, n);
+          alert(`Complete ${blocker?.title || 'the previous form'} before opening Form ${n}.`);
+          return;
+        }
+        openForm(n, appId);
+      });
+    });
+  }
+
+  function renderFormNavBar(currentFormN, appId) {
+    injectStyles();
+    if (!appId || appId === '_default') return;
+
+    const prev = getPrevForm(currentFormN);
+    const next = getNextForm(currentFormN);
+    const checks = getChecks(appId);
+    let navHost = document.getElementById('wf-form-nav');
+    if (!navHost) {
+      navHost = document.createElement('div');
+      navHost.id = 'wf-form-nav';
+      navHost.className = 'wf-form-nav no-print';
+      const mount = getProgressMountParent();
+      if (mount) mount.appendChild(navHost);
+    }
+
+    const showHearing = currentFormN >= 3 && checks.form3 && canAccessHearingPortal();
+    navHost.innerHTML = `
+      <span class="wf-form-nav__label">Navigate:</span>
+      ${prev ? `<button type="button" class="wf-form-nav__btn" data-wf-nav="prev">← Form ${prev.n}</button>` : ''}
+      ${next ? `<button type="button" class="wf-form-nav__btn wf-form-nav__btn--primary" data-wf-nav="next"${canAccess(appId, next.n) ? '' : ' disabled'}>Form ${next.n} →</button>` : ''}
+      ${showHearing ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="hearing">Hearing Portal</button>' : ''}
+      ${currentFormN >= 4 ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="form4">Form 4</button><button type="button" class="wf-form-nav__btn" data-wf-nav="form5">Form 5</button>' : ''}
+      <button type="button" class="wf-form-nav__btn" data-wf-nav="dashboard">Dashboard</button>`;
+
+    navHost.querySelector('[data-wf-nav="prev"]')?.addEventListener('click', () => { if (prev) openForm(prev.n, appId); });
+    navHost.querySelector('[data-wf-nav="next"]')?.addEventListener('click', () => { if (next) openForm(next.n, appId); });
+    navHost.querySelector('[data-wf-nav="hearing"]')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
+    navHost.querySelector('[data-wf-nav="form4"]')?.addEventListener('click', () => openForm(4, appId));
+    navHost.querySelector('[data-wf-nav="form5"]')?.addEventListener('click', () => openForm(5, appId));
+    navHost.querySelector('[data-wf-nav="dashboard"]')?.addEventListener('click', () => { window.location.href = getDashboardHref(); });
+  }
+
+  function mountFormChrome(formN, appId) {
+    if (!appId || appId === '_default') return;
+    renderProgressBar(formN, appId);
+    renderFormNavBar(formN, appId);
   }
 
   function showGate(formN, appId) {
@@ -353,9 +455,11 @@ const PMSFormWorkflow = (() => {
       banner = document.createElement('div');
       banner.id = 'wf-continue';
       banner.className = 'wf-continue';
-      const actions = document.querySelector('.actions-bar');
+      const actions = document.querySelector('.actions-bar') || document.querySelector('.actions');
       if (actions) actions.parentNode.insertBefore(banner, actions);
-      else document.querySelector('.page-main')?.appendChild(banner);
+      else document.querySelector('.page-main')?.appendChild(banner)
+        || document.getElementById('form1-root')?.appendChild(banner)
+        || document.getElementById('form2-root')?.appendChild(banner);
     }
 
     if (formN === 3 && canAccessHearingPortal()) {
@@ -384,15 +488,15 @@ const PMSFormWorkflow = (() => {
     injectStyles();
     document.body.classList.add('pms-form-page');
     const appId = getAppId();
-    applyViewOnlyMode();
+    applyViewOnlyMode(formN);
     migrateLegacyData(formN, appId);
     const backLink = document.querySelector('.back-link');
     if (backLink) backLink.href = getDashboardHref();
-    renderProgressBar(formN, appId);
+    mountFormChrome(formN, appId);
 
     if (!canAccess(appId, formN)) {
       showGate(formN, appId);
-      return { appId, blocked: true, markCompleteAndAdvance: () => {}, refreshProgress: () => renderProgressBar(formN, appId) };
+      return { appId, blocked: true, markCompleteAndAdvance: () => {}, refreshProgress: () => mountFormChrome(formN, appId) };
     }
 
     if (isFormDataComplete(formN, appId)) showContinueBanner(formN, appId);
@@ -403,10 +507,10 @@ const PMSFormWorkflow = (() => {
       getDataKey: () => getDataStorageKey(formN, appId),
       markCompleteAndAdvance(meta) {
         markComplete(formN, appId, meta);
-        renderProgressBar(formN, appId);
+        mountFormChrome(formN, appId);
         showContinueBanner(formN, appId);
       },
-      refreshProgress: () => renderProgressBar(formN, appId),
+      refreshProgress: () => mountFormChrome(formN, appId),
     };
   }
 
@@ -423,7 +527,8 @@ const PMSFormWorkflow = (() => {
 
   return {
     FORM_DEFS, getAppId, getDataStorageKey, getChecks, canAccess, getBlockingForm,
-    markComplete, openForm, initPage, isFormDataComplete, prereqsMet, canUserEditForms,
-    hearingPortalHref, canAccessHearingPortal,
+    markComplete, openForm, initPage, isFormDataComplete, prereqsMet, canUserEditForms, canUserEditForm,
+    hearingPortalHref, canAccessHearingPortal, mountFormChrome, navigateAfterSubmit,
+    getNextForm, getPrevForm, formHref,
   };
 })();

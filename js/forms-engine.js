@@ -18,12 +18,15 @@ const PMSForms = (() => {
     if (document.querySelector('.form-app-bar') || !ctx) return;
     const def = PMSStorage.PAROLE_FORMS.find((f) => f.number === ctx.formNumber);
     const dash = PMSAuth.getDashboardForRole(ctx.user.role);
+    const logos = typeof PMSBrand !== 'undefined'
+      ? PMSBrand.logoBadgesHtml('../', true)
+      : '';
     const bar = document.createElement('header');
     bar.className = 'form-app-bar no-print';
     bar.innerHTML = `
       <div class="form-app-bar__inner">
         <div class="form-app-bar__brand">
-          <img src="../images/PNG CS Logo.jpg" alt="" class="form-app-bar__logo">
+          ${logos}
           <div>
             <span class="form-app-bar__system">Parole Management System</span>
             <strong class="form-app-bar__title">${esc(def?.name || `Form ${ctx.formNumber}`)}</strong>

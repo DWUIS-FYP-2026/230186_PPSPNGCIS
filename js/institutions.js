@@ -1,5 +1,5 @@
 /**
- * Correctional Institution Management — Port Moresby (admin).
+ * Correctional Institution Management — nationwide registry (admin).
  */
 (async () => {
   await PMSStorage.ensureLoaded();
@@ -22,7 +22,7 @@
   PMSUI.updateNotifBadge(actor);
 
   document.getElementById('btn-add-institution').classList.remove('d-none');
-  document.getElementById('page-subtitle').textContent = 'Bomana Correctional Institution — Port Moresby (NCD)';
+  document.getElementById('page-subtitle').textContent = 'PNG Correctional Service institutions across all provinces';
 
   function esc(str) {
     const d = document.createElement('div');
@@ -134,7 +134,7 @@
     document.getElementById('edit-code').value = inst?.code || '';
     document.getElementById('edit-name').value = inst?.name || '';
     document.getElementById('edit-province').value = inst?.province || 'National Capital District';
-    document.getElementById('edit-address').value = inst?.address || 'Port Moresby';
+    document.getElementById('edit-address').value = inst?.address || '';
     document.getElementById('edit-status').value = inst?.status || 'Active';
     document.getElementById('edit-phone').value = inst?.phone || '';
     document.getElementById('edit-email').value = inst?.email || '';

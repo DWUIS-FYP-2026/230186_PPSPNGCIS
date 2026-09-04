@@ -161,6 +161,10 @@ const PMSApi = (() => {
     return request('POST', `/api/parole/submit-preparole-report/${encodeURIComponent(applicationId)}`, body);
   }
 
+  async function getCalendarEvents() {
+    return request('GET', '/api/calendar/events');
+  }
+
   return {
     getBaseUrl,
     getToken,
@@ -186,5 +190,6 @@ const PMSApi = (() => {
     listPrisonerDocuments,
     uploadPrisonerDocument,
     deletePrisonerDocument,
+    getCalendarEvents,
   };
 })();

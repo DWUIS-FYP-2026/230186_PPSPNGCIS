@@ -2,238 +2,1183 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
-  <script src="js/page-zoom.js"></script>
   <title>Parole Management System — PNG Correctional Service &amp; DJAG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    :root {
+      --lp-primary: #0d2b4e;
+      --lp-secondary: #1a6b3c;
+      --lp-bg: #f0f4f8;
+      --lp-card: #ffffff;
+      --lp-text: #1a202c;
+      --lp-text-md: #3d4f66;
+      --lp-text-light: #5a6f8c;
+      --lp-border: #e2e8f0;
+      --lp-border-soft: #e8edf3;
+      --lp-shadow: 0 4px 24px rgba(13, 43, 78, 0.08);
+      --lp-shadow-hover: 0 8px 32px rgba(13, 43, 78, 0.12);
+      --lp-header-h: 84px;
+      --lp-radius: 12px;
+      --lp-transition: 0.22s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--lp-text);
+      background: var(--lp-bg);
+      min-height: 100vh;
+    }
+
+    .hidden { display: none !important; }
+
+    .lp-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background: var(--lp-bg) url('images/login background.png') center/cover no-repeat;
+    }
+
+    .lp-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(240, 244, 248, 0.85);
+    }
+
+    .lp-bg-image {
+      position: absolute;
+      inset: 0;
+      background: url('images/login background.png') center/cover no-repeat;
+      opacity: 0.15;
+    }
+
+    /* ---- Header ---- */
+    .lp-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--lp-header-h);
+      background: rgba(255, 255, 255, 0.96);
+      border-bottom: 1px solid var(--lp-border);
+      backdrop-filter: blur(12px);
+    }
+
+    .lp-header__inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .lp-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+      text-decoration: none;
+    }
+
+    .lp-brand__logos {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      flex-shrink: 0;
+      padding: 0.35rem 0.5rem;
+      background: #fff;
+      border: 1px solid var(--lp-border);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(13, 43, 78, 0.08);
+    }
+
+    .lp-logo-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      background: #fff;
+      min-width: 64px;
+    }
+
+    .lp-logo-badge--pngcs {
+      border: 1px solid rgba(13, 43, 78, 0.12);
+      background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+    }
+
+    .lp-logo-badge--djag {
+      border: 1px solid rgba(26, 107, 60, 0.15);
+      background: linear-gradient(180deg, #f6fbf8 0%, #fff 100%);
+    }
+
+    .lp-logo-badge img {
+      height: 52px;
+      width: auto;
+      max-width: 120px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .lp-logo-divider {
+      width: 1px;
+      height: 44px;
+      background: linear-gradient(180deg, transparent, var(--lp-border) 20%, var(--lp-border) 80%, transparent);
+      flex-shrink: 0;
+    }
+
+    .lp-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .lp-nav a {
+      color: var(--lp-text-md);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      transition: color var(--lp-transition), background var(--lp-transition);
+    }
+
+    .lp-nav a:hover,
+    .lp-nav a.is-active {
+      color: var(--lp-primary);
+      background: rgba(13, 43, 78, 0.06);
+    }
+
+    .lp-nav a:focus-visible,
+    .lp-btn:focus-visible,
+    .lp-menu-toggle:focus-visible {
+      outline: 2px solid var(--lp-secondary);
+      outline-offset: 2px;
+    }
+
+    .lp-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background var(--lp-transition), transform var(--lp-transition), box-shadow var(--lp-transition);
+    }
+
+    .lp-btn--primary {
+      background: var(--lp-primary);
+      color: #fff;
+      padding: 0.55rem 1rem;
+    }
+
+    .lp-btn--primary:hover {
+      background: #0a2240;
+      box-shadow: var(--lp-shadow);
+    }
+
+    .lp-menu-toggle {
+      display: none;
+      background: none;
+      border: 1px solid var(--lp-border);
+      border-radius: 8px;
+      padding: 0.45rem;
+      color: var(--lp-primary);
+      cursor: pointer;
+    }
+
+    /* ---- Main sections ---- */
+    .lp-main { position: relative; z-index: 1; }
+
+    .lp-section {
+      padding: 4rem 1.25rem;
+    }
+
+    .lp-section__inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .lp-section__title {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: clamp(1.35rem, 3vw, 1.75rem);
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: var(--lp-primary);
+      margin-bottom: 1.25rem;
+    }
+
+    .lp-section__title svg { color: var(--lp-secondary); flex-shrink: 0; }
+
+    .lp-section__intro {
+      color: var(--lp-text-md);
+      font-size: 1.0625rem;
+      line-height: 1.8;
+      max-width: 720px;
+      margin-bottom: 1.75rem;
+    }
+
+    /* ---- Hero ---- */
+    .lp-hero {
+      padding: 4.5rem 1.25rem 3.5rem;
+      text-align: center;
+    }
+
+    .lp-hero__inner { max-width: 820px; margin: 0 auto; }
+
+    .lp-hero__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--lp-text-light);
+      margin-bottom: 1rem;
+    }
+
+    .lp-hero h1 {
+      font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      line-height: 1.15;
+      color: var(--lp-primary);
+      margin-bottom: 1.25rem;
+    }
+
+    .lp-hero h1 em {
+      font-style: normal;
+      color: var(--lp-secondary);
+    }
+
+    .lp-hero__lead {
+      font-size: clamp(1rem, 2vw, 1.0625rem);
+      line-height: 1.8;
+      color: var(--lp-text-md);
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .lp-welcome-banner {
+      margin-top: 1.5rem;
+      padding: 0.85rem 1.25rem;
+      background: rgba(26, 107, 60, 0.1);
+      border: 1px solid rgba(26, 107, 60, 0.25);
+      border-radius: var(--lp-radius);
+      color: var(--lp-secondary);
+      font-weight: 600;
+      font-size: 0.9375rem;
+      animation: lpFadeIn 0.4s ease;
+    }
+
+    @keyframes lpFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---- About ---- */
+    .lp-prose p {
+      color: var(--lp-text-md);
+      font-size: 1.0625rem;
+      line-height: 1.8;
+      margin-bottom: 1rem;
+    }
+
+    .lp-features {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-top: 2rem;
+      list-style: none;
+    }
+
+    .lp-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      background: var(--lp-card);
+      border: 1px solid var(--lp-border-soft);
+      border-radius: var(--lp-radius);
+      padding: 1rem 1.1rem;
+      font-size: 0.9375rem;
+      color: var(--lp-text-md);
+      transition: box-shadow var(--lp-transition), border-color var(--lp-transition);
+    }
+
+    .lp-features li:hover {
+      box-shadow: var(--lp-shadow);
+      border-color: var(--lp-border);
+    }
+
+    .lp-features svg { color: var(--lp-secondary); flex-shrink: 0; margin-top: 2px; }
+
+    /* ---- Agency cards ---- */
+    .lp-agency-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .lp-agency-card {
+      background: var(--lp-card);
+      border: 1px solid var(--lp-border-soft);
+      border-radius: var(--lp-radius);
+      padding: 1.5rem;
+      transition: box-shadow var(--lp-transition), transform var(--lp-transition);
+    }
+
+    .lp-agency-card:hover {
+      box-shadow: var(--lp-shadow-hover);
+      transform: translateY(-2px);
+    }
+
+    .lp-agency-card__head {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .lp-agency-card__head img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .lp-agency-card__head h3 {
+      font-size: 1.0625rem;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: var(--lp-primary);
+      line-height: 1.3;
+      margin-bottom: 0.35rem;
+    }
+
+    .lp-tag {
+      display: inline-block;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+    }
+
+    .lp-tag--pngcs { background: rgba(13, 43, 78, 0.1); color: var(--lp-primary); }
+    .lp-tag--djag { background: rgba(26, 107, 60, 0.12); color: var(--lp-secondary); }
+
+    .lp-agency-card p {
+      font-size: 0.9375rem;
+      line-height: 1.75;
+      color: var(--lp-text-md);
+      margin-bottom: 1rem;
+    }
+
+    .lp-agency-card ul {
+      list-style: none;
+      font-size: 0.875rem;
+      color: var(--lp-text-light);
+    }
+
+    .lp-agency-card li {
+      padding: 0.35rem 0 0.35rem 1.25rem;
+      position: relative;
+    }
+
+    .lp-agency-card li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.85rem;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--lp-secondary);
+    }
+
+    .lp-agency-card--pngcs li::before { background: var(--lp-primary); }
+
+    /* ---- Workflow ---- */
+    .lp-workflow {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+      list-style: none;
+    }
+
+    .lp-workflow li {
+      display: flex;
+      gap: 1rem;
+      background: var(--lp-card);
+      border: 1px solid var(--lp-border-soft);
+      border-radius: var(--lp-radius);
+      padding: 1.25rem;
+      transition: box-shadow var(--lp-transition);
+    }
+
+    .lp-workflow li:hover { box-shadow: var(--lp-shadow); }
+
+    .lp-step-num {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--lp-primary);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.9375rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lp-workflow strong {
+      display: block;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--lp-primary);
+      margin-bottom: 0.35rem;
+    }
+
+    .lp-workflow p {
+      font-size: 0.875rem;
+      line-height: 1.65;
+      color: var(--lp-text-light);
+    }
+
+    /* ---- Contact ---- */
+    .lp-contact-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .lp-contact-card {
+      background: var(--lp-card);
+      border: 1px solid var(--lp-border-soft);
+      border-radius: var(--lp-radius);
+      padding: 1.35rem;
+      text-align: center;
+      transition: box-shadow var(--lp-transition), background var(--lp-transition);
+    }
+
+    .lp-contact-card:hover {
+      box-shadow: var(--lp-shadow);
+      background: #fafbfc;
+    }
+
+    .lp-contact-card svg {
+      color: var(--lp-secondary);
+      margin-bottom: 0.65rem;
+    }
+
+    .lp-contact-card h3 {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--lp-text-light);
+      margin-bottom: 0.35rem;
+    }
+
+    .lp-contact-card p,
+    .lp-contact-card a {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--lp-primary);
+      text-decoration: none;
+    }
+
+    .lp-contact-card a:hover { text-decoration: underline; }
+
+    /* ---- Footer ---- */
+    .lp-footer {
+      border-top: 1px solid var(--lp-border);
+      background: rgba(255, 255, 255, 0.7);
+      padding: 1.75rem 1.25rem;
+      text-align: center;
+      font-size: 0.8125rem;
+      color: var(--lp-text-light);
+    }
+
+    .lp-footer p { display: flex; align-items: center; justify-content: center; gap: 0.4rem; flex-wrap: wrap; }
+
+    .lp-footer svg { color: var(--lp-primary); }
+
+    .lp-footer a { color: var(--lp-text-md); }
+
+    /* ---- Login modal ---- */
+    .lp-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .lp-modal.hidden {
+      display: none;
+    }
+
+    .lp-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(13, 43, 78, 0.45);
+      backdrop-filter: blur(6px);
+      animation: lpBackdropIn 0.25s ease;
+    }
+
+    @keyframes lpBackdropIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .lp-modal__card {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      background: var(--lp-card);
+      border-radius: 14px;
+      box-shadow: 0 24px 64px rgba(13, 43, 78, 0.2);
+      padding: 1.75rem 1.75rem 1.5rem;
+      animation: lpModalIn 0.3s ease;
+    }
+
+    @keyframes lpModalIn {
+      from { opacity: 0; transform: scale(0.96) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .lp-modal__close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      line-height: 1;
+      color: var(--lp-text-light);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 6px;
+    }
+
+    .lp-modal__close:hover { color: var(--lp-primary); background: var(--lp-bg); }
+
+    .lp-modal__logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .lp-modal__logos img { height: 44px; width: auto; object-fit: contain; }
+
+    .lp-modal__logos span {
+      width: 1px;
+      height: 36px;
+      background: var(--lp-border);
+    }
+
+    .lp-modal h2 {
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: var(--lp-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .lp-modal__sub {
+      text-align: center;
+      font-size: 0.8125rem;
+      color: var(--lp-text-light);
+      margin-bottom: 1.25rem;
+    }
+
+    .lp-field { margin-bottom: 0.85rem; }
+
+    .lp-field label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--lp-text-md);
+      margin-bottom: 0.35rem;
+    }
+
+    .lp-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .lp-input-wrap > svg,
+    .lp-input-wrap > i[data-lucide] {
+      position: absolute;
+      left: 0.75rem;
+      color: var(--lp-text-light);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .lp-input-wrap input {
+      width: 100%;
+      padding: 0.65rem 0.75rem 0.65rem 2.35rem;
+      border: 1px solid var(--lp-border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      color: var(--lp-text);
+      background: #fff;
+      transition: border-color var(--lp-transition), box-shadow var(--lp-transition);
+    }
+
+    .lp-input-wrap input:focus {
+      outline: none;
+      border-color: var(--lp-primary);
+      box-shadow: 0 0 0 3px rgba(13, 43, 78, 0.12);
+    }
+
+    .lp-input-wrap input.error { border-color: #c53030; background: #fff5f5; }
+
+    .lp-input-wrap--password input { padding-right: 2.75rem; }
+
+    .lp-toggle-password {
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--lp-text-light);
+      cursor: pointer;
+      padding: 0.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      line-height: 0;
+    }
+
+    .lp-toggle-password svg {
+      width: 1.125rem;
+      height: 1.125rem;
+      pointer-events: none;
+    }
+
+    .lp-toggle-password:hover { color: var(--lp-primary); }
+
+    .lp-error {
+      display: block;
+      font-size: 0.75rem;
+      color: #c53030;
+      min-height: 1rem;
+      margin-top: 0.2rem;
+    }
+
+    .lp-login-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0 1rem;
+      font-size: 0.8125rem;
+    }
+
+    .lp-login-options label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--lp-text-md);
+      cursor: pointer;
+    }
+
+    .lp-login-options a { color: var(--lp-primary); text-decoration: none; font-weight: 500; }
+    .lp-login-options a:hover { text-decoration: underline; }
+
+    .lp-btn--signin {
+      width: 100%;
+      justify-content: center;
+      padding: 0.7rem 1rem;
+      font-size: 0.9375rem;
+      margin-top: 0.25rem;
+    }
+
+    .lp-btn--signin:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    .lp-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: lpSpin 0.7s linear infinite;
+    }
+
+    @keyframes lpSpin { to { transform: rotate(360deg); } }
+
+    .lp-demo {
+      margin-top: 1rem;
+      border-top: 1px solid var(--lp-border-soft);
+      padding-top: 0.75rem;
+    }
+
+    .lp-demo summary {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--lp-text-md);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .lp-demo ul {
+      margin-top: 0.65rem;
+      padding-left: 1.1rem;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: var(--lp-text-light);
+    }
+
+    .lp-demo code {
+      background: var(--lp-bg);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    .lp-demo-note { margin-top: 0.5rem; font-size: 0.75rem; color: var(--lp-text-light); }
+
+    /* ---- Toast ---- */
+    .lp-toast-wrap {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+
+    .lp-toast {
+      pointer-events: auto;
+      min-width: 280px;
+      max-width: 360px;
+      padding: 0.85rem 1rem;
+      background: var(--lp-card);
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(13, 43, 78, 0.15);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--lp-text);
+      border-left: 4px solid var(--lp-secondary);
+      animation: lpToastIn 0.3s ease;
+    }
+
+    .lp-toast--error { border-left-color: #c53030; }
+    .lp-toast--success { border-left-color: var(--lp-secondary); }
+
+    @keyframes lpToastIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ---- Mobile nav ---- */
+    @media (max-width: 768px) {
+      .lp-menu-toggle { display: flex; }
+
+      .lp-nav {
+        position: fixed;
+        top: var(--lp-header-h);
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        background: #fff;
+        border-bottom: 1px solid var(--lp-border);
+        padding: 0.75rem 1rem 1rem;
+        box-shadow: var(--lp-shadow);
+        transform: translateY(-110%);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform var(--lp-transition), opacity var(--lp-transition);
+      }
+
+      .lp-nav.is-open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .lp-nav a { padding: 0.65rem 0.75rem; }
+
+      .lp-nav .lp-btn { width: 100%; justify-content: center; margin-top: 0.35rem; }
+
+      .lp-logo-badge img { height: 44px; max-width: 96px; }
+
+      .lp-logo-divider { height: 36px; }
+
+      .lp-brand__logos { gap: 0.6rem; padding: 0.3rem 0.4rem; }
+
+      .lp-features,
+      .lp-agency-grid,
+      .lp-workflow,
+      .lp-contact-grid { grid-template-columns: 1fr; }
+
+      .lp-hero { padding-top: 3rem; }
+    }
+  </style>
 </head>
-<body class="pms-home">
-  <div class="home-bg" aria-hidden="true" style="background-image: url('images/login background.png')"></div>
-  <div class="home-overlay" aria-hidden="true"></div>
+<body>
+  <div class="lp-bg" aria-hidden="true"><div class="lp-bg-image"></div></div>
 
-  <div class="home-page">
-    <button type="button" class="home-login-trigger" id="home-login-open" aria-haspopup="dialog" aria-controls="home-login-floater">
-      <i class="fi fi-rr-lock" aria-hidden="true"></i>
-      <span>Login</span>
-    </button>
-
-    <div class="home-login-floater hidden" id="home-login-floater" role="dialog" aria-modal="true" aria-labelledby="home-login-title">
-      <div class="home-login-floater-backdrop" id="home-login-backdrop" aria-hidden="true"></div>
-      <div class="home-login-floater-card">
-        <button type="button" class="home-login-floater-close" id="home-login-close" aria-label="Close login">&times;</button>
-        <div class="home-login-floater-header">
-          <div class="home-login-floater-logos">
-            <img src="images/PNG CS Logo.jpg" alt="" class="home-logo home-logo--pngcs">
-            <span class="home-brand-divider" aria-hidden="true"></span>
-            <img src="images/djag.png" alt="" class="home-logo home-logo--djag">
+  <header class="lp-header" role="banner">
+    <div class="lp-header__inner">
+      <a href="#home" class="lp-brand" aria-label="Parole Management System home">
+        <div class="lp-brand__logos">
+          <div class="lp-logo-badge lp-logo-badge--pngcs">
+            <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service logo">
           </div>
-          <h2 id="home-login-title">Authorized User Sign In</h2>
-          <p class="home-login-floater-sub">Parole Management System (PMS)</p>
+          <span class="lp-logo-divider" aria-hidden="true"></span>
+          <div class="lp-logo-badge lp-logo-badge--djag">
+            <img src="images/djag_logo.jpg" alt="Department of Justice and Attorney General logo">
+          </div>
         </div>
-        <form id="login-form" class="home-login-form" novalidate>
-          <div class="home-login-fields home-login-fields--stacked">
-            <div class="form-group home-login-field">
-              <label for="email" class="visually-hidden">Username</label>
-              <div class="input-icon-wrap">
-                <i class="fi fi-rr-user input-icon" aria-hidden="true"></i>
-                <input type="text" id="email" name="email" placeholder="Username" autocomplete="username" required>
+      </a>
+
+      <button type="button" class="lp-menu-toggle" id="lp-menu-toggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="lp-nav">
+        <i data-lucide="menu" aria-hidden="true"></i>
+      </button>
+
+      <nav class="lp-nav" id="lp-nav" aria-label="Primary">
+        <a href="#home" class="is-active">Home</a>
+        <a href="#about">About</a>
+        <a href="#agencies">Agencies</a>
+        <a href="#process">Process</a>
+        <a href="#contact">Contact</a>
+        <button type="button" class="lp-btn lp-btn--primary" id="home-login-open" data-login-open aria-haspopup="dialog" aria-controls="home-login-floater">
+          <i data-lucide="log-in" aria-hidden="true"></i>
+          Staff Sign In
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="lp-main">
+    <section class="lp-hero" id="home" aria-labelledby="hero-heading">
+      <div class="lp-hero__inner">
+        <p class="lp-hero__eyebrow"><i data-lucide="scale" aria-hidden="true"></i> Papua New Guinea</p>
+        <h1 id="hero-heading">Welcome to the <em>Parole Management System</em></h1>
+        <p class="lp-hero__lead">
+          A secure digital platform supporting the fair, transparent, and accountable administration
+          of parole for detainees across Papua New Guinea — connecting
+          PNG Correctional Service and the Department of Justice &amp; Attorney General.
+        </p>
+        <div class="lp-welcome-banner hidden" id="login-welcome-banner" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="lp-section" id="about" aria-labelledby="about-heading">
+      <div class="lp-section__inner">
+        <h2 class="lp-section__title" id="about-heading"><i data-lucide="info" aria-hidden="true"></i> About the Parole System</h2>
+        <div class="lp-prose">
+          <p>
+            Parole is a structured reintegration pathway that allows eligible offenders to serve the
+            remainder of their sentence under community supervision, subject to conditions set by the
+            Parole Board. The process balances public safety with rehabilitation and the opportunity
+            for offenders to rebuild their lives responsibly.
+          </p>
+          <p>
+            The Parole Management System (PMS) digitizes the end-to-end parole workflow — from
+            eligibility screening and application submission through institutional reporting, legal
+            review, board hearings, and final decisions. It provides role-based access for PNGCS,
+            DJAG, and Parole Board staff at every stage of the process.
+          </p>
+        </div>
+        <ul class="lp-features">
+          <li><i data-lucide="check-circle" aria-hidden="true"></i> Eligibility screening and automated notifications</li>
+          <li><i data-lucide="check-circle" aria-hidden="true"></i> Structured Forms 1–5 workflow and audit trail</li>
+          <li><i data-lucide="check-circle" aria-hidden="true"></i> Hearing scheduling and board decision records</li>
+          <li><i data-lucide="check-circle" aria-hidden="true"></i> Institution-wide coverage across all provinces</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="lp-section" id="agencies" aria-labelledby="agencies-heading">
+      <div class="lp-section__inner">
+        <h2 class="lp-section__title" id="agencies-heading"><i data-lucide="building-2" aria-hidden="true"></i> Partner Agencies</h2>
+        <p class="lp-section__intro">
+          Parole administration in Papua New Guinea is a collaborative effort between correctional
+          services and the justice sector. Both agencies work together through PMS to ensure every
+          application is processed thoroughly and in accordance with the law.
+        </p>
+        <div class="lp-agency-grid">
+          <article class="lp-agency-card lp-agency-card--pngcs">
+            <div class="lp-agency-card__head">
+              <img src="images/PNG CS Logo.jpg" alt="">
+              <div>
+                <h3>PNG Correctional Service</h3>
+                <span class="lp-tag lp-tag--pngcs">PNGCS</span>
               </div>
-              <span class="error-message" id="email-error"></span>
             </div>
-            <div class="form-group home-login-field">
-              <label for="password" class="visually-hidden">Password</label>
-              <div class="input-icon-wrap password-field">
-                <i class="fi fi-rr-lock input-icon" aria-hidden="true"></i>
-                <input type="text" id="password" name="password" class="password-masked" placeholder="Password" autocomplete="current-password" required spellcheck="false">
-                <button type="button" class="toggle-password" aria-label="Show password">
-                  <i class="fi fi-rr-eye toggle-password-icon" aria-hidden="true"></i>
-                </button>
+            <p>
+              PNGCS manages correctional institutions across Papua New Guinea, overseeing custody,
+              welfare, and rehabilitation. Parole clerks initiate eligibility screening, manage detainee
+              records, and prepare institutional reports that inform parole decisions.
+            </p>
+            <ul>
+              <li>Parole eligibility screening (Form 1)</li>
+              <li>Offender particulars and applications (Form 2)</li>
+              <li>Institutional conduct reports (Form 3)</li>
+              <li>Nationwide detainee and case management</li>
+            </ul>
+          </article>
+          <article class="lp-agency-card lp-agency-card--djag">
+            <div class="lp-agency-card__head">
+              <img src="images/djag_logo.jpg" alt="">
+              <div>
+                <h3>Department of Justice &amp; Attorney General</h3>
+                <span class="lp-tag lp-tag--djag">DJAG</span>
               </div>
-              <span class="error-message" id="password-error"></span>
             </div>
-            <button type="submit" class="btn-home-login" id="submit-btn">
-              <span class="btn-text">Login</span>
-              <span class="btn-spinner hidden" aria-hidden="true"></span>
+            <p>
+              DJAG provides legal oversight of the parole process, ensuring applications meet
+              statutory requirements before they proceed to the Parole Board. DJAG parole clerks
+              review submissions, coordinate investigations, and support hearing administration.
+            </p>
+            <ul>
+              <li>Legal review of submitted applications</li>
+              <li>Pre-parole investigation reports (Form 4)</li>
+              <li>Hearing scheduling and case coordination</li>
+              <li>Parole Board decision records (Form 5)</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="lp-section" id="process" aria-labelledby="process-heading">
+      <div class="lp-section__inner">
+        <h2 class="lp-section__title" id="process-heading"><i data-lucide="git-branch" aria-hidden="true"></i> Parole Process Workflow</h2>
+        <p class="lp-section__intro">
+          From the moment an offender becomes eligible for parole, PNGCS and DJAG collaborate
+          through a defined workflow — each agency contributing its expertise until the Parole
+          Board reaches a final decision.
+        </p>
+        <ol class="lp-workflow">
+          <li>
+            <span class="lp-step-num" aria-hidden="true">1</span>
+            <div>
+              <strong>PNGCS — Eligibility &amp; Application</strong>
+              <p>Screen detainees, notify stakeholders, and submit parole applications with offender particulars.</p>
+            </div>
+          </li>
+          <li>
+            <span class="lp-step-num" aria-hidden="true">2</span>
+            <div>
+              <strong>PNGCS — Institutional Report</strong>
+              <p>Parole clerks provide conduct, program participation, and institutional recommendations.</p>
+            </div>
+          </li>
+          <li>
+            <span class="lp-step-num" aria-hidden="true">3</span>
+            <div>
+              <strong>DJAG — Legal Review &amp; Investigation</strong>
+              <p>Review applications for compliance and prepare pre-parole investigation reports.</p>
+            </div>
+          </li>
+          <li>
+            <span class="lp-step-num" aria-hidden="true">4</span>
+            <div>
+              <strong>Parole Board — Hearing &amp; Decision</strong>
+              <p>Board members deliberate and record approved, deferred, or refused outcomes.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="lp-section" id="contact" aria-labelledby="contact-heading">
+      <div class="lp-section__inner">
+        <h2 class="lp-section__title" id="contact-heading"><i data-lucide="mail" aria-hidden="true"></i> Contact</h2>
+        <div class="lp-contact-grid">
+          <div class="lp-contact-card">
+            <i data-lucide="mail" aria-hidden="true"></i>
+            <h3>Email</h3>
+            <a href="mailto:parole@cs.gov.pg">parole@cs.gov.pg</a>
+          </div>
+          <div class="lp-contact-card">
+            <i data-lucide="phone" aria-hidden="true"></i>
+            <h3>Phone</h3>
+            <p>+675 325 0000</p>
+          </div>
+          <div class="lp-contact-card">
+            <i data-lucide="map-pin" aria-hidden="true"></i>
+            <h3>Location</h3>
+            <p>Papua New Guinea</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="lp-footer" role="contentinfo">
+    <p>
+      <i data-lucide="shield" aria-hidden="true"></i>
+      Secure access for authorized personnel only.
+      &copy; Papua New Guinea Correctional Service &amp; Department of Justice and Attorney General.
+    </p>
+  </footer>
+
+  <!-- Login Modal -->
+  <div class="lp-modal hidden" id="home-login-floater" role="dialog" aria-modal="true" aria-labelledby="home-login-title">
+    <div class="lp-modal__backdrop" id="home-login-backdrop" aria-hidden="true"></div>
+    <div class="lp-modal__card">
+      <button type="button" class="lp-modal__close" id="home-login-close" aria-label="Close sign in dialog">&times;</button>
+      <div class="lp-modal__logos">
+        <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service">
+        <span aria-hidden="true"></span>
+        <img src="images/djag_logo.jpg" alt="DJAG">
+      </div>
+      <h2 id="home-login-title">Authorized User Sign In</h2>
+      <p class="lp-modal__sub">Parole Management System (PMS)</p>
+      <form id="login-form" novalidate>
+        <div class="lp-field">
+          <label for="email">Username</label>
+          <div class="lp-input-wrap">
+            <i data-lucide="user" aria-hidden="true"></i>
+            <input type="text" id="email" name="email" autocomplete="username" required placeholder="Enter username">
+          </div>
+          <span class="lp-error" id="email-error"></span>
+        </div>
+        <div class="lp-field">
+          <label for="password">Password</label>
+          <div class="lp-input-wrap lp-input-wrap--password">
+            <i data-lucide="lock" aria-hidden="true"></i>
+            <input type="password" id="password" name="password" autocomplete="current-password" required spellcheck="false" placeholder="Enter password">
+            <button type="button" class="lp-toggle-password toggle-password" aria-label="Show password" aria-pressed="false">
+              <i data-lucide="eye" class="toggle-password-icon" aria-hidden="true"></i>
             </button>
           </div>
-          <div class="home-login-options">
-            <label class="checkbox-label">
-              <input type="checkbox" id="remember" name="remember">
-              <span>Remember me</span>
-            </label>
-            <a href="#" class="forgot-link">Forgot password?</a>
-          </div>
-          <details class="home-demo-accounts">
-            <summary>Demo accounts by role</summary>
-            <ul class="home-demo-list">
-              <li><strong>admin</strong> · System Administrator → Admin Dashboard</li>
-              <li><strong>john.dole@cs.gov.pg</strong> · PNGCS Parole Clerk → PNGCS Dashboard</li>
-              <li><strong>officer.tau@cs.gov.pg</strong> · CS Parole Officer → PNGCS Dashboard</li>
-              <li><strong>mary.kila@djag.gov.pg</strong> · DJAG Parole Clerk → DJAG Dashboard</li>
-              <li><strong>secretary.morris@djag.gov.pg</strong> · DJAG Secretary → Board Dashboard</li>
-              <li><strong>judge.kakaraya@justice.gov.pg</strong> · Parole Board Member → Board Dashboard</li>
-              <li><strong>dr.sine@health.gov.pg</strong> · Doctor → Board Dashboard</li>
-              <li><strong>commissioner.bain@cs.gov.pg</strong> · CS Commissioner → Board Dashboard</li>
-            </ul>
-            <p class="home-demo-note">Password: <code>Password123!</code> (admin uses <code>admin123</code>)</p>
-          </details>
-        </form>
-      </div>
-    </div>
-
-    <main class="home-main">
-      <!-- Welcome hero -->
-      <section class="home-hero" aria-labelledby="home-welcome-heading">
-        <div class="home-hero-inner">
-          <p class="home-hero-eyebrow"><i class="fi fi-rr-scale" aria-hidden="true"></i> Papua New Guinea</p>
-          <h1 id="home-welcome-heading">Welcome to the Parole Management System</h1>
-          <p class="home-hero-lead">
-            A secure digital platform supporting the fair, transparent, and accountable administration
-            of parole for detainees at Bomana Correctional Institution, Port Moresby.
-          </p>
+          <span class="lp-error" id="password-error"></span>
         </div>
-      </section>
-
-      <!-- About the parole system -->
-      <section class="home-section" aria-labelledby="about-parole-heading">
-        <div class="home-section-inner">
-          <h2 id="about-parole-heading">About the Parole System</h2>
-          <div class="home-prose">
-            <p>
-              Parole is a structured reintegration pathway that allows eligible offenders to serve the
-              remainder of their sentence under community supervision, subject to conditions set by the
-              Parole Board. The process balances public safety with rehabilitation and the opportunity
-              for offenders to rebuild their lives responsibly.
-            </p>
-            <p>
-              The Parole Management System (PMS) digitizes the end-to-end parole workflow — from
-              eligibility screening and application submission through institutional reporting, legal
-              review, board hearings, and final decisions. It provides role-based access for PNGCS,
-              DJAG, and Parole Board staff at every stage of the process.
-            </p>
-          </div>
-          <ul class="home-feature-list">
-            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Eligibility screening and automated notifications</li>
-            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Structured Forms 1–5 workflow and audit trail</li>
-            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Hearing scheduling and board decision records</li>
-            <li><i class="fi fi-rr-check" aria-hidden="true"></i> Port Moresby (NCD) institution scope — Bomana</li>
+        <button type="submit" class="lp-btn lp-btn--primary lp-btn--signin" id="submit-btn">
+          <span class="btn-text">Sign In</span>
+          <span class="btn-spinner lp-spinner hidden" aria-hidden="true"></span>
+        </button>
+        <div class="lp-login-options">
+          <label><input type="checkbox" id="remember" name="remember"> Remember me</label>
+          <a href="#" onclick="return false;">Forgot password?</a>
+        </div>
+        <details class="lp-demo">
+          <summary>Demo accounts by role</summary>
+          <ul>
+            <li><strong>admin</strong> · System Administrator</li>
+            <li><strong>john.dole@cs.gov.pg</strong> · PNGCS Parole Clerk</li>
+            <li><strong>pkoroma@cs.gov.pg</strong> · Jail Commander (Bomana)</li>
+            <li><strong>officer.tau@cs.gov.pg</strong> · CS Parole Officer</li>
+            <li><strong>mary.kila@djag.gov.pg</strong> · DJAG Parole Clerk</li>
+            <li><strong>secretary.morris@djag.gov.pg</strong> · DJAG Secretary</li>
+            <li><strong>judge.kakaraya@justice.gov.pg</strong> · Parole Board Member</li>
+            <li><strong>dr.sine@health.gov.pg</strong> · Doctor</li>
+            <li><strong>commissioner.bain@cs.gov.pg</strong> · CS Commissioner</li>
           </ul>
-        </div>
-      </section>
-
-      <!-- Partner agencies -->
-      <section class="home-section home-section--agencies" aria-labelledby="agencies-heading">
-        <div class="home-section-inner">
-          <h2 id="agencies-heading">Our Partner Agencies</h2>
-          <p class="home-section-intro">
-            Parole administration in Papua New Guinea is a collaborative effort between correctional
-            services and the justice sector. Both agencies work together through PMS to ensure every
-            application is processed thoroughly and in accordance with the law.
-          </p>
-
-          <div class="home-agency-grid">
-            <article class="home-agency-card home-agency-card--pngcs">
-              <div class="home-agency-card-header">
-                <img src="images/PNG CS Logo.jpg" alt="" class="home-agency-logo">
-                <h3>PNG Correctional Service</h3>
-                <span class="home-agency-tag">PNGCS</span>
-              </div>
-              <p>
-                PNGCS manages Bomana Correctional Institution in Port Moresby, overseeing the custody,
-                welfare, and rehabilitation of offenders. Through PMS, PNGCS parole clerks initiate
-                eligibility screening, manage detainee records, and prepare institutional reports
-                that inform parole decisions.
-              </p>
-              <ul class="home-agency-roles">
-                <li>Parole eligibility screening (Form 1)</li>
-                <li>Offender particulars and applications (Form 2)</li>
-                <li>Institutional conduct reports (Form 3)</li>
-                <li>Port Moresby detainee and case management</li>
-              </ul>
-            </article>
-
-            <article class="home-agency-card home-agency-card--djag">
-              <div class="home-agency-card-header">
-                <img src="images/djag.png" alt="" class="home-agency-logo">
-                <h3>Department of Justice &amp; Attorney General</h3>
-                <span class="home-agency-tag">DJAG</span>
-              </div>
-              <p>
-                DJAG provides legal oversight of the parole process, ensuring applications meet
-                statutory requirements before they proceed to the Parole Board. DJAG parole clerks
-                review submissions, coordinate pre-parole investigations, and support hearing
-                administration and board deliberations.
-              </p>
-              <ul class="home-agency-roles">
-                <li>Legal review of submitted applications</li>
-                <li>Pre-parole investigation reports (Form 4)</li>
-                <li>Hearing scheduling and case coordination</li>
-                <li>Parole Board decision records (Form 5)</li>
-              </ul>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- Collaboration -->
-      <section class="home-section home-section--collab" aria-labelledby="collab-heading">
-        <div class="home-section-inner">
-          <h2 id="collab-heading">Working Together for Safer Communities</h2>
-          <p class="home-section-intro">
-            From the moment an offender becomes eligible for parole, PNGCS and DJAG collaborate
-            through a defined workflow — each agency contributing its expertise at the right stage
-            until the Parole Board reaches a final decision.
-          </p>
-          <ol class="home-workflow-steps">
-            <li>
-              <span class="home-step-num">1</span>
-              <div>
-                <strong>PNGCS — Eligibility &amp; Application</strong>
-                <p>Screen detainees, notify stakeholders, and submit parole applications with offender particulars.</p>
-              </div>
-            </li>
-            <li>
-              <span class="home-step-num">2</span>
-              <div>
-                <strong>PNGCS — Institutional Report</strong>
-                <p>PNGCS parole clerks provide conduct, program participation, and institutional recommendations.</p>
-              </div>
-            </li>
-            <li>
-              <span class="home-step-num">3</span>
-              <div>
-                <strong>DJAG — Legal Review &amp; Investigation</strong>
-                <p>Review applications for compliance and prepare pre-parole investigation reports.</p>
-              </div>
-            </li>
-            <li>
-              <span class="home-step-num">4</span>
-              <div>
-                <strong>Parole Board — Hearing &amp; Decision</strong>
-                <p>Board members deliberate and record approved, deferred, or refused outcomes.</p>
-              </div>
-            </li>
-          </ol>
-        </div>
-      </section>
-    </main>
-
-    <footer class="home-footer">
-      <p>
-        <i class="fi fi-rr-shield" aria-hidden="true"></i>
-        Secure access for authorized personnel only.
-        &copy; Papua New Guinea Correctional Service &amp; Department of Justice and Attorney General.
-      </p>
-      <p class="pms-icon-attribution pms-icon-attribution--home">Icons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noopener noreferrer">Flaticon</a></p>
-    </footer>
-
-
+          <p class="lp-demo-note">Password: <code>Password123!</code> (admin uses <code>admin123</code>)</p>
+        </details>
+      </form>
+    </div>
   </div>
+
+  <div class="lp-toast-wrap" id="lp-toast-wrap" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    lucide.createIcons();
+
+    (function landingPage() {
+      const nav = document.getElementById('lp-nav');
+      const menuToggle = document.getElementById('lp-menu-toggle');
+      const navLinks = nav?.querySelectorAll('a[href^="#"]') || [];
+      const sections = document.querySelectorAll('section[id]');
+
+      menuToggle?.addEventListener('click', () => {
+        const open = nav.classList.toggle('is-open');
+        menuToggle.setAttribute('aria-expanded', String(open));
+        menuToggle.innerHTML = open ? '<i data-lucide="x"></i>' : '<i data-lucide="menu"></i>';
+        lucide.createIcons();
+      });
+
+      navLinks.forEach((link) => {
+        link.addEventListener('click', () => {
+          nav.classList.remove('is-open');
+          menuToggle?.setAttribute('aria-expanded', 'false');
+          if (menuToggle) {
+            menuToggle.innerHTML = '<i data-lucide="menu"></i>';
+            lucide.createIcons();
+          }
+        });
+      });
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const id = entry.target.id;
+          navLinks.forEach((link) => {
+            link.classList.toggle('is-active', link.getAttribute('href') === `#${id}`);
+          });
+        });
+      }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+
+      sections.forEach((s) => observer.observe(s));
+
+      window.showLandingToast = function(message, type = 'success') {
+        const wrap = document.getElementById('lp-toast-wrap');
+        if (!wrap) return;
+        const toast = document.createElement('div');
+        toast.className = `lp-toast lp-toast--${type}`;
+        toast.textContent = message;
+        wrap.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.35s';
+          setTimeout(() => toast.remove(), 400);
+        }, 4000);
+      };
+
+      window.showLoginWelcome = function(user) {
+        const banner = document.getElementById('login-welcome-banner');
+        if (!banner || !user) return;
+        const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'User';
+        banner.textContent = `Welcome, ${name} (${user.role}). Redirecting to your workspace…`;
+        banner.classList.remove('hidden');
+        banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+    })();
+  </script>
 
   <script src="js/api-client.js"></script>
   <script src="js/id-generator.js"></script>

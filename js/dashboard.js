@@ -292,9 +292,8 @@
     }
 
     updateBadge();
+    if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
   }
-
-  /* ---- Users ---- */
   function renderUsers(officersOnly = false) {
     usersOfficersOnly = officersOnly;
     let users = PMSStorage.getUsers();

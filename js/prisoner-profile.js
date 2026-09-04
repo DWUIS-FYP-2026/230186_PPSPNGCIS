@@ -25,7 +25,7 @@
   const root = document.getElementById('case-file-root');
   root.innerHTML = PMSPrisonerUI.renderCaseFile(prisoner, { showEditLink: canEdit, actor });
 
-  document.getElementById('btn-back-dash').href = PMSAuth.getDashboardForRole(actor.role) + '?panel=prisoners';
+  PMSPageChrome.init({ basePath: '' });
 
   document.getElementById('btn-print-case')?.addEventListener('click', () => window.print());
 
@@ -36,5 +36,6 @@
       window.location.href = `${PMSAuth.getDashboardForRole(actor.role)}?panel=${panel}`;
     },
   });
+  PMSBrand?.upgradeCommandBadges?.();
   PMSUI.initShell(actor);
 })();

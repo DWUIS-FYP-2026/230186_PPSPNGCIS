@@ -1,12 +1,35 @@
-/* Form 2 — Assessment Reports (PPR & DAR) */
+/* Form 2 — Assessment Reports (landing-page theme) */
+@import url('theme.css');
+@import url('pms-brand.css');
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body.pms-form2-assessment {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f7fa;
-  padding: 30px 20px;
-  color: #1d2b3f;
+  font-family: 'Inter', var(--font-ui), system-ui, sans-serif;
+  background: var(--lp-bg, #f0f4f8);
+  padding: 1.5rem 1.25rem 2.5rem;
+  color: var(--lp-text, #1a202c);
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pms-form2-assessment .header .gov-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lp-text-light, #5a6f8c);
+  margin-bottom: 0.5rem;
+}
+
+.pms-form2-assessment .header .command-bar__badges {
+  margin: 0 auto 0.75rem;
+  width: fit-content;
+}
+
+.pms-form1-parole .header .command-bar__badges {
+  margin: 0 auto 0.75rem;
+  width: fit-content;
 }
 
 .pms-form2-assessment .back-bar {
@@ -27,61 +50,45 @@ body.pms-form2-assessment {
 .pms-form2-assessment .container {
   max-width: 1400px;
   margin: 0 auto;
-  background: #ffffff;
-  padding: 40px 50px;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-  border-top: 5px solid #003366;
+  background: var(--lp-card, #fff);
+  padding: 2rem 2.5rem;
+  border-radius: var(--lp-radius, 12px);
+  box-shadow: var(--lp-shadow, 0 4px 24px rgba(13, 43, 78, 0.08));
+  border: 1px solid var(--lp-border, #e2e8f0);
+  border-top: 4px solid var(--lp-primary, #0d2b4e);
 }
 
 .pms-form2-assessment .header {
   text-align: center;
-  border-bottom: 2px solid #e5e9f0;
-  padding-bottom: 24px;
-  margin-bottom: 28px;
+  border-bottom: 1px solid var(--lp-border, #e2e8f0);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.75rem;
 }
 
 .pms-form2-assessment .header .gov-brand {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 8px;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
   flex-wrap: wrap;
 }
 
-.pms-form2-assessment .header .gov-brand .emblem { font-size: 32px; line-height: 1; opacity: 0.8; }
-
-.pms-form2-assessment .header .gov-brand .gov-text {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #003366;
-  background: #eef2f7;
-  padding: 4px 16px;
-  border-radius: 30px;
-}
-
 .pms-form2-assessment .header h1 {
-  font-family: 'Roboto Slab', 'Georgia', serif;
-  font-size: 28px;
-  font-weight: 600;
-  color: #003366;
-  letter-spacing: -0.3px;
-  margin-top: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 700;
+  color: var(--lp-primary, #0d2b4e);
+  letter-spacing: -0.02em;
+  margin-top: 0.35rem;
 }
 
-.pms-form2-assessment .header .subtitle { font-size: 16px; color: #4a5b6e; margin-top: 2px; }
+.pms-form2-assessment .header .subtitle { font-size: 1rem; color: var(--lp-text-md, #3d4f66); margin-top: 0.25rem; }
 
 .pms-form2-assessment .header .form-id {
-  margin-top: 10px;
-  font-size: 14px;
-  color: #6c7a8d;
-  background: #f0f3f8;
-  display: inline-block;
-  padding: 4px 20px;
-  border-radius: 30px;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--lp-text-light, #5a6f8c);
   font-weight: 500;
 }
 
@@ -127,8 +134,13 @@ body.pms-form2-assessment {
 .pms-form2-assessment .reports-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 30px;
+  gap: 1.25rem;
   margin-top: 8px;
+  align-items: start;
+}
+
+.pms-form2-assessment .reports-grid > .report-card {
+  min-width: 0;
 }
 
 .pms-form2-assessment .report-card {
@@ -145,8 +157,36 @@ body.pms-form2-assessment {
 }
 
 .pms-form2-assessment .report-card.locked {
-  opacity: 0.92;
+  opacity: 0.96;
+}
+
+.pms-form2-assessment .report-card.locked .card-body {
   pointer-events: none;
+}
+
+.pms-form2-assessment .report-card.locked .card-header {
+  pointer-events: auto;
+}
+
+.pms-form2-assessment .section-readonly-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  background: #eef2f7;
+  border: 1px solid #c5d0de;
+  border-left: 4px solid #0d2b4e;
+  color: #334155;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.pms-form2-assessment .section-readonly-banner__icon {
+  flex-shrink: 0;
+  line-height: 1.4;
 }
 
 .pms-form2-assessment .report-card .card-header {
@@ -154,10 +194,27 @@ body.pms-form2-assessment {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #dce3ed;
+}
+
+.pms-form2-assessment .card-header__actions {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  border-bottom: 1.5px solid #dce3ed;
-  background: #f8faff;
+  flex-shrink: 0;
+}
+
+.pms-form2-assessment .card-header__actions .btn-outline {
+  background: #fff;
+  color: #003366;
+  border: 1.5px solid #003366;
+  white-space: nowrap;
+}
+
+.pms-form2-assessment .card-header__actions .btn-outline:hover {
+  background: #eef2f7;
 }
 
 .pms-form2-assessment .report-card .card-header .title-group {
@@ -231,7 +288,24 @@ body.pms-form2-assessment {
   gap: 16px;
 }
 
-.pms-form2-assessment .file-upload-wrapper { display: flex; flex-direction: column; gap: 6px; }
+.pms-form2-assessment .file-upload-wrapper { display: flex; flex-direction: column; gap: 8px; }
+
+.pms-form2-assessment .ppr-upload-btn {
+  align-self: flex-start;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pms-form2-assessment .ppr-upload-btn.is-disabled,
+.pms-form2-assessment .ppr-upload-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.pms-form2-assessment .ppr-file-input {
+  display: none;
+}
 
 .pms-form2-assessment .file-upload-wrapper .file-input-row {
   display: flex;
@@ -464,6 +538,8 @@ body.pms-form2-assessment {
 .pms-form2-assessment .selection-panel h2 { font-size: 18px; margin-bottom: 8px; color: #003366; }
 .pms-form2-assessment .selection-panel p { font-size: 14px; color: #666; margin-bottom: 16px; }
 .pms-form2-assessment .hidden { display: none !important; }
+
+.pms-form2-assessment #form-workflow-nav { margin-bottom: 20px; }
 
 .pms-form2-assessment .print-footer {
   display: none;

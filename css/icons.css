@@ -25,7 +25,11 @@
 }
 
 .sidebar .nav-icon {
-  color: var(--pms-icon-color);
+  display: none !important;
+}
+
+.pms-icon-attribution {
+  display: none;
 }
 
 .workspace-search .fi,

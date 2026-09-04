@@ -20,7 +20,7 @@
           <div class="command-bar__badges" aria-hidden="true">
             <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
             <span class="command-badge-divider"></span>
-            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+            <img src="images/djag_logo.jpg" alt="" class="command-badge command-badge--djag">
           </div>
           <div class="command-bar__titles">
             <h1 id="panel-title">Overview</h1>
@@ -47,7 +47,11 @@
           <article class="stat-card"><span class="stat-label">Form 1 Pending</span><strong class="stat-value" id="stat-drafts">0</strong></article>
           <article class="stat-card stat-card--warn"><span class="stat-label">Pending Alerts</span><strong class="stat-value" id="stat-notifications">0</strong></article>
         </div>
-        <div class="overview-grid overview-grid--single">
+        <div class="overview-grid">
+          <div class="card card--calendar">
+            <div class="card-header"><h2>Calendar</h2></div>
+            <div class="card-body" id="dashboard-calendar"></div>
+          </div>
           <div class="card"><div class="card-header"><h2>Recent Notifications</h2></div><div class="card-body" id="overview-notifications"></div></div>
         </div>
       </section>
@@ -62,7 +66,7 @@
 
       <section class="panel" id="panel-eligibility">
         <div class="card"><div class="card-header"><h2>Parole Eligibility Verification</h2><span class="badge" id="eligibility-rule"></span></div>
-          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>SSD</th><th>Duration</th><th>% Served</th><th>Eligibility Date</th><th>Status</th><th></th></tr></thead><tbody id="eligibility-tbody"></tbody></table></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>SSD</th><th>Duration</th><th>% Served</th><th>Eligibility Date</th><th>Status</th><th>Current Form</th><th></th></tr></thead><tbody id="eligibility-tbody"></tbody></table></div>
         </div>
       </section>
 
@@ -147,7 +151,8 @@
     </form>
   </dialog>
 
-  <script src="js/workspace-shell.js"></script><script src="js/command-bar.js"></script><script src="js/id-generator.js"></script><script src="js/eligibility-engine.js"></script><script src="js/storage.js"></script><script src="js/pms-validation.js"></script><script src="js/global-search.js"></script><script src="js/form-workflow.js"></script><script src="js/auth.js"></script><script src="js/rbac.js"></script><script src="js/workflow.js"></script><script src="js/forms-engine.js"></script><script src="js/sidebar-nav.js"></script><script src="js/ui-shared.js"></script><script src="js/reports-engine.js"></script><script src="js/dashboard-pngcs.js"></script>
+  <script src="js/pms-core.js"></script>
+  <script>PMSCore.bootDashboard('dashboard-pngcs.js');</script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

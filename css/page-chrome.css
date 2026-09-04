@@ -1,0 +1,115 @@
+/* PMS — role-aware dashboard navigation button */
+.pms-page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--lp-border, #e2e8f0);
+  backdrop-filter: blur(12px);
+}
+
+.pms-dashboard-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--lp-border, #e2e8f0);
+  background: #fff;
+  color: var(--lp-primary, #0d2b4e);
+  font-family: 'Inter', var(--font-ui, Inter, system-ui, sans-serif);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(13, 43, 78, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+
+.pms-dashboard-btn i {
+  font-size: 0.95rem;
+  color: var(--lp-secondary, #1a6b3c);
+}
+
+.pms-dashboard-btn:hover {
+  color: var(--lp-primary, #0d2b4e);
+  text-decoration: none;
+  border-color: rgba(26, 107, 60, 0.35);
+  box-shadow: var(--lp-shadow-hover, 0 8px 32px rgba(13, 43, 78, 0.12));
+  transform: translateY(-1px);
+  background: #fff;
+}
+
+.pms-dashboard-btn:focus-visible {
+  outline: 2px solid var(--lp-secondary, #1a6b3c);
+  outline-offset: 2px;
+}
+
+.pms-dashboard-btn--compact {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.pms-dashboard-btn--light {
+  background: rgb(255 255 255 / 0.12);
+  border-color: rgb(255 255 255 / 0.22);
+  color: #fff;
+  box-shadow: none;
+}
+
+.pms-dashboard-btn--light i {
+  color: var(--color-gold, #d9a441);
+}
+
+.pms-dashboard-btn--light:hover {
+  background: rgb(255 255 255 / 0.18);
+  color: #fff;
+  border-color: rgb(217 164 65 / 0.65);
+}
+
+.command-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.command-bar .command-bar__actions {
+  margin-left: auto;
+}
+
+.pms-form-page .page-header .pms-dashboard-btn,
+.pms-form-page .header-top .pms-dashboard-btn,
+.pms-portal-page .portal-header .pms-dashboard-btn,
+.ref-nav .pms-dashboard-btn {
+  background: rgb(255 255 255 / 0.1);
+  border-color: rgb(255 255 255 / 0.28);
+  color: #fff;
+  box-shadow: none;
+}
+
+.pms-form-page .page-header .pms-dashboard-btn:hover,
+.pms-form-page .header-top .pms-dashboard-btn:hover,
+.pms-portal-page .portal-header .pms-dashboard-btn:hover,
+.ref-nav .pms-dashboard-btn:hover {
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+  border-color: rgb(217 164 65 / 0.75);
+}
+
+.ref-nav [data-pms-dashboard-btn] {
+  display: inline-flex;
+  align-items: center;
+}
+
+@media print {
+  .pms-page-toolbar,
+  .pms-dashboard-btn,
+  .command-bar__actions .pms-dashboard-btn {
+    display: none !important;
+  }
+}

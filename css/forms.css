@@ -2,12 +2,13 @@
  * PMS Forms — unified design for Forms 1–5 and standalone form pages.
  */
 @import url('theme.css');
+@import url('pms-brand.css');
 @import url('icons.css');
 
 :root {
   --form-max-width: 1100px;
-  --form-header-bg: linear-gradient(135deg, var(--pngcs-navy) 0%, var(--pngcs-navy-mid) 100%);
-  --form-accent: var(--pngcs-gold);
+  --form-header-bg: rgba(255, 255, 255, 0.96);
+  --form-accent: var(--lp-secondary, #1a6b3c);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -34,32 +35,54 @@ body.pms-form-page {
   text-decoration: underline;
 }
 
-/* ── Header ── */
+/* ── Header (landing-page light style) ── */
 .pms-form-page .page-header {
   background: var(--form-header-bg);
-  color: var(--color-text-inverse);
-  border-bottom: 4px solid var(--form-accent);
+  color: var(--lp-text, var(--color-text));
+  border-bottom: 1px solid var(--lp-border, var(--color-border));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(13, 43, 78, 0.04);
+}
+
+.pms-form-page .page-header .back-link,
+.pms-form-page .page-header a {
+  color: var(--lp-primary, var(--pngcs-navy));
+}
+
+.pms-form-page .page-header .back-link:hover {
+  color: var(--lp-secondary, var(--color-success));
+}
+
+.pms-form-page .header-main h1,
+.pms-form-page .header-title h1 {
+  color: var(--lp-primary, var(--color-heading));
+  font-family: 'Inter', var(--font-ui), sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pms-form-page .header-main p,
+.pms-form-page .header-title p {
+  color: var(--lp-text-md, var(--color-text-muted));
+}
+
+.pms-form-page .role-badge {
+  background: var(--lp-primary, var(--pngcs-navy));
+  color: #fff;
+  font-family: 'Inter', var(--font-ui), sans-serif;
 }
 
 .pms-form-page.pms-form-page--grant .page-header {
-  border-bottom-color: var(--color-success);
+  border-bottom: 3px solid var(--lp-secondary, var(--color-success));
 }
 
 .pms-form-page.pms-form-page--grant .role-badge {
-  background: var(--color-success);
+  background: var(--lp-secondary, var(--color-success));
 }
-
-.pms-form-page.pms-form-page--grant .back-link:hover { color: #c8e6c9; }
 
 .pms-form-page.pms-form-page--refuse .page-header {
-  border-bottom-color: var(--color-danger);
+  border-bottom: 3px solid var(--color-danger);
 }
-
-.pms-form-page.pms-form-page--refuse .role-badge {
-  background: var(--color-danger);
-}
-
-.pms-form-page.pms-form-page--refuse .back-link:hover { color: #ffcdd2; }
 
 .pms-form-page .header-top,
 .pms-form-page .header-main {
@@ -73,11 +96,37 @@ body.pms-form-page {
 
 .pms-form-page .header-main {
   padding: 1.25rem 1.5rem 1.5rem;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 1rem 1.25rem;
+}
+
+.pms-form-page .header-main .command-bar__badges {
+  grid-column: 1;
+}
+
+.pms-form-page .header-main .header-title-block,
+.pms-form-page .header-main .header-title {
+  grid-column: 2;
+}
+
+.pms-form-page .header-main .role-badge {
+  grid-column: 3;
+  justify-self: end;
+}
+
+@media (max-width: 768px) {
+  .pms-form-page .header-main {
+    grid-template-columns: 1fr;
+  }
+  .pms-form-page .header-main .command-bar__badges,
+  .pms-form-page .header-main .header-title-block,
+  .pms-form-page .header-main .header-title,
+  .pms-form-page .header-main .role-badge {
+    grid-column: 1;
+    justify-self: start;
+  }
 }
 
 .pms-form-page .back-link {

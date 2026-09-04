@@ -7,14 +7,13 @@
   <script src="../js/page-zoom.js"></script>
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
   <title>Form 2 - Assessment Reports | DJAG PNG</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Roboto+Slab:wght@100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/form2-assessment.css">
+  <link rel="stylesheet" href="../css/form2-ppr.css">
 </head>
 <body class="pms-form2-assessment">
 
-  <div class="back-bar no-print">
-    <a href="../dashboard-pngcs.html">← Dashboard</a>
-  </div>
+  <div class="pms-page-toolbar no-print" data-pms-dashboard-btn></div>
 
   <div id="selection-panel" class="selection-panel hidden">
     <h2>Select Application</h2>
@@ -31,12 +30,10 @@
   </div>
 
   <div id="form2-root" class="container hidden">
+    <div id="form-workflow-nav" class="no-print"></div>
     <div class="header">
-      <div class="gov-brand">
-        <span class="emblem">🇵🇬</span>
-        <span class="gov-text">Department of Justice &amp; Attorney General</span>
-        <span class="emblem">⚖️</span>
-      </div>
+      <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
+      <p class="gov-text">Department of Justice &amp; Attorney General · PNG Correctional Service</p>
       <h1>Form 2 — Assessment Reports</h1>
       <p class="subtitle">Pre-Parole Report (PPR) &amp; Detainee Assessment Report (DAR)</p>
       <p class="form-id">
@@ -48,183 +45,26 @@
     <div class="status-banner no-print" id="applicantSummary">
       <div class="status-item"><span class="label">Detainee:</span> <span class="value" id="detaineeName">—</span></div>
       <div class="status-item"><span class="label">CI #:</span> <span class="value" id="ciNumber">—</span></div>
-      <div class="status-item"><span class="label">Facility:</span> <span class="value" id="facilityName">Bomana Correctional Institution</span></div>
+      <div class="status-item"><span class="label">Facility:</span> <span class="value" id="facilityName">Correctional Institution</span></div>
       <div class="status-item"><span class="label">Sentence:</span> <span class="value" id="sentenceDisplay">—</span></div>
       <div class="status-item"><span class="label">Eligibility:</span> <span class="value" id="eligibilityDate">—</span></div>
       <div class="status-item"><span class="label">Status:</span> <span class="status-badge in-progress" id="reportStatus">REPORTS IN PROGRESS</span></div>
     </div>
 
     <div class="reports-grid">
-      <!-- PPR -->
-      <div class="report-card" id="pprCard">
+      <!-- DAR (CS) -->
+      <div class="report-card report-card--dar" id="darCard">
         <div class="card-header">
           <div class="title-group">
-            <span class="icon">🏠</span>
-            <div>
-              <h2>Pre-Parole Report (PPR)</h2>
-              <span class="subtitle">Community-Focused · DJAG Parole Clerk</span>
-            </div>
-          </div>
-          <span class="status-badge pending" id="pprStatus">PENDING</span>
-        </div>
-        <div class="card-body">
-          <div class="section-label"><span class="num">1</span> Victim &amp; Community Sentiment</div>
-          <div class="form-group">
-            <label>Victim / Family Statements <span class="required">*</span></label>
-            <textarea id="victimStatements" rows="2" placeholder="Documented statements from victim, victim's family, or community leaders…"></textarea>
-          </div>
-          <div class="form-group">
-            <label>Community Tension / Retaliatory Risk <span class="required">*</span></label>
-            <select id="communityRisk">
-              <option value="">Select…</option>
-              <option value="Low">Low — No significant tension identified</option>
-              <option value="Moderate">Moderate — Some concerns expressed</option>
-              <option value="High">High — Significant retaliatory risk identified</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Community Leader Statements</label>
-            <textarea id="communityStatements" rows="2" placeholder="Statements from village elders, church leaders, or ward councilors…"></textarea>
-          </div>
-          <div class="field-with-attachment">
-            <div class="field-label">Supporting Documents</div>
-            <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="pprVictimDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload victim/community statements</span>
-              </div>
-              <div class="file-preview" id="pprVictimDocsPreview"></div>
-            </div>
-          </div>
-
-          <hr class="section-divider">
-
-          <div class="section-label"><span class="num">2</span> Guarantor / Sponsor Verification</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Sponsor Name <span class="required">*</span></label>
-              <input type="text" id="sponsorName" placeholder="From Form 1 Section D">
-            </div>
-            <div class="form-group">
-              <label>Relationship <span class="required">*</span></label>
-              <input type="text" id="sponsorRelationship" placeholder="e.g., Elder Brother">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Sponsor Capability Assessment <span class="required">*</span></label>
-            <select id="sponsorCapability">
-              <option value="">Select…</option>
-              <option value="Adequate">Adequate — Capable and willing</option>
-              <option value="Marginal">Marginal — Limited capacity</option>
-              <option value="Inadequate">Inadequate — Not recommended</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Sponsor Interview Notes</label>
-            <textarea id="sponsorNotes" rows="2" placeholder="Observations from sponsor interview…"></textarea>
-          </div>
-          <div class="field-with-attachment">
-            <div class="field-label">Sponsor Verification</div>
-            <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="pprSponsorDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload sponsor verification docs</span>
-              </div>
-              <div class="file-preview" id="pprSponsorDocsPreview"></div>
-            </div>
-          </div>
-
-          <hr class="section-divider">
-
-          <div class="section-label"><span class="num">3</span> Accommodation &amp; Reintegration Plan</div>
-          <div class="form-group">
-            <label>Proposed Residence (Verified) <span class="required">*</span></label>
-            <input type="text" id="verifiedResidence" placeholder="Village, ward, or district">
-          </div>
-          <div class="form-group">
-            <label>Accommodation Stability <span class="required">*</span></label>
-            <select id="accommodationStability">
-              <option value="">Select…</option>
-              <option value="Stable">Stable — Secure and suitable</option>
-              <option value="Temporary">Temporary — Short-term arrangement</option>
-              <option value="Unstable">Unstable — Not suitable</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Reintegration Plan Details</label>
-            <textarea id="reintegrationPlan" rows="2" placeholder="How the parolee will reintegrate…"></textarea>
-          </div>
-          <div class="field-with-attachment">
-            <div class="field-label">Reintegration Plan</div>
-            <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="pprReintegrationDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload reintegration plan</span>
-              </div>
-              <div class="file-preview" id="pprReintegrationDocsPreview"></div>
-            </div>
-          </div>
-
-          <hr class="section-divider">
-
-          <div class="section-label"><span class="num">4</span> Customary Settlement / Restorative Justice</div>
-          <div class="form-group">
-            <label>Traditional Mediation / Peace Ceremony Details</label>
-            <textarea id="customarySettlement" rows="2" placeholder="Bel kol, peace ceremonies, or traditional mediation…"></textarea>
-          </div>
-          <div class="form-group">
-            <label>Restorative Justice Assessment</label>
-            <select id="restorativeAssessment">
-              <option value="">Select…</option>
-              <option value="Satisfactory">Satisfactory — Reconciliation achieved</option>
-              <option value="Partial">Partial — Some progress made</option>
-              <option value="Unsatisfactory">Unsatisfactory — No resolution</option>
-            </select>
-          </div>
-          <div class="field-with-attachment">
-            <div class="field-label">Customary Settlement Documents</div>
-            <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="pprCustomaryDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload customary settlement records</span>
-              </div>
-              <div class="file-preview" id="pprCustomaryDocsPreview"></div>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Parole Officer Name <span class="required">*</span></label>
-              <input type="text" id="pprOfficer" placeholder="Assessing officer">
-            </div>
-            <div class="form-group">
-              <label>Date of Assessment <span class="required">*</span></label>
-              <input type="date" id="pprDate">
-            </div>
-          </div>
-
-          <div class="card-actions no-print">
-            <button type="button" class="btn btn-primary btn-sm" id="btnSavePpr">Save PPR</button>
-            <button type="button" class="btn btn-success btn-sm" id="btnSubmitPpr">Submit PPR</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- DAR -->
-      <div class="report-card" id="darCard">
-        <div class="card-header">
-          <div class="title-group">
-            <span class="icon">🔒</span>
             <div>
               <h2>Detainee Assessment Report (DAR)</h2>
               <span class="subtitle">Institution-Focused · Correctional Services</span>
             </div>
           </div>
-          <span class="status-badge pending" id="darStatus">PENDING</span>
+          <div class="card-header__actions">
+            <button type="button" class="btn btn-outline btn-sm hidden" id="btnEditDar" data-section-control="true">Edit DAR</button>
+            <span class="status-badge pending" id="darStatus">PENDING</span>
+          </div>
         </div>
         <div class="card-body">
           <div class="section-label"><span class="num">1</span> Behavior &amp; Conduct Record</div>
@@ -255,11 +95,8 @@
           <div class="field-with-attachment">
             <div class="field-label">Conduct / Disciplinary Records</div>
             <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="darConductDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload conduct records</span>
-              </div>
+              <label class="btn btn-outline btn-sm ppr-upload-btn" for="darConductDocs">Upload supporting documents</label>
+              <input type="file" id="darConductDocs" class="ppr-file-input" accept=".pdf,.doc,.docx,.jpg,.png" multiple hidden>
               <div class="file-preview" id="darConductDocsPreview"></div>
             </div>
           </div>
@@ -287,11 +124,8 @@
           <div class="field-with-attachment">
             <div class="field-label">Certificates &amp; Program Records</div>
             <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="darTrainingDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload certificates</span>
-              </div>
+              <label class="btn btn-outline btn-sm ppr-upload-btn" for="darTrainingDocs">Upload supporting documents</label>
+              <input type="file" id="darTrainingDocs" class="ppr-file-input" accept=".pdf,.doc,.docx,.jpg,.png" multiple hidden>
               <div class="file-preview" id="darTrainingDocsPreview"></div>
             </div>
           </div>
@@ -324,11 +158,8 @@
           <div class="field-with-attachment">
             <div class="field-label">Medical &amp; Psychological Records</div>
             <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="darHealthDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload medical/psych records</span>
-              </div>
+              <label class="btn btn-outline btn-sm ppr-upload-btn" for="darHealthDocs">Upload supporting documents</label>
+              <input type="file" id="darHealthDocs" class="ppr-file-input" accept=".pdf,.doc,.docx,.jpg,.png" multiple hidden>
               <div class="file-preview" id="darHealthDocsPreview"></div>
             </div>
           </div>
@@ -351,11 +182,8 @@
           <div class="field-with-attachment">
             <div class="field-label">Risk Assessment Supporting Documents</div>
             <div class="file-upload-wrapper">
-              <div class="file-input-row">
-                <input type="file" id="darRiskDocs" accept=".pdf,.doc,.docx,.jpg,.png" multiple>
-                <span class="or-divider">or</span>
-                <span class="attachment-badge">Upload risk assessment records</span>
-              </div>
+              <label class="btn btn-outline btn-sm ppr-upload-btn" for="darRiskDocs">Upload supporting documents</label>
+              <input type="file" id="darRiskDocs" class="ppr-file-input" accept=".pdf,.doc,.docx,.jpg,.png" multiple hidden>
               <div class="file-preview" id="darRiskDocsPreview"></div>
             </div>
           </div>
@@ -371,18 +199,22 @@
             </div>
           </div>
 
-          <div class="card-actions no-print">
-            <button type="button" class="btn btn-primary btn-sm" id="btnSaveDar">Save DAR</button>
-            <button type="button" class="btn btn-success btn-sm" id="btnSubmitDar">Submit DAR</button>
+          <div class="card-actions no-print" data-section-actions="dar">
+            <button type="button" class="btn btn-primary btn-sm" id="btnSaveDar" data-section-control="true">Save DAR</button>
+            <button type="button" class="btn btn-success btn-sm" id="btnSubmitDar" data-section-control="true">Submit DAR</button>
           </div>
         </div>
       </div>
+
+      <!-- PPR (mounted from js/form2-ppr-template.js) -->
+      <div class="report-card report-card--ppr" id="pprCard"></div>
     </div>
 
     <div class="actions no-print">
       <div class="left-btns">
         <button type="button" class="btn btn-success" id="btnSubmitBoth">Submit Both Reports to Board</button>
         <button type="button" class="btn btn-outline" id="btnPreview">Preview / Print</button>
+        <button type="button" class="btn btn-outline" id="btnNextForm3">Continue to Form 3</button>
       </div>
       <div>
         <button type="button" class="btn btn-danger" id="btnBackForm1">Back to Form 1</button>
@@ -395,18 +227,14 @@
     </div>
   </div>
 
-  <script src="../js/storage.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/rbac.js"></script>
-  <script src="../js/api-client.js"></script>
-  <script src="../js/form-workflow.js"></script>
-  <script src="../js/prisoner-combobox.js"></script>
-  <script src="../js/form2-assessment.js"></script>
+  <script src="../js/pms-core.js"></script>
   <script>
-    PMSForm2Assessment.init();
-    const today = new Date().toISOString().slice(0, 10);
-    if (document.getElementById('pprDate')) document.getElementById('pprDate').value = today;
-    if (document.getElementById('darDate')) document.getElementById('darDate').value = today;
+    PMSCore.bootForm(['api-client.js', 'prisoner-combobox.js', 'form2-ppr-template.js', 'form2-assessment.js']).then(function () {
+      PMSForm2Assessment.init();
+      const today = new Date().toISOString().slice(0, 10);
+      if (document.getElementById('pprDate')) document.getElementById('pprDate').value = today;
+      if (document.getElementById('darDate')) document.getElementById('darDate').value = today;
+    });
   </script>
 </body>
 </html>

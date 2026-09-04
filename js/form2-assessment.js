@@ -2,7 +2,15 @@
  * Form 2 — Assessment Reports (PPR & DAR/DDR) page controller.
  */
 const PMSForm2Assessment = (() => {
-  const PPR_FILE_IDS = ['pprVictimDocs', 'pprSponsorDocs', 'pprReintegrationDocs', 'pprCustomaryDocs'];
+  const PPR_FILE_IDS = [
+    'pprInmateDocs',
+    'pprSocialCaseDocs',
+    'pprCommunityDocs',
+    'pprVictimImpactDocs',
+    'pprReintegrationDocs',
+    'pprBoardInterviewDocs',
+    'pprSignoffDocs',
+  ];
   const DAR_FILE_IDS = ['darConductDocs', 'darTrainingDocs', 'darHealthDocs', 'darRiskDocs'];
 
   let actor = null;
@@ -82,7 +90,7 @@ const PMSForm2Assessment = (() => {
       }
       preview.innerHTML = Array.from(files).map((f) => {
         const size = (f.size / 1024).toFixed(1);
-        return `<span class="file-chip">📎 ${f.name} (${size} KB)</span>`;
+        return `<span class="file-chip">${f.name} (${size} KB)</span>`;
       }).join('');
       const container = input.closest('.field-with-attachment');
       if (container) container.classList.add('has-attachment');
@@ -98,18 +106,72 @@ const PMSForm2Assessment = (() => {
     return result;
   }
 
+  function getCardBody(cardId) {
+    const card = $(cardId);
+    return card?.querySelector('.ppr-form-body') || card?.querySelector('.card-body') || card;
+  }
+
+  function setRadio(name, value) {
+    if (!value) return;
+    const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+    if (radio) radio.checked = true;
+  }
+
+  function syncPprLegacyFields() {
+    const vpoName = $('pprVpoName')?.value.trim() || '';
+    const vpoContact = $('pprVpoContact')?.value.trim() || '';
+    if ($('sponsorName')) $('sponsorName').value = vpoName;
+    if ($('sponsorNotes')) {
+      $('sponsorNotes').value = vpoContact ? `VPO contact: ${vpoContact}` : '';
+    }
+    const leader = $('pprCommunityInterview')?.value.trim() || '';
+    const pastor = $('pprPastorInterview')?.value.trim() || '';
+    const parts = [];
+    if (leader) parts.push(`Community leader interview:\n${leader}`);
+    if (pastor) parts.push(`Pastor interview:\n${pastor}`);
+    if ($('communityStatements')) $('communityStatements').value = parts.join('\n\n');
+  }
+
   function collectPPR() {
+    syncPprLegacyFields();
     return {
+      pprInmateName: $('pprInmateName')?.value.trim() || '',
+      pprInmateId: $('pprInmateId')?.value.trim() || '',
+      pprFacility: $('pprFacility')?.value.trim() || '',
+      pprSentenceStart: $('pprSentenceStart')?.value || '',
+      pprEligibilityDate: $('pprEligibilityDate')?.value || '',
+      pprFamilyHistory: $('pprFamilyHistory')?.value.trim() || '',
+      pprPsychologicalStanding: $('pprPsychologicalStanding')?.value.trim() || '',
+      pprEducationLevel: $('pprEducationLevel')?.value || '',
+      pprEmploymentHistory: $('pprEmploymentHistory')?.value.trim() || '',
+      pprCommunityLeaderName: $('pprCommunityLeaderName')?.value.trim() || '',
+      pprCommunityVillage: $('pprCommunityVillage')?.value.trim() || '',
+      pprCommunityInterview: $('pprCommunityInterview')?.value.trim() || '',
+      communitySafety: document.querySelector('input[name="communitySafety"]:checked')?.value || '',
+      pprPastorName: $('pprPastorName')?.value.trim() || '',
+      pprPastorChurch: $('pprPastorChurch')?.value.trim() || '',
+      pprPastorInterview: $('pprPastorInterview')?.value.trim() || '',
       victimStatements: $('victimStatements')?.value.trim() || '',
       communityRisk: $('communityRisk')?.value || '',
-      communityStatements: $('communityStatements')?.value.trim() || '',
-      sponsorName: $('sponsorName')?.value.trim() || '',
-      sponsorRelationship: $('sponsorRelationship')?.value.trim() || '',
-      sponsorCapability: $('sponsorCapability')?.value || '',
-      sponsorNotes: $('sponsorNotes')?.value.trim() || '',
+      victimStatementReceived: document.querySelector('input[name="victimStatementReceived"]:checked')?.value || '',
       verifiedResidence: $('verifiedResidence')?.value.trim() || '',
+      pprEmploymentPlan: $('pprEmploymentPlan')?.value.trim() || '',
+      pprVpoName: $('pprVpoName')?.value.trim() || '',
+      pprVpoContact: $('pprVpoContact')?.value.trim() || '',
+      sponsorName: $('sponsorName')?.value.trim() || $('pprVpoName')?.value.trim() || '',
+      sponsorRelationship: $('sponsorRelationship')?.value.trim() || 'VPO',
+      sponsorCapability: $('sponsorCapability')?.value || 'Adequate',
+      sponsorNotes: $('sponsorNotes')?.value.trim() || '',
       accommodationStability: $('accommodationStability')?.value || '',
       reintegrationPlan: $('reintegrationPlan')?.value.trim() || '',
+      pprInterviewConducted: document.querySelector('input[name="pprInterviewConducted"]:checked')?.value || 'pending',
+      pprBoardInterviewDate: $('pprBoardInterviewDate')?.value || '',
+      pprInterviewSummary: $('pprInterviewSummary')?.value.trim() || '',
+      pprBoardInterviewer: $('pprBoardInterviewer')?.value.trim() || '',
+      pprInmateDemeanor: $('pprInmateDemeanor')?.value || '',
+      pprRecommendation: document.querySelector('input[name="pprRecommendation"]:checked')?.value || '',
+      pprRecommendationJustification: $('pprRecommendationJustification')?.value.trim() || '',
+      communityStatements: $('communityStatements')?.value.trim() || '',
       customarySettlement: $('customarySettlement')?.value.trim() || '',
       restorativeAssessment: $('restorativeAssessment')?.value || '',
       pprOfficer: $('pprOfficer')?.value.trim() || '',
@@ -138,13 +200,28 @@ const PMSForm2Assessment = (() => {
   }
 
   function mapPprForStorage(data, { submit = false } = {}) {
+    const communityBlock = [
+      data.pprCommunityLeaderName && `Leader: ${data.pprCommunityLeaderName}`,
+      data.pprCommunityVillage,
+      data.pprCommunityInterview,
+      data.pprPastorName && `Pastor: ${data.pprPastorName}`,
+      data.pprPastorChurch,
+      data.pprPastorInterview,
+    ].filter(Boolean).join('\n\n');
     return {
       ...data,
       clerkName: data.pprOfficer,
-      personalParticulars: [data.victimStatements, data.verifiedResidence, data.reintegrationPlan].filter(Boolean).join('\n\n'),
-      communitySummary: data.victimStatements,
+      personalParticulars: [
+        data.pprFamilyHistory,
+        data.pprPsychologicalStanding,
+        data.pprEmploymentHistory,
+        data.verifiedResidence,
+        data.reintegrationPlan,
+      ].filter(Boolean).join('\n\n'),
+      communitySummary: data.victimStatements || communityBlock,
       communitySupport: data.communityRisk,
       reintegrationRisk: data.communityRisk,
+      communityStatements: data.communityStatements || communityBlock,
       confirmed: submit,
       status: submit ? 'submitted' : 'draft',
     };
@@ -154,7 +231,7 @@ const PMSForm2Assessment = (() => {
     return {
       ...data,
       officerName: data.darOfficer,
-      institutionName: institution?.name || 'Bomana Correctional Institution',
+      institutionName: institution?.name || 'Correctional Institution',
       assessmentSummary: [data.conductLog, data.trainingProgress, data.recidivismNotes].filter(Boolean).join('\n\n'),
       summary: data.conductLog,
       conductRating: data.disciplinaryHistory,
@@ -166,15 +243,25 @@ const PMSForm2Assessment = (() => {
 
   function validatePPR(data) {
     const required = [
-      ['victimStatements', 'Victim / family statements'],
-      ['communityRisk', 'Community tension / risk'],
-      ['sponsorName', 'Sponsor name'],
-      ['sponsorRelationship', 'Sponsor relationship'],
-      ['sponsorCapability', 'Sponsor capability'],
-      ['verifiedResidence', 'Verified residence'],
+      ['pprFamilyHistory', 'Family history & upbringing'],
+      ['pprCommunityLeaderName', 'Community leader name'],
+      ['pprCommunityVillage', 'Village / community'],
+      ['pprCommunityInterview', 'Community leader interview summary'],
+      ['pprPastorName', 'Pastor name'],
+      ['pprPastorChurch', 'Church / organization'],
+      ['pprPastorInterview', 'Pastor interview summary'],
+      ['victimStatements', 'Victim / family consultation'],
+      ['communityRisk', 'Tribal conflict / retaliatory risk'],
+      ['verifiedResidence', 'Proposed residence'],
+      ['pprEmploymentPlan', 'Employment / livelihood plan'],
+      ['pprVpoName', 'VPO name'],
+      ['pprVpoContact', 'VPO contact'],
       ['accommodationStability', 'Accommodation stability'],
+      ['reintegrationPlan', 'Reintegration support plan'],
+      ['pprRecommendation', 'PPR recommendation'],
+      ['pprRecommendationJustification', 'Recommendation justification'],
       ['pprOfficer', 'Parole officer name'],
-      ['pprDate', 'Assessment date'],
+      ['pprDate', 'Report date'],
     ];
     for (const [key, label] of required) {
       if (!data[key]?.trim?.() && !data[key]) {
@@ -208,6 +295,14 @@ const PMSForm2Assessment = (() => {
 
   async function saveDraft(sectionKey) {
     const isPpr = sectionKey === 'ppr';
+    if (isPpr && !canEditPpr) {
+      showToast('Only DJAG Parole Clerk may edit the PPR section.', 'error');
+      return;
+    }
+    if (!isPpr && !canEditDar) {
+      showToast('Only CS Parole Clerk may edit the DAR section.', 'error');
+      return;
+    }
     const raw = isPpr ? collectPPR() : collectDAR();
     const mapped = isPpr ? mapPprForStorage(raw) : mapDarForStorage(raw);
     const form2 = app.formData?.form2 || { sections: {} };
@@ -225,7 +320,7 @@ const PMSForm2Assessment = (() => {
       return;
     }
     if (!isPpr && !canEditDar) {
-      showToast('Only CS Parole staff may submit the DAR section.', 'error');
+      showToast('Only CS Parole Clerk may submit the DAR section.', 'error');
       return;
     }
 
@@ -254,32 +349,144 @@ const PMSForm2Assessment = (() => {
         updateStatus('darStatus', 'COMPLETED', 'completed');
         lockCard('darCard', true);
       }
+      updateSectionControls();
+      updatePprProgress();
       checkBothSubmitted();
-      showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} submitted successfully.`, 'success');
+      if (!PMSStorage.isForm2Complete(app.formData?.form2)) {
+        showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} submitted successfully.`, 'success');
+      }
     } catch (err) {
       showToast(err.message || 'Submission failed.', 'error');
     }
+  }
+
+  function showSectionBanner(cardId, message) {
+    const body = getCardBody(cardId);
+    if (!body || body.querySelector('.section-readonly-banner')) return;
+    const banner = document.createElement('div');
+    banner.className = 'section-readonly-banner';
+    banner.setAttribute('role', 'note');
+    banner.innerHTML = `<span>${message}</span>`;
+    body.insertBefore(banner, body.firstChild);
   }
 
   function lockCard(cardId, locked) {
     const card = $(cardId);
     if (!card) return;
     card.classList.toggle('locked', locked);
-    card.querySelectorAll('input, select, textarea, button').forEach((el) => {
-      if (el.type === 'file') el.disabled = locked;
-      else if (el.tagName === 'BUTTON') el.disabled = locked;
-      else if (!el.readOnly) el.readOnly = locked;
+    const scope = getCardBody(cardId);
+    if (!scope) return;
+    scope.querySelectorAll('input, select, textarea, button').forEach((el) => {
+      if (el.closest('.section-readonly-banner')) return;
+      if (el.dataset.sectionControl === 'true') return;
+      if (el.tagName === 'BUTTON') {
+        el.disabled = locked;
+        return;
+      }
+      if (el.type === 'file' || el.type === 'radio' || el.type === 'checkbox') {
+        el.disabled = locked;
+        return;
+      }
+      if (el.tagName === 'SELECT') {
+        el.disabled = locked;
+        return;
+      }
+      el.readOnly = locked;
+      el.classList.toggle('readonly-field', locked);
     });
-    card.querySelectorAll('input[type="radio"]').forEach((el) => { el.disabled = locked; });
+    scope.querySelectorAll('.ppr-upload-btn').forEach((label) => {
+      if (locked) {
+        label.setAttribute('aria-disabled', 'true');
+        label.classList.add('is-disabled');
+      } else {
+        label.removeAttribute('aria-disabled');
+        label.classList.remove('is-disabled');
+      }
+    });
+    scope.querySelectorAll('.file-upload-wrapper').forEach((zone) => {
+      zone.style.pointerEvents = locked ? 'none' : '';
+      zone.style.opacity = locked ? '0.65' : '';
+    });
+  }
+
+  function updateSectionControls() {
+    const showPprEdit = canEditPpr && pprLocked;
+    const showDarEdit = canEditDar && darLocked;
+    $('btnEditPpr')?.classList.toggle('hidden', !showPprEdit);
+    $('btnEditDar')?.classList.toggle('hidden', !showDarEdit);
+    document.querySelector('[data-section-actions="ppr"]')?.classList.toggle('hidden', !canEditPpr || pprLocked);
+    document.querySelector('[data-section-actions="dar"]')?.classList.toggle('hidden', !canEditDar || darLocked);
+  }
+
+  function unlockSection(sectionKey) {
+    const isPpr = sectionKey === 'ppr';
+    if (isPpr && !canEditPpr) {
+      showToast('Only DJAG Parole Clerk may edit the PPR section.', 'error');
+      return;
+    }
+    if (!isPpr && !canEditDar) {
+      showToast('Only CS Parole Clerk may edit the DAR section.', 'error');
+      return;
+    }
+
+    const form2 = app.formData?.form2 || { sections: {} };
+    const existing = form2.sections?.[sectionKey] || {};
+    form2.sections = {
+      ...(form2.sections || {}),
+      [sectionKey]: {
+        ...existing,
+        submitted: false,
+        confirmed: false,
+        status: 'draft',
+        reopenedAt: new Date().toISOString(),
+        reopenedBy: actor.id,
+      },
+    };
+    if (form2.status === 'submitted') form2.status = 'draft';
+    delete form2.submittedAt;
+    PMSStorage.saveFormData(appId, 'form2', form2, actor);
+    app = PMSStorage.getApplicationById(appId);
+
+    if (isPpr) {
+      pprLocked = false;
+      lockCard('pprCard', false);
+      updateStatus('pprStatus', 'IN PROGRESS', 'in-progress');
+    } else {
+      darLocked = false;
+      lockCard('darCard', false);
+      updateStatus('darStatus', 'IN PROGRESS', 'in-progress');
+    }
+    updateStatus('reportStatus', 'REPORTS IN PROGRESS', 'in-progress');
+    updateSectionControls();
+    showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} unlocked for editing.`, 'info');
+  }
+
+  function dashboardHref() {
+    if (typeof PMSPageChrome !== 'undefined') return PMSPageChrome.getDashboardHref('../');
+    if (typeof PMSAuth !== 'undefined' && actor?.role) return `../${PMSAuth.getDashboardForRole(actor.role)}`;
+    return '../dashboard.html';
+  }
+
+  function redirectToDashboard(delay = 1500) {
+    setTimeout(() => {
+      window.location.href = dashboardHref();
+    }, delay);
+  }
+
+  function handleForm2Complete() {
+    updateStatus('reportStatus', 'READY FOR BOARD HEARING', 'completed');
+    showToast('PPR and DAR submitted to the board workflow.', 'success');
+    if (typeof PMSFormWorkflow !== 'undefined') {
+      PMSFormWorkflow.markComplete(2, appId, { submitted: true });
+    }
+    redirectToDashboard();
   }
 
   function checkBothSubmitted() {
+    app = PMSStorage.getApplicationById(appId);
     const f2 = app?.formData?.form2;
     const complete = typeof PMSStorage !== 'undefined' && PMSStorage.isForm2Complete(f2);
-    if (complete) {
-      updateStatus('reportStatus', 'READY FOR BOARD HEARING', 'completed');
-      showToast('Both reports are complete. Ready for board hearing scheduling.', 'success');
-    }
+    if (complete) handleForm2Complete();
   }
 
   async function submitBothReports() {
@@ -291,11 +498,7 @@ const PMSForm2Assessment = (() => {
       return;
     }
     if (typeof PMSStorage !== 'undefined' && PMSStorage.isForm2Complete(app.formData.form2)) {
-      showToast('Both reports submitted to the Parole Board workflow.', 'success');
-      updateStatus('reportStatus', 'READY FOR BOARD HEARING', 'completed');
-      setTimeout(() => {
-        window.location.href = `form3.html?appId=${encodeURIComponent(appId)}`;
-      }, 1200);
+      handleForm2Complete();
     }
   }
 
@@ -303,9 +506,96 @@ const PMSForm2Assessment = (() => {
     $('applicationId').textContent = app.caseNumber || app.id;
     $('detaineeName').textContent = prisonerDisplayName(prisoner);
     $('ciNumber').textContent = prisoner.ciNumber || prisoner.ci_number || prisoner.prisonerNumber || prisoner.id;
-    $('facilityName').textContent = institution?.name || 'Bomana Correctional Institution';
+    $('facilityName').textContent = institution?.name || 'Correctional Institution';
     $('sentenceDisplay').textContent = sentenceDisplay(prisoner);
     $('eligibilityDate').textContent = app.eligibilityDate ? formatDisplayDate(app.eligibilityDate) : '—';
+  }
+
+  function updatePprProgress() {
+    const darDone = !!(app?.formData?.form2?.sections?.ddr?.submitted);
+    const pprDone = !!(app?.formData?.form2?.sections?.ppr?.submitted);
+    const bothDone = typeof PMSStorage !== 'undefined' && PMSStorage.isForm2Complete(app?.formData?.form2);
+    const steps = {
+      dar: document.querySelector('[data-ppr-step="dar"]'),
+      ppr: document.querySelector('[data-ppr-step="ppr"]'),
+      board: document.querySelector('[data-ppr-step="board"]'),
+      decision: document.querySelector('[data-ppr-step="decision"]'),
+    };
+    Object.values(steps).forEach((el) => el?.classList.remove('active', 'completed'));
+    if (steps.dar) steps.dar.classList.add(darDone ? 'completed' : 'active');
+    if (steps.ppr) {
+      if (pprDone) steps.ppr.classList.add('completed');
+      else if (darDone) steps.ppr.classList.add('active');
+    }
+    if (steps.board && pprDone) steps.board.classList.add('active');
+    if (steps.decision && bothDone) steps.decision.classList.add('completed');
+  }
+
+  let pprRecRadiosBound = false;
+
+  function initPprRecommendationRadios() {
+    const sync = () => {
+      document.querySelectorAll('.ppr-rec-option').forEach((label) => {
+        const input = label.querySelector('input[type="radio"]');
+        label.classList.toggle('selected', !!input?.checked);
+      });
+    };
+    if (!pprRecRadiosBound) {
+      document.querySelector('.ppr-rec-grid')?.addEventListener('change', sync);
+      pprRecRadiosBound = true;
+    }
+    sync();
+  }
+
+  function populateInmateInfo() {
+    const setVal = (id, val) => { const el = $(id); if (el && val != null && val !== '') el.value = val; };
+    setVal('pprInmateName', prisonerDisplayName(prisoner));
+    setVal('pprInmateId', prisoner.ciNumber || prisoner.ci_number || prisoner.prisonerNumber || prisoner.id);
+    setVal('pprFacility', institution?.name || 'Correctional Institution');
+    const sentenceStart = prisoner.sentenceStartDate || prisoner.sentence_start_date || prisoner.dateOfSentence;
+    if (sentenceStart) {
+      const d = new Date(sentenceStart);
+      if (!Number.isNaN(d.getTime())) setVal('pprSentenceStart', d.toISOString().slice(0, 10));
+    }
+    if (app.eligibilityDate) {
+      const d = new Date(app.eligibilityDate);
+      if (!Number.isNaN(d.getTime())) setVal('pprEligibilityDate', d.toISOString().slice(0, 10));
+    }
+  }
+
+  function resetPprSection() {
+    if (!confirm('Reset all PPR fields? Unsaved changes will be lost.')) return;
+    const setVal = (id, val) => { const el = $(id); if (el) el.value = val; };
+    const body = getCardBody('pprCard');
+    if (!body) return;
+    body.querySelectorAll('input:not([type="radio"]):not([type="hidden"]), textarea, select').forEach((el) => {
+      if (el.classList.contains('readonly-field') || el.readOnly) return;
+      el.value = '';
+    });
+    body.querySelectorAll('input[type="radio"]').forEach((el) => { el.checked = false; });
+    setRadio('pprRecommendation', 'recommend');
+    setRadio('pprInterviewConducted', 'pending');
+    PPR_FILE_IDS.forEach((id) => {
+      const input = $(id);
+      const preview = $(`${id}Preview`);
+      if (input) input.value = '';
+      if (preview) preview.innerHTML = '';
+    });
+    populateInmateInfo();
+    setVal('pprOfficer', `${actor.firstName} ${actor.lastName}`);
+    setVal('pprDate', new Date().toISOString().slice(0, 10));
+    initPprRecommendationRadios();
+  }
+
+  function restoreSavedAttachments(section, idMap = {}) {
+    const attachments = section?.attachments || {};
+    Object.entries(attachments).forEach(([key, names]) => {
+      const targetId = idMap[key] || key;
+      const preview = $(`${targetId}Preview`);
+      if (!preview || !Array.isArray(names) || !names.length) return;
+      preview.innerHTML = names.map((n) => `<span class="file-chip">${n} (saved)</span>`).join('');
+      preview.closest('.field-with-attachment')?.classList.add('has-attachment');
+    });
   }
 
   function fillFormFromStorage() {
@@ -314,20 +604,44 @@ const PMSForm2Assessment = (() => {
 
     const setVal = (id, val) => { const el = $(id); if (el && val != null && val !== '') el.value = val; };
 
+    populateInmateInfo();
+    setVal('pprFamilyHistory', ppr.pprFamilyHistory);
+    setVal('pprPsychologicalStanding', ppr.pprPsychologicalStanding);
+    setVal('pprEducationLevel', ppr.pprEducationLevel);
+    setVal('pprEmploymentHistory', ppr.pprEmploymentHistory);
+    setVal('pprCommunityLeaderName', ppr.pprCommunityLeaderName);
+    setVal('pprCommunityVillage', ppr.pprCommunityVillage);
+    setVal('pprCommunityInterview', ppr.pprCommunityInterview);
+    setVal('pprPastorName', ppr.pprPastorName);
+    setVal('pprPastorChurch', ppr.pprPastorChurch);
+    setVal('pprPastorInterview', ppr.pprPastorInterview);
     setVal('victimStatements', ppr.victimStatements || ppr.communitySummary);
     setVal('communityRisk', ppr.communityRisk || ppr.communitySupport || ppr.reintegrationRisk);
-    setVal('communityStatements', ppr.communityStatements);
-    setVal('sponsorName', ppr.sponsorName);
-    setVal('sponsorRelationship', ppr.sponsorRelationship);
-    setVal('sponsorCapability', ppr.sponsorCapability);
-    setVal('sponsorNotes', ppr.sponsorNotes);
     setVal('verifiedResidence', ppr.verifiedResidence);
+    setVal('pprEmploymentPlan', ppr.pprEmploymentPlan);
+    setVal('pprVpoName', ppr.pprVpoName || ppr.sponsorName);
+    setVal('pprVpoContact', ppr.pprVpoContact);
+    setVal('sponsorName', ppr.sponsorName || ppr.pprVpoName);
+    setVal('sponsorRelationship', ppr.sponsorRelationship || 'VPO');
+    setVal('sponsorCapability', ppr.sponsorCapability || 'Adequate');
+    setVal('sponsorNotes', ppr.sponsorNotes);
     setVal('accommodationStability', ppr.accommodationStability);
     setVal('reintegrationPlan', ppr.reintegrationPlan);
+    setVal('pprBoardInterviewDate', ppr.pprBoardInterviewDate);
+    setVal('pprInterviewSummary', ppr.pprInterviewSummary);
+    setVal('pprBoardInterviewer', ppr.pprBoardInterviewer);
+    setVal('pprInmateDemeanor', ppr.pprInmateDemeanor);
+    setVal('pprRecommendationJustification', ppr.pprRecommendationJustification);
+    setVal('communityStatements', ppr.communityStatements);
     setVal('customarySettlement', ppr.customarySettlement);
     setVal('restorativeAssessment', ppr.restorativeAssessment);
     setVal('pprOfficer', ppr.pprOfficer || ppr.clerkName || `${actor.firstName} ${actor.lastName}`);
     setVal('pprDate', ppr.pprDate || new Date().toISOString().slice(0, 10));
+
+    setRadio('communitySafety', ppr.communitySafety);
+    setRadio('victimStatementReceived', ppr.victimStatementReceived);
+    setRadio('pprInterviewConducted', ppr.pprInterviewConducted || 'pending');
+    setRadio('pprRecommendation', ppr.pprRecommendation || 'recommend');
 
     setVal('disciplinaryHistory', dar.disciplinaryHistory || dar.conductRating);
     setVal('conductLog', dar.conductLog || dar.summary);
@@ -348,12 +662,28 @@ const PMSForm2Assessment = (() => {
 
     const form1 = app.formData?.form1;
     const d = form1?.sectionD || form1?.sections?.D || {};
-    if (!ppr.sponsorName && (d.sponsor_name || d.sponsorName)) {
+    if (!ppr.pprVpoName && !ppr.sponsorName && (d.sponsor_name || d.sponsorName)) {
+      setVal('pprVpoName', d.sponsor_name || d.sponsorName);
       setVal('sponsorName', d.sponsor_name || d.sponsorName);
-      setVal('sponsorRelationship', d.sponsor_relationship || d.sponsorRelationship);
+      setVal('sponsorRelationship', d.sponsor_relationship || d.sponsorRelationship || 'VPO');
+    }
+    if (!ppr.verifiedResidence) {
       setVal('verifiedResidence', [d.proposed_residence || d.proposedResidence, d.proposed_residence_province || d.proposedResidenceProvince].filter(Boolean).join(', '));
+    }
+    if (!ppr.pprEmploymentPlan) {
+      setVal('pprEmploymentPlan', d.employment_plans || d.employmentPlans || '');
+    }
+    if (!ppr.reintegrationPlan) {
       setVal('reintegrationPlan', [d.employment_plans || d.employmentPlans, d.community_service_plans || d.communityPlans].filter(Boolean).join('\n'));
     }
+
+    initPprRecommendationRadios();
+    restoreSavedAttachments(ppr, {
+      pprVictimDocs: 'pprCommunityDocs',
+      pprCustomaryDocs: 'pprSignoffDocs',
+    });
+    restoreSavedAttachments(dar);
+    updatePprProgress();
 
     if (ppr.submitted) {
       pprLocked = true;
@@ -372,19 +702,19 @@ const PMSForm2Assessment = (() => {
     }
 
     checkBothSubmitted();
+    updateSectionControls();
   }
 
   function applyRoleLocks() {
-    if (!canEditPpr && !pprLocked) lockCard('pprCard', true);
-    if (!canEditDar && !darLocked) lockCard('darCard', true);
-    if (!canEditPpr) {
-      $('btnSavePpr')?.setAttribute('disabled', 'disabled');
-      $('btnSubmitPpr')?.setAttribute('disabled', 'disabled');
+    if (!canEditPpr && !pprLocked) {
+      lockCard('pprCard', true);
+      showSectionBanner('pprCard', 'View only — Pre-Parole Report is completed by DJAG Parole Clerk.');
     }
-    if (!canEditDar) {
-      $('btnSaveDar')?.setAttribute('disabled', 'disabled');
-      $('btnSubmitDar')?.setAttribute('disabled', 'disabled');
+    if (!canEditDar && !darLocked) {
+      lockCard('darCard', true);
+      showSectionBanner('darCard', 'View only — Detainee Assessment Report is completed by CS Parole Clerk.');
     }
+    updateSectionControls();
   }
 
   function bindEvents() {
@@ -393,14 +723,22 @@ const PMSForm2Assessment = (() => {
 
     $('btnSavePpr')?.addEventListener('click', () => saveDraft('ppr'));
     $('btnSubmitPpr')?.addEventListener('click', () => submitSection('ppr'));
+    $('btnEditPpr')?.addEventListener('click', () => unlockSection('ppr'));
+    $('btnResetPpr')?.addEventListener('click', resetPprSection);
     $('btnSaveDar')?.addEventListener('click', () => saveDraft('ddr'));
     $('btnSubmitDar')?.addEventListener('click', () => submitSection('ddr'));
+    $('btnEditDar')?.addEventListener('click', () => unlockSection('ddr'));
     $('btnSubmitBoth')?.addEventListener('click', submitBothReports);
     $('btnPreview')?.addEventListener('click', () => window.print());
     $('btnBackForm1')?.addEventListener('click', () => {
-      if (confirm('Return to Form 1? Unsaved changes may be lost.')) {
+      if (typeof PMSFormWorkflow !== 'undefined' && appId) {
+        PMSFormWorkflow.openForm(1, appId);
+      } else {
         window.location.href = `form1.html?appId=${encodeURIComponent(appId)}`;
       }
+    });
+    $('btnNextForm3')?.addEventListener('click', () => {
+      if (typeof PMSFormWorkflow !== 'undefined' && appId) PMSFormWorkflow.openForm(3, appId);
     });
   }
 
@@ -410,21 +748,33 @@ const PMSForm2Assessment = (() => {
     prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
     if (!app || !prisoner) {
       alert('Application or detainee record not found.');
-      window.location.href = '../dashboard-pngcs.html';
+      window.location.href = typeof PMSPageChrome !== 'undefined'
+        ? PMSPageChrome.getDashboardHref('../')
+        : '../dashboard.html';
       return;
     }
 
     institution = PMSStorage.getInstitutionById(prisoner.institutionId);
     const role = normalizeRole(actor.role);
-    canEditPpr = ['DJAG Parole Clerk', 'System Administrator'].includes(role);
-    canEditDar = ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'].includes(role);
+    canEditPpr = typeof PMSRBAC !== 'undefined'
+      ? PMSRBAC.canEditForm2Section(actor, 'ppr')
+      : ['DJAG Parole Clerk', 'System Administrator'].includes(role);
+    canEditDar = typeof PMSRBAC !== 'undefined'
+      ? PMSRBAC.canEditForm2Section(actor, 'ddr')
+      : ['PNGCS Parole Clerk', 'System Administrator'].includes(role);
+
+    if (typeof mountForm2PprSection === 'function') mountForm2PprSection();
 
     populateSummary();
     fillFormFromStorage();
     bindEvents();
     applyRoleLocks();
 
-    $('form2-root').classList.remove('hidden');
+    if (typeof PMSFormWorkflow !== 'undefined') {
+      PMSFormWorkflow.mountFormChrome(2, appId);
+    }
+
+    $('form2-root')?.classList.remove('hidden');
     $('selection-panel')?.classList.add('hidden');
 
     const params = new URLSearchParams(window.location.search);

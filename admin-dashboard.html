@@ -23,7 +23,7 @@
           <div class="command-bar__badges" aria-hidden="true">
             <img src="images/PNG CS Logo.jpg" alt="" class="command-badge">
             <span class="command-badge-divider"></span>
-            <img src="images/djag.png" alt="" class="command-badge command-badge--djag">
+            <img src="images/djag_logo.jpg" alt="" class="command-badge command-badge--djag">
           </div>
           <div class="command-bar__titles">
             <h1 id="panel-title">Dashboard Overview</h1>
@@ -96,6 +96,11 @@
           <div class="metric-chip"><strong id="stat-board-active">0</strong><span>Board Active</span></div>
           <div class="metric-chip"><strong id="stat-board-expired">0</strong><span>Board Expired</span></div>
           <div class="metric-chip"><strong id="stat-notifications">0</strong><span>Alerts</span></div>
+        </div>
+
+        <div class="card card--calendar overview-calendar-row">
+          <div class="card-header"><h2>Calendar</h2></div>
+          <div class="card-body" id="dashboard-calendar"></div>
         </div>
 
         <div class="workspace-split">
@@ -391,24 +396,10 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="js/workspace-shell.js"></script>
-  <script src="js/dashboard-charts.js"></script>
-  <script src="js/command-bar.js"></script>
-  <script src="js/id-generator.js"></script>
-  <script src="js/eligibility-engine.js"></script>
-  <script src="js/institutions-data.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/pms-validation.js"></script>
-  <script src="js/global-search.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/rbac.js"></script>
-  <script src="js/ui-shared.js"></script>
-  <script src="js/reports-engine.js"></script>
-  <script src="js/workflow.js"></script>
-  <script src="js/form-workflow.js"></script>
-  <script src="js/forms-engine.js"></script>
-  <script src="js/sidebar-nav.js"></script>
-  <script src="js/dashboard.js"></script>
+  <script src="js/pms-core.js"></script>
+  <script>
+    PMSCore.bootDashboard('dashboard.js', ['institutions-data.js', 'dashboard-charts.js']);
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

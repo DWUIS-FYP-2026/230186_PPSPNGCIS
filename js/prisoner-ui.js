@@ -23,6 +23,28 @@ const PMSPrisonerUI = (() => {
     return `<div class="case-field"><span class="case-field__label">${esc(label)}</span><span class="case-field__value">${value ?? '—'}</span></div>`;
   }
 
+  function renderFormLinks(app, actor) {
+    if (!app || !actor) return '';
+    const summary = PMSStorage.getFormCompletionSummary(app);
+    const items = PMSStorage.PAROLE_FORMS.map((f) => {
+      if (!PMSRBAC.canAccessForm(actor, f.number, 'view')) return '';
+      const done = summary.checks[`form${f.number}`];
+      const canEdit = PMSRBAC.canAccessForm(actor, f.number, 'edit');
+      const action = canEdit && !done ? 'Open' : 'View';
+      const href = `forms/form${f.number}.html?appId=${encodeURIComponent(app.id)}`;
+      return `<li class="case-form-link${done ? ' case-form-link--done' : ''}">
+        <a href="${href}" class="btn-link">${esc(f.name)}</a>
+        <span class="meta">${done ? 'Complete' : 'Incomplete'} · ${action}</span>
+      </li>`;
+    }).filter(Boolean).join('');
+    if (!items) return '';
+    return `<section class="case-section case-section--wide">
+      <h2><i class="fi fi-rr-document-signed"></i> Parole Forms (Application ${esc(app.caseNumber || app.id)})</h2>
+      <ul class="case-form-links">${items}</ul>
+      <p class="case-readonly-notice"><i class="fi fi-rr-eye"></i> Open any completed form to review submissions from PNGCS and other agencies.</p>
+    </section>`;
+  }
+
   function renderCaseFile(prisoner, options = {}) {
     const { showEditLink = false, actor = null } = options;
     const prog = PMSStorage.getPrisonerProgress(prisoner);
@@ -92,7 +114,7 @@ const PMSPrisonerUI = (() => {
         <div class="case-file-header__actions">
           ${showEditLink ? `<a href="${PMSRBAC.prisonerEditUrl(prisoner.id)}" class="btn-primary"><i class="fi fi-rr-pencil"></i> Edit Record</a>` : ''}
           ${canExport ? `<button type="button" class="btn-secondary" id="btn-print-case"><i class="fi fi-rr-print"></i> Print Report</button>` : ''}
-          <a href="#" class="btn-secondary" id="btn-back-dash"><i class="fi fi-rr-arrow-left"></i> Back</a>
+          <a href="#" class="pms-dashboard-btn" id="btn-back-dash" data-pms-dashboard-panel="prisoners"><i class="fi fi-rr-dashboard" aria-hidden="true"></i> <span data-pms-dashboard-label>Dashboard</span></a>
         </div>
       </header>
 
@@ -154,6 +176,8 @@ const PMSPrisonerUI = (() => {
         ).join('') : '<li class="case-timeline__item">No workflow events recorded yet.</li>'}</ol>
       </section>` : ''}
 
+      ${activeApp ? renderFormLinks(activeApp, actor) : ''}
+
       ${releaseHtml}
 
       <section class="case-section case-section--wide">
@@ -173,6 +197,7 @@ const PMSPrisonerUI = (() => {
             `<tr><td>${esc(o.offenseName || o.offense)}</td><td>${esc(o.category || '—')}</td><td>${esc(o.courtName || '—')}</td><td>${esc(o.sentenceLength || '—')}</td></tr>`
           ).join('') : `<tr><td colspan="4">${esc(prisoner.offense || 'No structured offense records — primary offense shown above.')}</td></tr>`
         }</tbody></table></div>
+      </section>
       <section class="case-section case-section--wide">
         <h2><i class="fi fi-rr-folder"></i> Documents</h2>
         <ul class="case-doc-list">${docs}</ul>

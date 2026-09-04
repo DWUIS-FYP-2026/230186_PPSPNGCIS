@@ -1,9 +1,7 @@
 /**
  * Parole Hearing Portal — Board View (queue, dossier, scheduling, decisions).
  */
-(async () => {
-  await PMSStorage.ensureLoaded();
-
+const PMSHearingPortal = (() => {
   const PORTAL_ROLES = [
     'DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator',
     'Parole Board Member', 'Doctor', 'CS Commissioner',
@@ -13,33 +11,22 @@
   const ASSESS_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const PANEL_ROLES = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const SCHEDULABLE_STATUSES = ['Pre-Parole Report Prepared', 'Hearing Scheduled'];
-  const THRESHOLD = PMSStorage.PAROLE_APPROVAL_THRESHOLD || 80;
+  const CLOSED_STATUSES = ['Refused', 'Approved', 'Released', 'Parole Granted', 'Parole Refused'];
 
-  const actor = PMSAuth.requireRole(PORTAL_ROLES);
-  if (!actor) return;
-
-  const canSchedule = SCHEDULE_ROLES.includes(actor.role);
-  const canDecide = DECIDE_ROLES.includes(actor.role);
-  const canAssess = ASSESS_ROLES.includes(actor.role);
-
-  const $ = (id) => document.getElementById(id);
+  let actor = null;
+  let canSchedule = false;
+  let canDecide = false;
+  let canAssess = false;
   let queue = [];
   let currentIndex = 0;
-  let currentAppId = new URLSearchParams(location.search).get('appId') || '';
+  let currentAppId = '';
+  let THRESHOLD = 80;
 
-  if ($('back-link') && typeof PMSAuth !== 'undefined') {
-    $('back-link').href = '../' + PMSAuth.getDashboardForRole(actor.role);
-  }
-  $('user-label').textContent = actor.boardPosition
-    ? `${actor.boardPosition}: ${actor.firstName} ${actor.lastName}`
-    : `${actor.role}: ${actor.firstName} ${actor.lastName}`;
-  $('user-avatar').textContent = (actor.firstName || '?').charAt(0).toUpperCase();
-
-  const today = new Date();
-  $('session-badge').innerHTML = `<i class="fi fi-rr-circle" aria-hidden="true"></i> Session #${today.toISOString().slice(0, 10)} · Active`;
+  const $ = (id) => document.getElementById(id);
 
   function showToast(msg) {
     const el = $('toast');
+    if (!el) return;
     el.textContent = msg;
     el.classList.add('show');
     setTimeout(() => el.classList.remove('show'), 3500);
@@ -59,28 +46,34 @@
     return `png_hearing_draft_${appId}`;
   }
 
-  function eligibleForSchedule() {
-    return PMSStorage.getParoleApplications().filter((app) => {
-      if (app.status === 'Draft') return false;
-      const advance = PMSWorkflow.canAdvanceApplication(app, 'Hearing Scheduled');
-      if (!advance.allowed) return false;
-      if (SCHEDULABLE_STATUSES.includes(app.status)) return true;
-      return PMSWorkflow.canTransition(actor, app.status, 'Hearing Scheduled');
-    });
-  }
-
   function getActiveHearing(appId) {
     return PMSStorage.getHearingsByApplication(appId)
       .find((h) => !['Cancelled', 'Completed'].includes(h.status)) || null;
   }
 
+  function isScheduleCandidate(app) {
+    if (!app || app.status === 'Draft' || CLOSED_STATUSES.includes(app.status)) return false;
+    if (SCHEDULABLE_STATUSES.includes(app.status)) return true;
+    if (typeof PMSWorkflow !== 'undefined' && PMSWorkflow.canAdvanceApplication(app, 'Hearing Scheduled').allowed) {
+      return true;
+    }
+    return PMSStorage.isCommanderVerified(app)
+      && PMSStorage.isForm3Complete(app.formData?.form3)
+      && PMSStorage.isForm2Complete(app.formData?.form2)
+      && !getActiveHearing(app.id);
+  }
+
+  function eligibleForSchedule() {
+    return PMSStorage.getParoleApplications().filter(isScheduleCandidate);
+  }
+
   function queueStatus(item, index) {
     if (index === currentIndex) return { cls: 'status-current', label: 'Current' };
-    if (item.app?.boardDecision || item.app?.status === 'Refused' || item.app?.status === 'Approved') {
+    if (item.app?.boardDecision || ['Refused', 'Approved', 'Parole Granted', 'Parole Refused'].includes(item.app?.status)) {
       return { cls: 'status-done', label: 'Done' };
     }
     if (!item.hearing) return { cls: 'status-pending', label: 'Pending' };
-    if (['Completed'].includes(item.hearing.status)) return { cls: 'status-done', label: 'Done' };
+    if (item.hearing.status === 'Completed') return { cls: 'status-done', label: 'Done' };
     return { cls: 'status-upcoming', label: 'Upcoming' };
   }
 
@@ -115,6 +108,18 @@
       });
     });
 
+    if (currentAppId && !seen.has(currentAppId)) {
+      const app = PMSStorage.getApplicationById(currentAppId);
+      if (app) {
+        items.unshift({
+          appId: app.id,
+          app,
+          prisoner: PMSStorage.getPrisonerById(app.prisonerId),
+          hearing: getActiveHearing(app.id),
+        });
+      }
+    }
+
     return items;
   }
 
@@ -124,7 +129,7 @@
     $('session-docket').textContent = `${queue.length} case${queue.length === 1 ? '' : 's'}`;
 
     if (!queue.length) {
-      $('queue-list').innerHTML = '<div class="log-item empty">No cases in hearing docket.</div>';
+      $('queue-list').innerHTML = '<div class="log-item empty">No cases in the hearing docket. Complete Form 3 verification, then schedule a hearing here.</div>';
       $('queue-remaining').textContent = '0 remaining';
       return;
     }
@@ -133,14 +138,14 @@
       const idx = queue.findIndex((q) => q.appId === currentAppId);
       if (idx >= 0) currentIndex = idx;
     }
-    currentIndex = Math.min(currentIndex, queue.length - 1);
+    currentIndex = Math.min(Math.max(currentIndex, 0), queue.length - 1);
 
     $('queue-list').innerHTML = queue.map((item, i) => {
       const p = item.prisoner;
       const name = p ? `${p.firstName} ${p.lastName}` : item.appId;
       const id = p?.prisonerNumber || item.app?.caseNumber || item.appId;
       const st = queueStatus(item, i);
-      return `<div class="queue-item${i === currentIndex ? ' active' : ''}" data-index="${i}" data-app-id="${esc(item.appId)}">
+      return `<div class="queue-item${i === currentIndex ? ' active' : ''}" data-index="${i}" data-app-id="${esc(item.appId)}" role="button" tabindex="0">
         <div>
           <div class="name">${esc(name)}</div>
           <div class="id">#${esc(id)} · ${esc(item.app?.status || '—')}</div>
@@ -153,7 +158,14 @@
     $('queue-remaining').textContent = `${remaining} remaining`;
 
     document.querySelectorAll('.queue-item').forEach((el) => {
-      el.addEventListener('click', () => selectCase(parseInt(el.dataset.index, 10)));
+      const open = () => selectCase(parseInt(el.dataset.index, 10));
+      el.addEventListener('click', open);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      });
     });
   }
 
@@ -168,12 +180,13 @@
       { label: 'Form 5', ok: summary.checks.form5 },
     ];
     const complete = docs.filter((d) => d.ok).length;
-    $('dossier-status').innerHTML = complete === docs.length
-      ? `<i class="fi fi-rr-check-circle" aria-hidden="true"></i> Complete · ${complete} docs`
-      : `<i class="fi fi-rr-exclamation" aria-hidden="true"></i> ${complete}/${docs.length} docs`;
-    $('dossier-status').className = complete === docs.length ? 'dossier-status' : 'dossier-status incomplete';
+    const statusEl = $('dossier-status');
+    statusEl.textContent = complete === docs.length
+      ? `Complete · ${complete} documents`
+      : `${complete} of ${docs.length} documents`;
+    statusEl.className = complete === docs.length ? 'dossier-status' : 'dossier-status incomplete';
     $('doc-list').innerHTML = docs.map((d) =>
-      `<span class="doc-item${d.ok ? '' : ' missing'}"><i class="fi fi-rr-document" aria-hidden="true"></i> ${esc(d.label)}</span>`
+      `<span class="doc-item${d.ok ? '' : ' missing'}">${esc(d.label)}</span>`
     ).join('');
   }
 
@@ -197,7 +210,7 @@
     $('vote-approve').textContent = approve;
     $('vote-deny').textContent = deny;
     $('vote-abstain').textContent = abstain;
-    $('vote-meta').innerHTML = `<i class="fi fi-rr-clock" aria-hidden="true"></i> ${assessments.length} of ${panelUsers.length} recorded`;
+    $('vote-meta').textContent = `${assessments.length} of ${panelUsers.length} recorded`;
   }
 
   function renderPanel(app) {
@@ -207,17 +220,15 @@
 
     $('panel-members').innerHTML = members.map((u) => {
       const a = byAssessor[u.id];
-      let voteHtml = '<span class="pending"><i class="fi fi-rr-clock" aria-hidden="true"></i> Pending</span>';
+      let voteHtml = '<span class="pending">Pending</span>';
       if (a) {
-        if (a.score >= THRESHOLD) {
-          voteHtml = '<span class="approved"><i class="fi fi-rr-check-circle" aria-hidden="true"></i> Approve</span>';
-        } else {
-          voteHtml = '<span class="denied"><i class="fi fi-rr-cross-circle" aria-hidden="true"></i> Deny</span>';
-        }
+        voteHtml = a.score >= THRESHOLD
+          ? '<span class="approved">Approve</span>'
+          : '<span class="denied">Deny</span>';
       } else if (app.boardDecision && app.boardDecision.decidedBy === u.id) {
         voteHtml = app.boardDecision.outcome === 'Parole Granted'
-          ? '<span class="approved"><i class="fi fi-rr-check-circle" aria-hidden="true"></i> Approve</span>'
-          : '<span class="denied"><i class="fi fi-rr-cross-circle" aria-hidden="true"></i> Deny</span>';
+          ? '<span class="approved">Approve</span>'
+          : '<span class="denied">Deny</span>';
       }
 
       return `<div class="panel-member">
@@ -244,7 +255,10 @@
   function renderDeadline(app, hearing) {
     const alert = $('deadline-alert');
     const info = PMSStorage.getHearingDeadlineInfo(app);
-    if (!info) { alert.hidden = true; return; }
+    if (!info) {
+      alert.hidden = true;
+      return;
+    }
 
     alert.hidden = false;
     alert.className = 'deadline-alert';
@@ -264,26 +278,25 @@
     area.hidden = !canSchedule;
     if (!canSchedule) return;
 
-    const needsSchedule = !hearing || app.status === 'Pre-Parole Report Prepared';
-    area.style.display = needsSchedule || hearing ? 'block' : 'none';
+    const showForm = !hearing || SCHEDULABLE_STATUSES.includes(app.status) || app.status === 'Hearing Scheduled';
+    area.style.display = showForm ? 'block' : 'none';
 
     const draft = JSON.parse(localStorage.getItem(draftKey(app.id)) || 'null');
     $('hearing-date').value = hearing?.scheduledDate || draft?.scheduledDate || '';
     $('hearing-time').value = hearing?.scheduledTime || draft?.scheduledTime || '09:00';
     $('hearing-venue').value = hearing?.location || draft?.location || '';
     $('hearing-notes').value = hearing?.notes || hearing?.meetingNotes || draft?.notes || '';
-    $('deadline-exception').checked = !!draft?.deadlineException;
-    $('exception-reason').hidden = !draft?.deadlineException;
+    $('deadline-exception').checked = !!(draft?.deadlineException || hearing?.deadlineException);
+    $('exception-reason').hidden = !$('deadline-exception').checked;
     $('exception-reason').value = draft?.exceptionReason || '';
 
     const minDate = new Date();
     minDate.setHours(0, 0, 0, 0);
     $('hearing-date').min = minDate.toISOString().slice(0, 10);
 
-    $('btn-schedule').innerHTML = hearing
-      ? '<i class="fas fa-calendar-check"></i> Update & Notify'
-      : '<i class="fas fa-calendar-check"></i> Schedule & Notify';
+    $('btn-schedule').textContent = hearing ? 'Update & Notify' : 'Schedule & Notify';
     $('btn-cancel').hidden = !hearing;
+    $('btn-save-draft').hidden = false;
   }
 
   function renderDecisionArea(app) {
@@ -310,9 +323,9 @@
 
     area.hidden = !inReview;
     $('btn-record-decision').disabled = !canDecide || !inReview || !!app.boardDecision;
-    select.disabled = !canDecide;
-    $('hearing-denial-reason').disabled = !canDecide;
-    $('hearing-conditions').disabled = !canDecide;
+    select.disabled = !canDecide || !!app.boardDecision;
+    $('hearing-denial-reason').disabled = !canDecide || !!app.boardDecision;
+    $('hearing-conditions').disabled = !canDecide || !!app.boardDecision;
   }
 
   function selectCase(index) {
@@ -328,27 +341,27 @@
     const name = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'Unknown';
     const pid = prisoner?.prisonerNumber || app.caseNumber || app.id;
     $('offender-name').textContent = name;
-    $('offender-id').textContent = `#${pid}`;
-    $('offender-offense').textContent = prisoner?.offense ? `Offense: ${prisoner.offense}` : 'Offense: —';
+    $('offender-id').textContent = pid;
+    $('offender-offense').textContent = prisoner?.offense || '—';
     $('offender-facility').textContent = institution?.name || '—';
 
     const score = PMSStorage.calculateParoleScore(app);
     const badge = $('eligibility-badge');
     if (app.boardDecision?.outcome === 'Parole Refused' || app.status === 'Refused') {
       badge.className = 'eligibility-badge denied';
-      badge.innerHTML = '<i class="fi fi-rr-times-circle" aria-hidden="true"></i> Refused';
+      badge.textContent = 'Refused';
     } else if (score.complete && score.meetsThreshold) {
       badge.className = 'eligibility-badge eligible';
-      badge.innerHTML = '<i class="fi fi-rr-check-circle" aria-hidden="true"></i> Eligible · Score ' + score.percent + '%';
+      badge.textContent = `Eligible · Score ${score.percent}%`;
     } else if (PMSStorage.isCommanderVerified(app) && PMSStorage.isForm3Complete(app.formData?.form3)) {
       badge.className = 'eligibility-badge eligible';
-      badge.innerHTML = '<i class="fi fi-rr-check-circle" aria-hidden="true"></i> Verified · Ready for hearing';
+      badge.textContent = 'Verified · Ready for hearing';
     } else {
       badge.className = 'eligibility-badge pending';
-      badge.innerHTML = '<i class="fi fi-rr-clock" aria-hidden="true"></i> Pending verification';
+      badge.textContent = 'Pending verification';
     }
 
-    $('session-current').innerHTML = `${esc(name)} <span style="font-weight:400;color:#4a6b88;">#${esc(pid)}</span>`;
+    $('session-current').innerHTML = `${esc(name)} <span class="session-current-id">#${esc(pid)}</span>`;
     $('session-date').textContent = hearing?.scheduledDate
       ? PMSUI.fmtDate(hearing.scheduledDate)
       : PMSUI.fmtDate(new Date().toISOString());
@@ -367,9 +380,13 @@
   }
 
   function getScheduleBlockers(app, forUpdate) {
-    const blockers = [...PMSWorkflow.canAdvanceApplication(app, 'Hearing Scheduled').blockers];
-    if (!forUpdate && !SCHEDULABLE_STATUSES.includes(app.status) && !PMSWorkflow.canTransition(actor, app.status, 'Hearing Scheduled')) {
-      blockers.push(`Case must be in "Pre-Parole Report Prepared" status (current: ${app.status}).`);
+    const blockers = typeof PMSWorkflow !== 'undefined'
+      ? [...PMSWorkflow.canAdvanceApplication(app, 'Hearing Scheduled').blockers]
+      : [];
+    if (!forUpdate && !SCHEDULABLE_STATUSES.includes(app.status)
+      && typeof PMSWorkflow !== 'undefined'
+      && !PMSWorkflow.canTransition(actor, app.status, 'Hearing Scheduled')) {
+      blockers.push(`Case must be ready for hearing scheduling (current status: ${app.status}).`);
     }
     return blockers;
   }
@@ -381,7 +398,8 @@
 
     const hearing = getActiveHearing(app.id);
     const forUpdate = !!(hearing && app.status === 'Hearing Scheduled');
-    const blockers = getScheduleBlockers(app, forUpdate);
+    const deadlineException = $('deadline-exception').checked;
+    const blockers = deadlineException ? [] : getScheduleBlockers(app, forUpdate);
     if (blockers.length && !forUpdate) {
       showToast(blockers[0]);
       return;
@@ -391,7 +409,6 @@
     const scheduledTime = $('hearing-time').value;
     const location = $('hearing-venue').value.trim();
     const notes = $('hearing-notes').value.trim();
-    const deadlineException = $('deadline-exception').checked;
     const exceptionReason = $('exception-reason').value.trim();
 
     if (!scheduledDate || !location) {
@@ -401,7 +418,10 @@
 
     if (typeof PMSValidation !== 'undefined' && !deadlineException) {
       const v = PMSValidation.validateHearingDate(scheduledDate, app);
-      if (!v.valid) { showToast(v.errors[0]); return; }
+      if (!v.valid) {
+        showToast(v.errors[0]);
+        return;
+      }
     }
 
     if (deadlineException && !exceptionReason) {
@@ -481,7 +501,7 @@
         await PMSStorage.transitionApplication(currentAppId, 'Deferred', actor, denialReason || 'Hearing deferred');
       } else {
         await PMSStorage.recordBoardDecision(currentAppId, {
-          outcome: decision === 'Approved' ? 'Approved' : decision === 'Refused' ? 'Refused' : decision,
+          outcome: decision,
           conditions,
           deliberationNotes: decision === 'Refused' ? denialReason : denialReason || conditions,
         }, actor);
@@ -494,66 +514,95 @@
     }
   }
 
-  $('btn-prev').addEventListener('click', () => {
-    if (currentIndex > 0) selectCase(currentIndex - 1);
-  });
+  function bindEvents() {
+    $('btn-prev')?.addEventListener('click', () => {
+      if (currentIndex > 0) selectCase(currentIndex - 1);
+    });
 
-  $('btn-next').addEventListener('click', () => {
-    if (currentIndex < queue.length - 1) selectCase(currentIndex + 1);
-  });
+    $('btn-next')?.addEventListener('click', () => {
+      if (currentIndex < queue.length - 1) selectCase(currentIndex + 1);
+    });
 
-  $('btn-print').addEventListener('click', () => window.print());
+    $('btn-print')?.addEventListener('click', () => window.print());
+    $('btn-schedule')?.addEventListener('click', scheduleHearing);
 
-  $('btn-schedule').addEventListener('click', scheduleHearing);
+    $('btn-save-draft')?.addEventListener('click', () => {
+      if (!currentAppId) return;
+      localStorage.setItem(draftKey(currentAppId), JSON.stringify({
+        scheduledDate: $('hearing-date').value,
+        scheduledTime: $('hearing-time').value,
+        location: $('hearing-venue').value.trim(),
+        notes: $('hearing-notes').value.trim(),
+        deadlineException: $('deadline-exception').checked,
+        exceptionReason: $('exception-reason').value.trim(),
+      }));
+      showToast('Draft saved.');
+    });
 
-  $('btn-save-draft').addEventListener('click', () => {
-    if (!currentAppId) return;
-    localStorage.setItem(draftKey(currentAppId), JSON.stringify({
-      scheduledDate: $('hearing-date').value,
-      scheduledTime: $('hearing-time').value,
-      location: $('hearing-venue').value.trim(),
-      notes: $('hearing-notes').value.trim(),
-      deadlineException: $('deadline-exception').checked,
-      exceptionReason: $('exception-reason').value.trim(),
-    }));
-    showToast('Draft saved.');
-  });
+    $('btn-cancel')?.addEventListener('click', async () => {
+      const hearing = getActiveHearing(currentAppId);
+      if (!hearing || !confirm('Cancel this scheduled hearing?')) return;
+      try {
+        await PMSStorage.saveHearing({ ...hearing, status: 'Cancelled' }, actor);
+        showToast('Hearing cancelled.');
+        renderQueue();
+        selectCase(currentIndex);
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
 
-  $('btn-cancel').addEventListener('click', async () => {
-    const hearing = getActiveHearing(currentAppId);
-    if (!hearing || !confirm('Cancel this scheduled hearing?')) return;
-    try {
-      await PMSStorage.saveHearing({ ...hearing, status: 'Cancelled' }, actor);
-      showToast('Hearing cancelled.');
-      renderQueue();
-      selectCase(currentIndex);
-    } catch (err) {
-      showToast(err.message);
-    }
-  });
+    $('deadline-exception')?.addEventListener('change', (e) => {
+      $('exception-reason').hidden = !e.target.checked;
+    });
 
-  $('deadline-exception').addEventListener('change', (e) => {
-    $('exception-reason').hidden = !e.target.checked;
-  });
+    $('btn-record-decision')?.addEventListener('click', recordDecision);
 
-  $('btn-record-decision').addEventListener('click', recordDecision);
+    $('btn-open-form')?.addEventListener('click', () => {
+      if (!currentAppId) return;
+      const app = PMSStorage.getApplicationById(currentAppId);
+      const score = app ? PMSStorage.calculateParoleScore(app) : { meetsThreshold: false };
+      if (typeof PMSForms !== 'undefined') {
+        PMSForms.openForm(score.meetsThreshold ? 4 : 5, currentAppId);
+      } else if (typeof PMSFormWorkflow !== 'undefined') {
+        PMSFormWorkflow.openForm(score.meetsThreshold ? 4 : 5, currentAppId);
+      }
+    });
 
-  $('btn-open-form').addEventListener('click', () => {
-    if (!currentAppId) return;
-    const app = PMSStorage.getApplicationById(currentAppId);
-    const score = app ? PMSStorage.calculateParoleScore(app) : { meetsThreshold: false };
-    PMSForms.openForm(score.meetsThreshold ? 4 : 5, currentAppId);
-  });
-
-  $('btn-reset-decision').addEventListener('click', () => {
-    $('hearing-decision').value = '';
-    $('hearing-denial-reason').value = '';
-    $('hearing-conditions').value = '';
-  });
-
-  renderQueue();
-  if (queue.length) {
-    const idx = currentAppId ? queue.findIndex((q) => q.appId === currentAppId) : 0;
-    selectCase(idx >= 0 ? idx : 0);
+    $('btn-reset-decision')?.addEventListener('click', () => {
+      $('hearing-decision').value = '';
+      $('hearing-denial-reason').value = '';
+      $('hearing-conditions').value = '';
+    });
   }
+
+  async function init() {
+    await PMSStorage.ensureLoaded();
+    THRESHOLD = PMSStorage.PAROLE_APPROVAL_THRESHOLD || 80;
+
+    actor = PMSAuth.requireRole(PORTAL_ROLES);
+    if (!actor) return;
+
+    canSchedule = SCHEDULE_ROLES.includes(actor.role);
+    canDecide = DECIDE_ROLES.includes(actor.role);
+    canAssess = ASSESS_ROLES.includes(actor.role);
+    currentAppId = new URLSearchParams(location.search).get('appId') || '';
+
+    $('user-label').textContent = actor.boardPosition
+      ? `${actor.boardPosition}: ${actor.firstName} ${actor.lastName}`
+      : `${actor.role}: ${actor.firstName} ${actor.lastName}`;
+    $('user-avatar').textContent = (actor.firstName || '?').charAt(0).toUpperCase();
+
+    const today = new Date();
+    $('session-badge').textContent = `Session ${today.toISOString().slice(0, 10)} · Active`;
+
+    bindEvents();
+    renderQueue();
+    if (queue.length) {
+      const idx = currentAppId ? queue.findIndex((q) => q.appId === currentAppId) : 0;
+      selectCase(idx >= 0 ? idx : 0);
+    }
+  }
+
+  return { init };
 })();
