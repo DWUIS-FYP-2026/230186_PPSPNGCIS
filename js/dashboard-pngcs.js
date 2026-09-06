@@ -307,7 +307,7 @@
   function startForm1() {
     const pid = document.getElementById('app-prisoner').value;
     if (!pid) {
-      alert('Please select a detainee first.');
+      PMSUI.showError('Please select a detainee first.');
       return;
     }
     const appId = ensureAppId();
@@ -372,10 +372,41 @@
       <div class="overview-row"><strong>Form 1 completed</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => PMSStorage.isForm1Complete(a.formData?.form1)).length)} cases</span></div>
       <div class="overview-row"><strong>Active cases</strong><span class="meta">${PMSUI.formatStat(activeCases)}</span></div>
       <div class="overview-row"><strong>Requiring action</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => ['Draft', 'Returned for Correction', 'Pending Commander Review'].includes(a.status)).length)}</span></div>
-      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n)).join('') : ''}`;
+      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n, actor)).join('') : ''}`;
 
     if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
 
+  }
+
+  function setupStatCards() {
+    const cols = ['ID', 'Name', 'Institution', 'Status', ''];
+    PMSUI.bindStatCards([
+      {
+        statId: 'stat-eligible',
+        title: 'Eligible for Parole',
+        columns: ['ID', 'Name', 'Institution', 'Eligibility', ''],
+        getRows: () => scopePrisoners()
+          .filter((p) => PMSStorage.getPrisonerProgress(p).eligible)
+          .map((p) => PMSUI.prisonerDrilldownRow(p, `<td>${PMSUI.fmtDate(PMSStorage.getPrisonerProgress(p).eligibilityDate)}</td>`)),
+      },
+      {
+        statId: 'stat-prisoners',
+        title: 'Prisoner Records',
+        columns: ['ID', 'Name', 'Institution', 'Status', ''],
+        getRows: () => scopePrisoners().map((p) => PMSUI.prisonerDrilldownRow(p, `<td><span class="status-pill status-pill--${PMSUI.statusClass(p.status)}">${PMSUI.esc(p.status)}</span></td>`)),
+      },
+      {
+        statId: 'stat-drafts',
+        title: 'Form 1 Pending',
+        columns: cols,
+        getRows: () => scopeApps()
+          .filter((a) => PMSStorage.isActiveParoleApplication(a) && !PMSStorage.isForm1Complete(a.formData?.form1))
+          .map((a) => PMSUI.appDrilldownRow(a)),
+      },
+    ], {
+      notificationsStatId: 'stat-notifications',
+      onNotificationsClick: () => PMSUI.switchPanel('notifications', panelTitles, refresh, 'notifications'),
+    });
   }
 
 
@@ -652,7 +683,7 @@
 
     const pid = document.getElementById('app-prisoner').value;
 
-    if (!pid) { alert('Please select a prisoner.'); return; }
+    if (!pid) { PMSUI.showError('Please select a prisoner.'); return; }
 
     const p = PMSStorage.getPrisonerById(pid);
 
@@ -686,9 +717,9 @@
 
       refresh('applications');
 
-      alert('Application submitted to DJAG successfully.');
+      PMSUI.showSuccess('Application submitted to DJAG successfully.');
 
-    } catch (err) { alert(err.message); }
+    } catch (err) { PMSUI.showError(err.message); }
 
   });
 
@@ -713,7 +744,7 @@
 
       const pid = document.getElementById('app-prisoner').value;
 
-      if (!pid) { alert('Please select a prisoner first.'); return; }
+      if (!pid) { PMSUI.showError('Please select a prisoner first.'); return; }
 
       const appId = ensureAppId();
 
@@ -753,7 +784,10 @@
 
 
 
+  PMSUI.bindOverviewNotifications('overview-notifications', actor, () => refresh('overview'));
+
   if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');
+  setupStatCards();
 
 })();
 

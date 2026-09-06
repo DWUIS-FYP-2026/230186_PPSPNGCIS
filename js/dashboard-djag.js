@@ -138,9 +138,36 @@
       <div class="overview-row"><strong>Submitted from PNGCS</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => a.status === 'Submitted').length)} cases</span></div>
       <div class="overview-row"><strong>Under DJAG review</strong><span class="meta">${PMSUI.formatStat(underReview)}</span></div>
       <div class="overview-row"><strong>Hearings scheduled</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countUpcomingHearings())}</span></div>
-      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n)).join('') : ''}`;
+      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n, actor)).join('') : ''}`;
 
     if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
+  }
+
+  function setupStatCards() {
+    const cols = ['ID', 'Name', 'Institution', 'Status', ''];
+    PMSUI.bindStatCards([
+      {
+        statId: 'stat-eligible',
+        title: 'Active Cases',
+        columns: cols,
+        getRows: () => djagApps().filter((a) => PMSStorage.isActiveParoleApplication(a)).map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-prisoners',
+        title: 'Under Review',
+        columns: cols,
+        getRows: () => djagApps().filter((a) => ['Submitted', 'Under DJAG Review'].includes(a.status)).map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-drafts',
+        title: 'Form 2 / PPR Pending',
+        columns: cols,
+        getRows: () => djagApps().filter((a) => PMSStorage.needsDjagForm2Ppr(a)).map((a) => PMSUI.appDrilldownRow(a)),
+      },
+    ], {
+      notificationsStatId: 'stat-notifications',
+      onNotificationsClick: () => PMSUI.switchPanel('notifications', panelTitles, refresh, 'notifications'),
+    });
   }
 
   function renderPrisoners() {
@@ -286,7 +313,7 @@
       await PMSStorage.transitionApplication(appId, 'Under DJAG Review', actor, 'DJAG commenced document verification');
       openReview(appId);
       refresh('applications');
-    } catch (e) { alert(e.message); }
+    } catch (e) { PMSUI.showError(e.message); }
   });
 
   document.getElementById('btn-return').addEventListener('click', async () => {
@@ -296,8 +323,8 @@
       await PMSStorage.transitionApplication(appId, 'Returned for Correction', actor, notes);
       document.getElementById('review-modal').close();
       refresh('applications');
-      alert('Application returned to PNGCS for correction.');
-    } catch (e) { alert(e.message); }
+      PMSUI.showSuccess('Application returned to PNGCS for correction.');
+    } catch (e) { PMSUI.showError(e.message); }
   });
 
   document.getElementById('btn-prepare-report').addEventListener('click', () => {
@@ -310,7 +337,7 @@
       await PMSStorage.transitionApplication(appId, 'Pending Board Review', actor, 'Application forwarded to Parole Board');
       document.getElementById('review-modal').close();
       refresh('applications');
-    } catch (e) { alert(e.message); }
+    } catch (e) { PMSUI.showError(e.message); }
   });
 
   document.addEventListener('click', (e) => {
@@ -335,5 +362,8 @@
     }
   });
 
+  PMSUI.bindOverviewNotifications('overview-notifications', actor, () => refresh('overview'));
+
   if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');
+  setupStatCards();
 })();

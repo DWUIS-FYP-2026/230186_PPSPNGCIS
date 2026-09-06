@@ -122,10 +122,13 @@ const PMSUI = (() => {
     return '<span class="notification-status-badge notification-status-badge--read">Read</span>';
   }
 
-  function renderOverviewNotificationRow(n) {
+  function renderOverviewNotificationRow(n, user) {
     const state = n.resolved ? 'resolved' : n.read ? 'read' : 'unread';
     const preview = n.message.length > 80 ? `${n.message.slice(0, 80)}…` : n.message;
-    return `<div class="overview-row overview-row--${state}" role="listitem">
+    const link = user ? resolveNotificationLink(n, user) : null;
+    const clickable = link ? ' overview-row--clickable' : '';
+    const attrs = link ? ` data-notif-nav="${esc(link)}" data-notif-id="${esc(n.id)}" role="button" tabindex="0"` : ' role="listitem"';
+    return `<div class="overview-row overview-row--${state}${clickable}"${attrs}>
       <div class="overview-row__main">
         <strong>${esc(n.title)}</strong>
         ${!n.read && !n.resolved ? '<span class="overview-unread-dot" aria-hidden="true"></span>' : ''}
@@ -133,6 +136,30 @@ const PMSUI = (() => {
       </div>
       ${notificationStatusBadge(n)}
     </div>`;
+  }
+
+  function bindOverviewNotifications(containerId, user, onUpdate) {
+    const el = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    if (!el || el.dataset.overviewNotifBound) return;
+    el.dataset.overviewNotifBound = 'true';
+    const navigate = (row) => {
+      const id = row.dataset.notifId;
+      if (id && user) PMSStorage.markNotificationRead(id, user);
+      onUpdate?.();
+      window.location.href = row.dataset.notifNav;
+    };
+    el.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-notif-nav]');
+      if (!row) return;
+      e.preventDefault();
+      navigate(row);
+    });
+    el.addEventListener('keydown', (e) => {
+      const row = e.target.closest('[data-notif-nav]');
+      if (!row || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      navigate(row);
+    });
   }
 
   function syncOverviewNotifHeader(unreadCount) {
@@ -210,14 +237,20 @@ const PMSUI = (() => {
 
   function resolveNotificationLink(n, user) {
     if (!n || !user) return null;
-    if (n.linkHref) return n.linkHref;
+    if (n.linkHref) {
+      if (/^https?:\/\//i.test(n.linkHref) || n.linkHref.startsWith('/')) return n.linkHref;
+      return n.linkHref;
+    }
     const dash = (typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(user.role) : null)
       || window.location.pathname.split('/').pop();
+    if (n.type === 'board_review' && n.applicationId) {
+      return `forms/hearing-portal.html?appId=${encodeURIComponent(n.applicationId)}`;
+    }
     if (n.applicationId) return `${dash}?panel=applications&app=${encodeURIComponent(n.applicationId)}`;
     if (n.hearingId) return `${dash}?panel=hearings&hearing=${encodeURIComponent(n.hearingId)}`;
     if (n.prisonerId && typeof PMSRBAC !== 'undefined') return PMSRBAC.prisonerProfileUrl(n.prisonerId);
     if (n.linkPanel) return `${dash}?panel=${encodeURIComponent(n.linkPanel)}`;
-    return null;
+    return `${dash}?panel=notifications`;
   }
 
   function renderNotificationItem(n, user, options = {}) {
@@ -306,9 +339,18 @@ const PMSUI = (() => {
       const row = e.target.closest('.notification-item[data-notif-id]');
       if (row && !e.target.closest('button, a')) {
         const n = PMSStorage.getNotifications().find((x) => x.id === row.dataset.notifId);
-        if (n && !n.read) {
-          PMSStorage.markNotificationRead(n.id, user);
-          onUpdate?.();
+        if (n) {
+          const link = resolveNotificationLink(n, user);
+          if (link) {
+            if (!n.read) PMSStorage.markNotificationRead(n.id, user);
+            onUpdate?.();
+            window.location.href = link;
+            return;
+          }
+          if (!n.read) {
+            PMSStorage.markNotificationRead(n.id, user);
+            onUpdate?.();
+          }
         }
         return;
       }
@@ -364,14 +406,177 @@ const PMSUI = (() => {
     }
     const toast = document.createElement('div');
     toast.className = `pms-toast pms-toast--${type}`;
-    const icon = type === 'error' ? 'fi fi-rr-exclamation' : 'fi fi-rr-check-circle';
-    toast.innerHTML = `<i class="${icon}" aria-hidden="true"></i><span>${esc(message)}</span>`;
+    const icons = {
+      success: 'fi fi-rr-check-circle',
+      error: 'fi fi-rr-cross-circle',
+      warning: 'fi fi-rr-triangle-warning',
+      info: 'fi fi-rr-info',
+    };
+    const titles = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Notice' };
+    toast.innerHTML = `<div class="pms-toast__icon"><i class="${icons[type] || icons.info}" aria-hidden="true"></i></div>
+      <div class="pms-toast__body"><strong class="pms-toast__title">${esc(titles[type] || 'Notice')}</strong><span class="pms-toast__message">${esc(message)}</span></div>
+      <button type="button" class="pms-toast__close" aria-label="Dismiss">&times;</button>`;
     host.appendChild(toast);
+    toast.querySelector('.pms-toast__close')?.addEventListener('click', () => {
+      toast.classList.remove('pms-toast--visible');
+      setTimeout(() => toast.remove(), 300);
+    });
     requestAnimationFrame(() => toast.classList.add('pms-toast--visible'));
     setTimeout(() => {
       toast.classList.remove('pms-toast--visible');
       setTimeout(() => toast.remove(), 300);
     }, durationMs);
+  }
+
+  function showAlertDialog(message, options = {}) {
+    const { title = 'Notice', type = 'info', buttonLabel = 'OK' } = options;
+    return new Promise((resolve) => {
+      let overlay = document.getElementById('pms-alert-modal');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'pms-alert-modal';
+        overlay.className = 'pms-alert-overlay hidden';
+        overlay.innerHTML = `<div class="pms-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="pms-alert-title">
+          <div class="pms-alert-dialog__icon" id="pms-alert-icon"></div>
+          <div class="pms-alert-dialog__content">
+            <h2 class="pms-alert-dialog__title" id="pms-alert-title"></h2>
+            <p class="pms-alert-dialog__message" id="pms-alert-message"></p>
+          </div>
+          <div class="pms-alert-dialog__actions">
+            <button type="button" class="btn-primary" id="pms-alert-ok">OK</button>
+          </div>
+        </div>`;
+        document.body.appendChild(overlay);
+      }
+      const icons = {
+        error: 'fi fi-rr-cross-circle',
+        success: 'fi fi-rr-check-circle',
+        info: 'fi fi-rr-info',
+        warning: 'fi fi-rr-triangle-warning',
+      };
+      overlay.className = `pms-alert-overlay pms-alert-overlay--${type}`;
+      overlay.querySelector('#pms-alert-icon').innerHTML = `<i class="${icons[type] || icons.info}" aria-hidden="true"></i>`;
+      overlay.querySelector('#pms-alert-title').textContent = title;
+      overlay.querySelector('#pms-alert-message').textContent = message;
+      overlay.querySelector('#pms-alert-ok').textContent = buttonLabel;
+      overlay.classList.remove('hidden');
+      const cleanup = () => {
+        overlay.classList.add('hidden');
+        overlay.querySelector('#pms-alert-ok').onclick = null;
+        overlay.onclick = null;
+        resolve();
+      };
+      overlay.querySelector('#pms-alert-ok').onclick = cleanup;
+      overlay.onclick = (ev) => { if (ev.target === overlay) cleanup(); };
+    });
+  }
+
+  function showError(message, title = 'Unable to complete action') {
+    return showAlertDialog(message, { title, type: 'error', buttonLabel: 'Dismiss' });
+  }
+
+  function showSuccess(message, title = 'Success') {
+    showToast(message, 'success');
+    return Promise.resolve();
+  }
+
+  function hideStatDrilldown() {
+    const panel = document.getElementById('stat-drilldown');
+    if (panel) panel.hidden = true;
+    document.querySelectorAll('.stat-card--active').forEach((c) => c.classList.remove('stat-card--active'));
+  }
+
+  function ensureStatDrilldown(anchorEl) {
+    let panel = document.getElementById('stat-drilldown');
+    if (!panel && anchorEl) {
+      panel = document.createElement('section');
+      panel.id = 'stat-drilldown';
+      panel.className = 'stat-drilldown card';
+      panel.hidden = true;
+      panel.innerHTML = `<div class="card-header stat-drilldown__header">
+          <div><h2 id="stat-drilldown-title">Category</h2><p class="stat-drilldown__subtitle" id="stat-drilldown-subtitle"></p></div>
+          <button type="button" class="btn-icon stat-drilldown__close" id="stat-drilldown-close" aria-label="Close list">&times;</button>
+        </div>
+        <div class="card-body stat-drilldown__body">
+          <div class="table-wrap"><table class="data-table"><thead id="stat-drilldown-head"></thead><tbody id="stat-drilldown-body"></tbody></table></div>
+        </div>`;
+      anchorEl.insertAdjacentElement('afterend', panel);
+      document.getElementById('stat-drilldown-close')?.addEventListener('click', () => hideStatDrilldown());
+    }
+    return panel;
+  }
+
+  function showStatDrilldown(title, subtitle, columns, rows, activeStatId) {
+    const grid = document.querySelector('#panel-overview .stats-grid');
+    if (!grid) return;
+    const panel = ensureStatDrilldown(grid);
+    document.getElementById('stat-drilldown-title').textContent = title;
+    const sub = document.getElementById('stat-drilldown-subtitle');
+    if (sub) {
+      sub.textContent = subtitle || '';
+      sub.hidden = !subtitle;
+    }
+    document.getElementById('stat-drilldown-head').innerHTML = `<tr>${columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr>`;
+    document.getElementById('stat-drilldown-body').innerHTML = rows.length
+      ? rows.join('')
+      : `<tr><td colspan="${columns.length}" class="empty-state">No records in this category.</td></tr>`;
+    panel.hidden = false;
+    document.querySelectorAll('.stat-card--active').forEach((c) => c.classList.remove('stat-card--active'));
+    if (activeStatId) document.getElementById(activeStatId)?.closest('.stat-card')?.classList.add('stat-card--active');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function prisonerDrilldownRow(p, extraCells = '') {
+    const profile = typeof PMSRBAC !== 'undefined' ? PMSRBAC.prisonerProfileUrl(p.id) : '#';
+    return `<tr>
+      <td>${esc(p.prisonerNumber || p.id)}</td>
+      <td>${esc(p.firstName)} ${esc(p.lastName)}</td>
+      <td>${instName(p.institutionId)}</td>
+      ${extraCells}
+      <td><a href="${profile}" class="btn-icon">View</a></td>
+    </tr>`;
+  }
+
+  function appDrilldownRow(app, extraCells = '') {
+    const p = typeof PMSStorage !== 'undefined' ? PMSStorage.getPrisonerById(app.prisonerId) : null;
+    if (!p) return '';
+    return prisonerDrilldownRow(p, `<td><span class="status-pill status-pill--${statusClass(app.status)}">${esc(app.status)}</span></td>${extraCells}`);
+  }
+
+  function bindStatCards(definitions, options = {}) {
+    definitions.forEach(({ statId, title, subtitle, columns, getRows, onClick }) => {
+      const valueEl = document.getElementById(statId);
+      const card = valueEl?.closest('.stat-card');
+      if (!card || card.dataset.statBound) return;
+      card.dataset.statBound = 'true';
+      card.classList.add('stat-card--clickable');
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('aria-label', `View ${title} list`);
+      const open = () => {
+        if (onClick) { onClick(); return; }
+        const rows = getRows?.() || [];
+        showStatDrilldown(title, subtitle || `${formatStat(rows.length)} record(s)`, columns, rows, statId);
+      };
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+    });
+    if (options.notificationsStatId) {
+      const notifCard = document.getElementById(options.notificationsStatId)?.closest('.stat-card');
+      if (notifCard && !notifCard.dataset.statBound) {
+        notifCard.dataset.statBound = 'true';
+        notifCard.classList.add('stat-card--clickable');
+        notifCard.setAttribute('role', 'button');
+        notifCard.setAttribute('tabindex', '0');
+        const openNotifs = () => options.onNotificationsClick?.();
+        notifCard.addEventListener('click', openNotifs);
+        notifCard.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNotifs(); }
+        });
+      }
+    }
   }
 
   function progressBar(prisoner) {
@@ -503,8 +708,10 @@ const PMSUI = (() => {
     initShell, updateNotifBadge, switchPanel, bindNav, renderBarChart,
     renderAuditFeed, auditStatusLabel, auditStatusClass,
     renderNotificationPanel, bindNotificationPanel, resolveNotificationLink,
-    renderOverviewNotificationRow, syncOverviewNotifHeader, notificationStatusBadge,
+    renderOverviewNotificationRow, syncOverviewNotifHeader, notificationStatusBadge, bindOverviewNotifications,
     bindModalClose, progressBar, applyDeepLinkNav, highlightDeepLinkRow, getDeepLinkParam, showToast,
+    showAlertDialog, showError, showSuccess, bindStatCards, showStatDrilldown, hideStatDrilldown,
+    prisonerDrilldownRow, appDrilldownRow,
     confirmDialog, showLoading, hideLoading, createPaginator,
     renderCaseTracker,
   };

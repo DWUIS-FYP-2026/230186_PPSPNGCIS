@@ -53,11 +53,21 @@ const PMSFormWorkflow = (() => {
     },
   ];
 
+  function showWorkflowAlert(message) {
+    if (typeof PMSUI !== 'undefined') PMSUI.showError(message);
+    else alert(message);
+  }
+
   function getSessionUser() {
-    if (typeof PMSStorage === 'undefined') return null;
-    const session = PMSStorage.getSession();
-    if (!session) return null;
-    return PMSStorage.getUserById(session.id) || session;
+    if (typeof PMSStorage !== 'undefined') {
+      const session = PMSStorage.getSession?.();
+      if (session) return PMSStorage.getUserById?.(session.id) || session;
+    }
+    try {
+      const raw = sessionStorage.getItem('pms_session');
+      if (raw) return JSON.parse(raw);
+    } catch (_) { /* ignore */ }
+    return null;
   }
 
   function canUserEditForms() {
@@ -79,8 +89,9 @@ const PMSFormWorkflow = (() => {
       return PMSPageChrome.getDashboardHref('../');
     }
     const user = getSessionUser();
-    const dash = typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(user?.role) : 'dashboard.html';
-    return `../${dash}`;
+    const dash = typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(user?.role) : '';
+    if (dash && dash !== 'index.html') return `../${dash}`;
+    return '../index.html';
   }
 
   function applyViewOnlyMode(formN) {
@@ -285,7 +296,7 @@ const PMSFormWorkflow = (() => {
     if (!def) return;
     if (!canAccess(id, formN)) {
       const blocker = getBlockingForm(id, formN);
-      alert(`Complete ${blocker?.title || 'the previous form'} before opening ${def.title}.`);
+      showWorkflowAlert(`Complete ${blocker?.title || 'the previous form'} before opening ${def.title}.`);
       return;
     }
     window.location.href = formHref(formN, id);
@@ -411,7 +422,7 @@ const PMSFormWorkflow = (() => {
         if (n === currentFormN) return;
         if (!canAccess(appId, n) && !getChecks(appId)[`form${n}`]) {
           const blocker = getBlockingForm(appId, n);
-          alert(`Complete ${blocker?.title || 'the previous form'} before opening Form ${n}.`);
+          showWorkflowAlert(`Complete ${blocker?.title || 'the previous form'} before opening Form ${n}.`);
           return;
         }
         openForm(n, appId);
@@ -441,15 +452,13 @@ const PMSFormWorkflow = (() => {
       ${prev ? `<button type="button" class="wf-form-nav__btn" data-wf-nav="prev">← Form ${prev.n}</button>` : ''}
       ${next ? `<button type="button" class="wf-form-nav__btn wf-form-nav__btn--primary" data-wf-nav="next"${canAccess(appId, next.n) ? '' : ' disabled'}>Form ${next.n} →</button>` : ''}
       ${showHearing ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="hearing">Hearing Portal</button>' : ''}
-      ${currentFormN >= 4 ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="form4">Form 4</button><button type="button" class="wf-form-nav__btn" data-wf-nav="form5">Form 5</button>' : ''}
-      <button type="button" class="wf-form-nav__btn" data-wf-nav="dashboard">Dashboard</button>`;
+      ${currentFormN >= 4 ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="form4">Form 4</button><button type="button" class="wf-form-nav__btn" data-wf-nav="form5">Form 5</button>' : ''}`;
 
     navHost.querySelector('[data-wf-nav="prev"]')?.addEventListener('click', () => { if (prev) openForm(prev.n, appId); });
     navHost.querySelector('[data-wf-nav="next"]')?.addEventListener('click', () => { if (next) openForm(next.n, appId); });
     navHost.querySelector('[data-wf-nav="hearing"]')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
     navHost.querySelector('[data-wf-nav="form4"]')?.addEventListener('click', () => openForm(4, appId));
     navHost.querySelector('[data-wf-nav="form5"]')?.addEventListener('click', () => openForm(5, appId));
-    navHost.querySelector('[data-wf-nav="dashboard"]')?.addEventListener('click', () => { window.location.href = getDashboardHref(); });
   }
 
   function mountFormChrome(formN, appId) {

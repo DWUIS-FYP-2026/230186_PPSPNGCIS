@@ -17,10 +17,7 @@ const PMSForm2PprTemplate = `
 <div class="ppr-shell">
   <div class="ppr-shell__hero">
     <div class="ppr-shell__hero-main">
-      <div>
-        <h2>Pre-Parole Report (PPR)</h2>
-        <p>Form 2 · DJAG Community Corrections Assessment</p>
-      </div>
+      <span class="ppr-shell__label">Pre-Parole Report (PPR)</span>
     </div>
     <div class="ppr-shell__hero-actions">
       <button type="button" class="btn btn-outline btn-sm hidden" id="btnEditPpr" data-section-control="true">Edit PPR</button>

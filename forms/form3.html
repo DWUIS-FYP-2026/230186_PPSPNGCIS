@@ -12,18 +12,32 @@
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body class="pms-form-page pms-form-page--form3">
-  <header class="page-header">
-    <div class="header-top" data-pms-dashboard-btn></div>
+  <header class="page-header no-print">
+    <div class="header-top">
+      <div data-pms-dashboard-btn></div>
+    </div>
     <div class="header-main">
-      <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
+      <div class="header-brand pms-brand-logos" aria-hidden="true">
+        <span class="pms-logo-badge pms-logo-badge--pngcs">
+          <img src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service" data-pms-logo-fallback="../images/NationalEmblem.jpg">
+        </span>
+        <span class="pms-logo-divider" aria-hidden="true"></span>
+        <span class="pms-logo-badge pms-logo-badge--djag">
+          <img src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General">
+        </span>
+      </div>
       <div class="header-title-block">
         <div class="header-title">
           <span class="gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
-          <h1>Form 3 – Institutional Report</h1>
-          <p>Papua New Guinea Parole System · Institutional assessment (PNGCS)</p>
+          <h1>Form 3 — Institutional Report</h1>
+          <p>Institutional assessment and commander recommendation</p>
+          <p class="form-meta">
+            <strong>Application ID:</strong> <span id="applicationId">—</span>
+            &nbsp;·&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
+          </p>
         </div>
       </div>
-      <span class="role-badge">PNGCS Parole Clerk</span>
+      <span class="role-badge">Form 3</span>
     </div>
   </header>
 

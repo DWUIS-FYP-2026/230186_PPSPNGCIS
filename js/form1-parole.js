@@ -384,7 +384,8 @@ const PMSForm1Parole = (() => {
     app = PMSStorage.getApplicationById(appId);
     prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
     if (!app || !prisoner) {
-      alert('Application or detainee record not found.');
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application or detainee record not found.');
+      else alert('Application or detainee record not found.');
       window.location.href = typeof PMSPageChrome !== 'undefined'
         ? PMSPageChrome.getDashboardHref('../')
         : '../dashboard.html';

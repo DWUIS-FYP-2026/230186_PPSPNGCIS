@@ -29,7 +29,11 @@ const PMSForm4Grant = (() => {
           : '—';
       }
     }
-    if (app?.id) PMSFormWorkflow.mountFormChrome(4, app.id);
+    if (app?.id) {
+      const appIdEl = document.getElementById('applicationId');
+      if (appIdEl) appIdEl.textContent = app.caseNumber || app.id;
+      PMSFormWorkflow.mountFormChrome(4, app.id);
+    }
 
     document.getElementById('decision-by').value = `${actor.firstName} ${actor.lastName}${actor.boardPosition ? ` (${actor.boardPosition})` : ''}`;
     document.getElementById('decision-date').value = new Date().toLocaleDateString('en-GB');

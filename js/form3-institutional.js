@@ -43,6 +43,8 @@ const PMSForm3Institutional = (() => {
       document.getElementById('full-name').value = [prisoner.firstName, prisoner.middleName, prisoner.lastName].filter(Boolean).join(' ');
       document.getElementById('facility').value = institution?.name || '—';
       document.getElementById('application-date').value = app.submittedAt ? new Date(app.submittedAt).toLocaleDateString('en-GB') : '—';
+      const appIdEl = document.getElementById('applicationId');
+      if (appIdEl) appIdEl.textContent = app.caseNumber || app.id;
       PMSFormWorkflow.mountFormChrome(3, app.id);
     }
 

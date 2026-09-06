@@ -114,8 +114,43 @@
     PMSUI.syncOverviewNotifHeader(unread);
     const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = notifs.length
-      ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n)).join('')
+      ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n, actor)).join('')
       : '<p class="empty-state">No notifications.</p>';
+  }
+
+  function setupStatCards() {
+    const cols = ['ID', 'Name', 'Institution', 'Status', ''];
+    PMSUI.bindStatCards([
+      {
+        statId: 'stat-pending',
+        title: 'Awaiting Verification',
+        columns: cols,
+        getRows: () => verificationQueue().map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-release-ready',
+        title: 'Ready for Release',
+        columns: cols,
+        getRows: () => releaseReadyQueue().map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-verified',
+        title: 'Verified Cases',
+        columns: cols,
+        getRows: () => scopeApps()
+          .filter((a) => PMSStorage.isActiveParoleApplication(a) && PMSStorage.isCommanderVerified(a))
+          .map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-prisoners',
+        title: 'Prisoners',
+        columns: ['ID', 'Name', 'Institution', 'Status', ''],
+        getRows: () => scopePrisoners().map((p) => PMSUI.prisonerDrilldownRow(p, `<td><span class="status-pill status-pill--${PMSUI.statusClass(p.status)}">${PMSUI.esc(p.status)}</span></td>`)),
+      },
+    ], {
+      notificationsStatId: 'stat-notifications',
+      onNotificationsClick: () => PMSUI.switchPanel('notifications', panelTitles, refresh, 'notifications'),
+    });
   }
 
   function renderVerification() {
@@ -196,7 +231,7 @@
     if (!app) return;
     const blockers = PMSStorage.getReleaseBlockers(app, actor);
     if (blockers.length) {
-      alert(blockers.join('\n'));
+      PMSUI.showError(blockers.join('\n'), 'Release cannot be authorized');
       return;
     }
     const p = PMSStorage.getPrisonerById(app.prisonerId);
@@ -217,7 +252,7 @@
     if (!app) return;
     const readiness = verificationReadiness(app);
     if (!readiness.ready) {
-      alert(`This case is not ready for verification.\n\n${readiness.blockers.join('\n')}`);
+      PMSUI.showError(`This case is not ready for verification.\n\n${readiness.blockers.join('\n')}`, 'Verification not ready');
       return;
     }
     const p = PMSStorage.getPrisonerById(app.prisonerId);
@@ -249,7 +284,7 @@
     const releaseDate = document.getElementById('release-date').value;
     const notes = document.getElementById('release-notes').value.trim();
     if (!releaseDate) {
-      alert('Please set the release date.');
+      PMSUI.showError('Please set the release date.');
       return;
     }
     try {
@@ -259,9 +294,9 @@
       refresh('overview');
       refresh('applications');
       refresh('prisoners');
-      alert('Release authorized successfully.');
+      PMSUI.showSuccess('Release authorized successfully.');
     } catch (err) {
-      alert(err.message || 'Release authorization failed.');
+      PMSUI.showError(err.message || 'Release authorization failed.');
     }
   });
 
@@ -271,11 +306,11 @@
     const decision = document.getElementById('verify-decision').value;
     const comments = document.getElementById('verify-comments').value.trim();
     if (!decision) {
-      alert('Please select a verification decision.');
+      PMSUI.showError('Please select a verification decision.');
       return;
     }
     if (decision === 'Returned for Correction' && !comments) {
-      alert('Please provide comments when returning a case for correction.');
+      PMSUI.showError('Please provide comments when returning a case for correction.');
       return;
     }
     try {
@@ -284,9 +319,9 @@
       refresh('verification');
       refresh('overview');
       refresh('applications');
-      alert(decision === 'Verified' ? 'Case verified successfully.' : `Case marked as ${decision}.`);
+      PMSUI.showSuccess(decision === 'Verified' ? 'Case verified successfully.' : `Case marked as ${decision}.`);
     } catch (err) {
-      alert(err.message || 'Verification failed.');
+      PMSUI.showError(err.message || 'Verification failed.');
     }
   });
 
@@ -300,8 +335,11 @@
     if (btn) openVerifyModal(btn.dataset.verify);
   });
 
+  PMSUI.bindOverviewNotifications('overview-notifications', actor, () => refresh('overview'));
+
   const deepPanel = PMSUI.getDeepLinkParam('panel') || 'overview';
   if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) {
     PMSUI.switchPanel(deepPanel in panelTitles ? deepPanel : 'overview', panelTitles, refresh);
   }
+  setupStatCards();
 })();

@@ -69,7 +69,8 @@ const PMSCore = (() => {
       ensureStylesheet('css/page-chrome.css');
       await loadChain('js/', [...DASHBOARD_CHAIN, ...extraScripts]);
       if (typeof PMSStorage !== 'undefined') await PMSStorage.ensureLoaded();
-      PMSBrand?.upgradeCommandBadges?.();
+      PMSBrand?.upgradeCommandBadges?.(document, '');
+      PMSBrand?.wireLogoFallbacks?.(document);
       PMSPageChrome?.init?.({ basePath: '' });
       if (roleScript) await loadScript(`js/${roleScript}`);
     } catch (err) {
@@ -87,10 +88,9 @@ const PMSCore = (() => {
     try {
       ensureStylesheet('../css/page-chrome.css');
       await loadChain('../js/', [...FORM_CHAIN, ...extraScripts]);
-      PMSBrand?.upgradeCommandBadges?.();
-      document.querySelectorAll('[data-pms-brand-badges]').forEach((el) => {
-        PMSBrand?.mountInto?.(el, '../', el.dataset.pmsBrandCompact === 'true');
-      });
+      if (typeof PMSStorage !== 'undefined') await PMSStorage.ensureLoaded();
+      PMSBrand?.upgradeCommandBadges?.(document, '../');
+      PMSBrand?.wireLogoFallbacks?.(document);
       PMSPageChrome?.init?.({ basePath: '../' });
     } catch (err) {
       console.error('Form boot failed:', err);

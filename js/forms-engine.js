@@ -17,7 +17,6 @@ const PMSForms = (() => {
   function injectFormShell(ctx) {
     if (document.querySelector('.form-app-bar') || !ctx) return;
     const def = PMSStorage.PAROLE_FORMS.find((f) => f.number === ctx.formNumber);
-    const dash = PMSAuth.getDashboardForRole(ctx.user.role);
     const logos = typeof PMSBrand !== 'undefined'
       ? PMSBrand.logoBadgesHtml('../', true)
       : '';
@@ -34,12 +33,10 @@ const PMSForms = (() => {
         </div>
         <div class="form-app-bar__meta">
           <span class="status-pill status-pill--${PMSUI?.statusClass?.(ctx.app.status) || 'pending'}">${esc(ctx.app.status)}</span>
-          <button type="button" class="btn-secondary btn-sm" id="form-bar-back"><i class="fi fi-rr-arrow-left"></i> Dashboard</button>
         </div>
       </div>`;
     document.body.insertBefore(bar, document.body.firstChild);
     document.body.classList.add('form-page--integrated');
-    document.getElementById('form-bar-back')?.addEventListener('click', () => { window.location.href = dash; });
   }
 
   function init(formNumber, mode = 'edit') {
@@ -72,10 +69,20 @@ const PMSForms = (() => {
       return ctx;
     }
 
-    if (!appId) { alert('Application ID required'); window.history.back(); return null; }
+    if (!appId) {
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application ID required');
+      else alert('Application ID required');
+      window.history.back();
+      return null;
+    }
 
     const app = PMSStorage.getApplicationById(appId);
-    if (!app) { alert('Application not found'); window.history.back(); return null; }
+    if (!app) {
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application not found');
+      else alert('Application not found');
+      window.history.back();
+      return null;
+    }
 
     const prisoner = PMSStorage.getPrisonerById(app.prisonerId);
     const institution = PMSStorage.getInstitutionById(app.institutionId);
@@ -178,7 +185,8 @@ const PMSForms = (() => {
   async function saveAsync(formKey, ctx) {
     const data = collectFormData();
     await PMSStorage.saveFormData(ctx.appId, formKey, data, ctx.user);
-    alert('Form saved successfully.');
+    if (typeof PMSUI !== 'undefined') PMSUI.showSuccess('Form saved successfully.');
+    else alert('Form saved successfully.');
   }
 
   function openForm(formNumber, appId) {
@@ -200,7 +208,9 @@ const PMSForms = (() => {
     document.getElementById('btn-save')?.addEventListener('click', () => saveAsync(formKey, ctx));
     document.getElementById('btn-print')?.addEventListener('click', () => window.print());
     document.getElementById('btn-back')?.addEventListener('click', () => {
-      window.location.href = PMSAuth.getDashboardForRole(ctx.user.role);
+      window.location.href = typeof PMSPageChrome !== 'undefined'
+        ? PMSPageChrome.getDashboardHref('../')
+        : `../${PMSAuth.getDashboardForRole(ctx.user.role)}`;
     });
     document.getElementById('btn-export')?.addEventListener('click', () => window.print());
   }

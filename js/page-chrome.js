@@ -25,17 +25,27 @@ const PMSPageChrome = (() => {
   }
 
   function getSessionUser() {
-    if (typeof PMSStorage === 'undefined') return null;
-    const session = PMSStorage.getSession?.();
-    if (!session) return null;
-    return PMSStorage.getUserById?.(session.id) || session;
+    if (typeof PMSStorage !== 'undefined') {
+      const session = PMSStorage.getSession?.();
+      if (session) {
+        return PMSStorage.getUserById?.(session.id) || session;
+      }
+    }
+    try {
+      const raw = sessionStorage.getItem('pms_session');
+      if (raw) return JSON.parse(raw);
+    } catch (_) { /* ignore */ }
+    return null;
   }
 
   function resolveDashboardHref(basePath, panel) {
     const user = getSessionUser();
     const role = user?.role;
-    let dash = typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(role) : 'index.html';
-    if (!dash || dash === 'index.html') return `${basePath}index.html`;
+    let dash = typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(role) : '';
+    if (!dash || dash === 'index.html') {
+      if (role) dash = typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardHub?.() || 'dashboard.html' : 'dashboard.html';
+      else return `${basePath}index.html`;
+    }
     const url = `${basePath}${dash}`;
     return panel ? `${url}?panel=${encodeURIComponent(panel)}` : url;
   }

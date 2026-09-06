@@ -83,7 +83,7 @@
     PMSUI.setStat('stat-awaiting', awaiting);
     PMSUI.setStat('stat-decided', decided);
 
-    const awaitingLabel = document.querySelector('#panel-overview .stat-card--featured .stat-label');
+    const awaitingLabel = document.querySelector('#stat-awaiting')?.closest('.stat-card')?.querySelector('.stat-label');
     if (awaitingLabel) {
       awaitingLabel.textContent = canScheduleHearings ? 'Awaiting Hearing' : 'Awaiting Decision';
     }
@@ -224,14 +224,56 @@
     if (typeof PMSReports !== 'undefined') PMSReports.mount('reports-body', 'reports-filter-bar', actor);
   }
 
+  function setupStatCards() {
+    const cols = ['ID', 'Name', 'Institution', 'Status', ''];
+    PMSUI.bindStatCards([
+      {
+        statId: 'stat-awaiting',
+        title: canScheduleHearings ? 'Awaiting Hearing' : 'Awaiting Decision',
+        columns: cols,
+        getRows: () => (canScheduleHearings
+          ? PMSStorage.getParoleApplications().filter((a) => a.status === 'Pre-Parole Report Prepared')
+          : pendingDecisionApps()).map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-pending',
+        title: 'Pending Review',
+        columns: cols,
+        getRows: () => PMSStorage.getParoleApplications()
+          .filter((a) => a.status === 'Pending Board Review')
+          .map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-hearings',
+        title: 'Scheduled Hearings',
+        columns: ['Date', 'Name', 'Institution', 'Location', ''],
+        getRows: () => PMSStorage.getHearings()
+          .filter((h) => ['Scheduled', 'Upcoming'].includes(h.status))
+          .map((h) => {
+            const p = PMSStorage.getPrisonerById(h.prisonerId);
+            if (!p) return '';
+            return `<tr><td>${PMSUI.fmtDate(h.scheduledDate)}</td><td>${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</td><td>${PMSUI.instName(p.institutionId)}</td><td>${PMSUI.esc(h.location || '—')}</td><td><a href="forms/hearing-portal.html?appId=${encodeURIComponent(h.applicationId || '')}" class="btn-icon">Open</a></td></tr>`;
+          }).filter(Boolean),
+      },
+      {
+        statId: 'stat-decided',
+        title: 'Decisions Recorded',
+        columns: cols,
+        getRows: () => PMSStorage.getParoleApplications()
+          .filter((a) => ['Approved', 'Deferred', 'Refused', 'Parole Granted', 'Parole Refused'].includes(a.status))
+          .map((a) => PMSUI.appDrilldownRow(a)),
+      },
+    ]);
+  }
+
   function openDecisionModal(appId) {
     const app = PMSStorage.getApplicationById(appId);
     if (!app) {
-      alert('Application not found.');
+      PMSUI.showError('Application not found.');
       return;
     }
     if (!['Hearing Scheduled', 'Pending Board Review'].includes(app.status)) {
-      alert('This application is not ready for a board decision.');
+      PMSUI.showError('This application is not ready for a board decision.');
       return;
     }
     const p = PMSStorage.getPrisonerById(app.prisonerId);
@@ -256,7 +298,7 @@
       <p><strong>Panel progress:</strong> ${progress.submitted}/${progress.total}${progress.pendingRoles.length ? ` · Awaiting ${progress.pendingRoles.join(', ')}` : ' · All assessments in'}</p>
       <p><strong>Individual assessments:</strong> ${assessments.map((a) => `${a.role}: ${a.score}% (${PMSUI.esc(a.assessorName)})`).join(' · ') || 'None yet — members submit independently'}</p></div>`;
     if (!progress.complete && isBoardMember) {
-      alert(`Panel assessments are still in progress (${progress.submitted}/${progress.total}). Final decision will be available when Doctor, CS Commissioner, and DJAG Secretary have each submitted.`);
+      PMSUI.showError(`Panel assessments are still in progress (${progress.submitted}/${progress.total}). Final decision will be available when all board members have voted.`);
       return;
     }
     document.getElementById('dec-outcome').value = 'Approved';
@@ -297,9 +339,9 @@
       }, actor);
       document.getElementById('decision-modal').close();
       refresh(document.querySelector('.nav-item.active')?.dataset.panel || 'decisions');
-      alert('Board decision recorded successfully.');
+      PMSUI.showSuccess('Board decision recorded successfully.');
     } catch (err) {
-      alert(err.message || 'Could not record decision.');
+      PMSUI.showError(err.message || 'Could not record decision.');
     }
   });
 
@@ -320,4 +362,5 @@
     const appId = PMSUI.getDeepLinkParam('app');
     if (appId) setTimeout(() => openDecisionModal(appId), 0);
   }
+  setupStatCards();
 })();

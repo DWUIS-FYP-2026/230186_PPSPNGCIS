@@ -825,7 +825,8 @@ const PMSForm2Assessment = (() => {
     app = PMSStorage.getApplicationById(appId);
     prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
     if (!app || !prisoner) {
-      alert('Application or detainee record not found.');
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application or detainee record not found.');
+      else alert('Application or detainee record not found.');
       window.location.href = typeof PMSPageChrome !== 'undefined'
         ? PMSPageChrome.getDashboardHref('../')
         : '../dashboard.html';
@@ -889,7 +890,8 @@ const PMSForm2Assessment = (() => {
         || f1?.status === 'submitted'
         || ['REPORT_PREPARATION', 'Pending Commander Review'].includes(checkApp?.status);
       if (!form1Ready && typeof PMSFormWorkflow !== 'undefined' && !PMSFormWorkflow.canAccess(resolvedAppId, 2)) {
-        alert('Form 1 must be completed before accessing Form 2.');
+        if (typeof PMSUI !== 'undefined') PMSUI.showError('Form 1 must be completed before accessing Form 2.');
+        else alert('Form 1 must be completed before accessing Form 2.');
         window.location.href = `form1.html?appId=${encodeURIComponent(resolvedAppId)}`;
         return;
       }

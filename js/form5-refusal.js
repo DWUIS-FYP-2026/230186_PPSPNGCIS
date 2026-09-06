@@ -31,7 +31,11 @@ const PMSForm5Refusal = (() => {
           : '—';
       }
     }
-    if (app?.id) PMSFormWorkflow.mountFormChrome(5, app.id);
+    if (app?.id) {
+      const appIdEl = document.getElementById('applicationId');
+      if (appIdEl) appIdEl.textContent = app.caseNumber || app.id;
+      PMSFormWorkflow.mountFormChrome(5, app.id);
+    }
 
     const STORAGE_KEY = wf.getDataKey();
     let issued = false;

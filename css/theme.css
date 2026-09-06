@@ -632,3 +632,151 @@ a:hover {
 .pms-toast--error .fi {
   color: #dc2626;
 }
+
+.pms-toast {
+  align-items: flex-start;
+  pointer-events: auto;
+  padding: 1rem 1.125rem;
+  border-radius: 12px;
+}
+
+.pms-toast__icon {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.06);
+}
+
+.pms-toast__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.pms-toast__title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.pms-toast__message {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: #0f172a;
+}
+
+.pms-toast__close {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.125rem;
+}
+
+.pms-toast--warning {
+  border-left: 4px solid #d97706;
+}
+
+.pms-toast--warning .pms-toast__icon {
+  color: #d97706;
+}
+
+.pms-toast--info {
+  border-left: 4px solid #2563eb;
+}
+
+.pms-toast--info .pms-toast__icon {
+  color: #2563eb;
+}
+
+.pms-alert-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgb(15 23 42 / 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.pms-alert-overlay.hidden {
+  display: none;
+}
+
+.pms-alert-dialog {
+  width: min(100%, 420px);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgb(15 23 42 / 0.18);
+  padding: 1.75rem 1.75rem 1.5rem;
+  text-align: center;
+  animation: pmsAlertIn 0.22s ease;
+}
+
+@keyframes pmsAlertIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.pms-alert-dialog__icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto 1rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.pms-alert-overlay--error .pms-alert-dialog__icon {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.pms-alert-overlay--success .pms-alert-dialog__icon {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.pms-alert-overlay--warning .pms-alert-dialog__icon {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.pms-alert-overlay--info .pms-alert-dialog__icon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.pms-alert-dialog__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  color: #0f172a;
+}
+
+.pms-alert-dialog__message {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: #475569;
+  white-space: pre-line;
+}
+
+.pms-alert-dialog__actions {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+}

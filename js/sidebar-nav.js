@@ -25,7 +25,7 @@ const PMSSidebar = (() => {
       { label: 'Prisoners', ids: ['prisoners'] },
       { label: 'Hearings', ids: ['hearing-portal', 'hearings-upcoming'] },
       { label: 'Release', ids: ['release-pending', 'release-done'] },
-      { label: 'Operations', ids: ['guarantors', 'documents', 'notifications'] },
+      { label: 'Operations', ids: ['notifications'] },
       { label: 'Reports & Analytics', ids: ['reports', 'analytics', 'audit'] },
       { label: 'Administration', ids: ['users', 'board-members', 'institutions', 'settings', 'profile'] },
     ],
@@ -33,7 +33,7 @@ const PMSSidebar = (() => {
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1', 'form2', 'form3'] },
       { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Operations', ids: ['guarantors', 'documents', 'notifications'] },
+      { label: 'Operations', ids: ['notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'Jail Commander': [
@@ -53,7 +53,7 @@ const PMSSidebar = (() => {
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form2', 'form4'] },
       { label: 'Prisoners', ids: ['prisoners'] },
       { label: 'Hearings', ids: ['hearing-portal', 'hearings'] },
-      { label: 'Operations', ids: ['documents', 'notifications'] },
+      { label: 'Operations', ids: ['notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'DJAG Secretary': [
@@ -98,8 +98,6 @@ const PMSSidebar = (() => {
       { id: 'hearings-upcoming', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
       { id: 'release-pending', module: 'release', panel: 'prisoners', label: 'Pending Release', icon: 'fi fi-rr-hourglass' },
       { id: 'release-done', module: 'release', panel: 'prisoners', label: 'Released Prisoners', icon: 'fi fi-rr-door-open' },
-      { id: 'guarantors', module: 'guarantors', panel: 'prisoners', label: 'Guarantors', icon: 'fi fi-rr-users' },
-      { id: 'documents', module: 'documents', panel: 'prisoners', label: 'Documents', icon: 'fi fi-rr-folder-open' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'analytics', module: 'analytics', panel: 'reports', label: 'Analytics', icon: 'fi fi-rr-chart-pie' },
@@ -118,8 +116,6 @@ const PMSSidebar = (() => {
       { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
       { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'guarantors', module: 'guarantors', panel: 'applications', label: 'Guarantors', icon: 'fi fi-rr-users' },
-      { id: 'documents', module: 'documents', panel: 'prisoners', label: 'Documents', icon: 'fi fi-rr-folder-open' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
@@ -133,7 +129,6 @@ const PMSSidebar = (() => {
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'documents', module: 'documents', panel: 'prisoners', label: 'Documents', icon: 'fi fi-rr-folder-open' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
@@ -301,16 +296,16 @@ const PMSSidebar = (() => {
       </div>
       <nav class="sidebar-nav" aria-label="Main navigation">${navHtml}</nav>
       <div class="sidebar-footer">
-        <div class="user-info">
-          <span class="user-avatar" id="user-avatar">${esc(initial)}</span>
-          <div class="user-details">
-            <strong id="user-name">${esc(`${user.firstName} ${user.lastName}`)}</strong>
-            <span class="role-badge" id="user-role">${esc(user.role)}</span>
-            ${inst ? `<span class="user-inst" id="user-institution">${esc(inst.name)}</span>` : '<span class="user-inst hidden" id="user-institution"></span>'}
-            ${user.boardPosition ? `<span class="user-inst board-position" id="board-position">${esc(user.boardPosition)}</span>` : '<span class="user-inst board-position hidden" id="board-position"></span>'}
+        <div class="sidebar-user">
+          <div class="sidebar-user__avatar user-avatar" id="user-avatar" aria-hidden="true">${esc(initial)}</div>
+          <div class="sidebar-user__meta user-details">
+            <p class="sidebar-user__name" id="user-name">${esc(`${user.firstName} ${user.lastName}`)}</p>
+            <p class="sidebar-user__role" id="user-role">${esc(user.role)}</p>
+            ${inst ? `<p class="sidebar-user__inst user-inst" id="user-institution">${esc(inst.name)}</p>` : '<p class="sidebar-user__inst user-inst hidden" id="user-institution"></p>'}
+            ${user.boardPosition ? `<p class="sidebar-user__inst sidebar-user__board user-inst board-position" id="board-position">${esc(user.boardPosition)}</p>` : '<p class="sidebar-user__inst sidebar-user__board user-inst board-position hidden" id="board-position"></p>'}
           </div>
         </div>
-        <button type="button" class="btn-logout" id="logout-btn"><span class="nav-label">Sign out</span></button>
+        <button type="button" class="sidebar-signout btn-logout" id="logout-btn">Sign out</button>
       </div>`;
   }
 

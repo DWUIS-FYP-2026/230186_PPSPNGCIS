@@ -50,8 +50,41 @@
     document.getElementById('overview-notifications').innerHTML = `
       <div class="overview-row"><strong>Cases awaiting my vote</strong><span class="meta">${PMSUI.formatStat(pendingVoteCases().length)}</span></div>
       <div class="overview-row"><strong>Medical evaluations uploaded</strong><span class="meta">${PMSUI.formatStat(cases.reduce((n, a) => n + PMSStorage.getMedicalEvaluations(a.id).length, 0))}</span></div>
-      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n)).join('') : ''}`;
+      ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n, actor)).join('') : ''}`;
     if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
+  }
+
+  function setupStatCards() {
+    const cols = ['ID', 'Name', 'Institution', 'Status', ''];
+    PMSUI.bindStatCards([
+      {
+        statId: 'stat-votes',
+        title: 'Awaiting My Vote',
+        columns: cols,
+        getRows: () => pendingVoteCases().map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-cases',
+        title: 'Active Cases',
+        columns: cols,
+        getRows: () => boardCases().map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-hearings',
+        title: 'Scheduled Hearings',
+        columns: ['Date', 'Name', 'Institution', 'Location', ''],
+        getRows: () => PMSStorage.getHearings()
+          .filter((h) => !['Cancelled'].includes(h.status))
+          .map((h) => {
+            const p = PMSStorage.getPrisonerById(h.prisonerId);
+            if (!p) return '';
+            return `<tr><td>${PMSUI.fmtDate(h.scheduledDate)}</td><td>${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</td><td>${PMSUI.instName(p.institutionId)}</td><td>${PMSUI.esc(h.location || '—')}</td><td><a href="forms/hearing-portal.html?appId=${encodeURIComponent(h.applicationId || '')}" class="btn-icon">Open</a></td></tr>`;
+          }).filter(Boolean),
+      },
+    ], {
+      notificationsStatId: 'stat-notifications',
+      onNotificationsClick: () => PMSUI.switchPanel('notifications', panelTitles, refresh, 'notifications'),
+    });
   }
 
   function renderPrisoners() {
@@ -143,7 +176,7 @@
     const notesInput = card?.querySelector('.eval-notes');
     const file = fileInput?.files?.[0];
     if (!file) {
-      alert('Please choose an evaluation document to upload.');
+      PMSUI.showError('Please choose an evaluation document to upload.');
       return;
     }
     try {
@@ -153,14 +186,17 @@
         fileSize: file.size,
         notes: notesInput?.value.trim() || '',
       }, actor);
-      alert('Medical evaluation document recorded.');
+      PMSUI.showSuccess('Medical evaluation document recorded.');
       refresh(document.querySelector('.nav-item.active')?.dataset.panel || 'evaluations');
     } catch (err) {
-      alert(err.message || 'Upload failed.');
+      PMSUI.showError(err.message || 'Upload failed.');
     }
   });
+
+  PMSUI.bindOverviewNotifications('overview-notifications', actor, () => refresh('overview'));
 
   if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) {
     refresh('overview');
   }
+  setupStatCards();
 })();

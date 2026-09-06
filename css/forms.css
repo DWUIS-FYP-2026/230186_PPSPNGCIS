@@ -40,11 +40,11 @@ body.pms-form-page {
 
 /* ── Header (landing-page light style) ── */
 .pms-form-page .page-header {
-  background: var(--form-header-bg);
+  background: transparent;
   color: var(--lp-text, var(--color-text));
-  border-bottom: 3px solid var(--lp-primary, var(--pngcs-navy));
-  backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 rgba(13, 43, 78, 0.04);
+  border-bottom: none;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .pms-form-page .page-header .back-link,
@@ -95,40 +95,54 @@ body.pms-form-page {
   padding-right: 1.5rem;
 }
 
-.pms-form-page .header-top { padding-top: 0.75rem; padding-bottom: 0; }
-
-.pms-form-page .header-main {
-  padding: 1.25rem 1.5rem 1.5rem;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+.pms-form-page .header-top {
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
-  gap: 1rem 1.25rem;
+  padding-top: 0.875rem;
+  padding-bottom: 0;
 }
 
+.pms-form-page .header-main {
+  padding: 0.25rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  gap: 0.75rem;
+}
+
+.pms-form-page .header-main .header-brand,
 .pms-form-page .header-main .command-bar__badges {
-  grid-column: 1;
+  margin: 0 auto;
+}
+
+.pms-form-page .header-main .header-brand.pms-brand-logos,
+.pms-form-page .header-main .command-bar__badges.pms-brand-logos {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .pms-form-page .header-main .header-title-block,
 .pms-form-page .header-main .header-title {
-  grid-column: 2;
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
 }
 
 .pms-form-page .header-main .role-badge {
-  grid-column: 3;
-  justify-self: end;
+  position: absolute;
+  top: 0;
+  right: 1.5rem;
 }
 
 @media (max-width: 768px) {
-  .pms-form-page .header-main {
-    grid-template-columns: 1fr;
-  }
-  .pms-form-page .header-main .command-bar__badges,
-  .pms-form-page .header-main .header-title-block,
-  .pms-form-page .header-main .header-title,
   .pms-form-page .header-main .role-badge {
-    grid-column: 1;
-    justify-self: start;
+    position: static;
+    margin-top: 0.25rem;
   }
 }
 
@@ -172,17 +186,21 @@ body.pms-form-page {
 .pms-form-page .page-main {
   flex: 1;
   max-width: var(--form-max-width);
-  margin: 0 auto;
+  margin: 0 auto 1.5rem;
   padding: 1.5rem;
-  width: 100%;
+  width: calc(100% - 2rem);
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid var(--lp-border, #e2e8f0);
+  border-radius: var(--lp-radius, 12px);
+  box-shadow: var(--lp-shadow, 0 4px 24px rgba(13, 43, 78, 0.06));
 }
 
 .pms-form-page .section {
-  background: var(--lp-card, var(--color-surface));
+  background: #fff;
   border: 1px solid var(--lp-border, var(--color-border));
   border-radius: var(--lp-radius, 12px);
   margin-bottom: 1.25rem;
-  box-shadow: var(--lp-shadow, 0 4px 24px rgba(13, 43, 78, 0.08));
+  box-shadow: 0 1px 3px rgba(13, 43, 78, 0.05);
   overflow: hidden;
   transition: box-shadow 0.22s ease;
 }
@@ -193,14 +211,18 @@ body.pms-form-page {
 
 .pms-form-page .section-header {
   background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
-  padding: 0.875rem 1.25rem;
+  padding: 0.875rem 1.25rem 0.875rem 1rem;
   font-size: 1rem;
   font-weight: 700;
   color: var(--lp-primary, var(--color-heading));
   border-bottom: 1px solid var(--lp-border-soft, var(--color-border));
+  border-left: 4px solid var(--lp-secondary, var(--color-success));
   margin: 0;
   letter-spacing: -0.01em;
 }
+
+.pms-form-page--form4 .section-header { border-left-color: var(--lp-secondary, var(--color-success)); }
+.pms-form-page--form5 .section-header { border-left-color: var(--color-danger, #b91c1c); }
 
 .pms-form-page .section-body {
   padding: 1.25rem 1.375rem;
@@ -440,10 +462,10 @@ body.pms-form-page {
   max-width: 36rem;
   margin: 0 auto 1.5rem;
   padding: 1.5rem 1.75rem;
-  background: var(--lp-card, var(--color-surface));
+  background: #fff;
   border: 1px solid var(--lp-border, var(--color-border));
   border-radius: var(--lp-radius, 12px);
-  box-shadow: var(--lp-shadow, var(--shadow-sm));
+  box-shadow: 0 1px 3px rgba(13, 43, 78, 0.05);
   border-left: 4px solid var(--lp-primary, var(--pngcs-navy));
 }
 
@@ -466,9 +488,10 @@ body.pms-form-page {
   gap: 0.75rem 1.25rem;
   padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
-  background: var(--color-surface-muted);
+  background: #fff;
   border: 1px solid var(--lp-border, var(--color-border));
-  border-radius: var(--lp-radius, 8px);
+  border-radius: var(--lp-radius, 10px);
+  box-shadow: 0 1px 3px rgba(13, 43, 78, 0.04);
 }
 
 .pms-form-page .status-bar .status-item,
@@ -694,8 +717,8 @@ body.pms-form-page {
   padding: 1.25rem 1.375rem;
   border: 1px solid var(--color-border);
   border-radius: var(--lp-radius, 10px);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(13, 43, 78, 0.05);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -806,23 +829,24 @@ body.pms-form-page {
 }
 
 .pms-form-page--form2.form2-view-workspace .report-card--dar .card-header {
-  padding: 1.25rem 1.5rem;
-  background: linear-gradient(135deg, #1e5a3a 0%, #256f47 55%, #2d8656 100%);
-  border-bottom: none;
+  padding: 0.875rem 1.25rem 0.875rem 1rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border-bottom: 1px solid var(--lp-border-soft, #e2e8f0);
+  border-left: 4px solid var(--lp-secondary, #1a6b3c);
 }
 
 .pms-form-page--form2.form2-view-workspace .report-card--dar .card-header h2 {
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -0.02em;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--lp-primary, #0d2b4e);
+  letter-spacing: -0.01em;
 }
 
 .pms-form-page--form2.form2-view-workspace .report-card--dar .card-header .subtitle {
   display: block;
   margin-top: 0.2rem;
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--color-text-muted);
   font-weight: 500;
 }
 
@@ -832,10 +856,15 @@ body.pms-form-page {
 }
 
 .pms-form-page--form2.form2-view-workspace .report-card--dar .section-label {
-  font-size: 1.0625rem;
+  font-size: 1rem;
+  font-weight: 700;
   margin: 1.25rem 0 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid #e8edf3;
+  padding: 0.875rem 1rem 0.875rem 0.75rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border-bottom: 1px solid var(--lp-border-soft, #e2e8f0);
+  border-left: 4px solid var(--lp-secondary, #1a6b3c);
+  color: var(--lp-primary, #0d2b4e);
+  letter-spacing: -0.01em;
 }
 
 .pms-form-page--form2.form2-view-workspace .report-card--dar .section-label:first-child {
