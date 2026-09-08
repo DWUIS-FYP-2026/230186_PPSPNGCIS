@@ -120,9 +120,9 @@ DESCRIBE Officer;
 
 -- 3. Seed Initial Data
 INSERT INTO Users (UserID, Username, PasswordHash, Role, IsActive) VALUES
-(1, 'john.dole@cs.gov.pg', 'Password123!', 'CS Parole Clerk', TRUE),
-(2, 'mary.kila@djag.gov.pg', 'Password123!', 'DJAG Parole Clerk', TRUE),
-(3, 'judge.kakaraya@justice.gov.pg', 'Password123!', 'Board Member', TRUE);
+(1, 'j.dole@cs.gov.pg', 'Password123!', 'CS Parole Clerk', TRUE),
+(2, 'm.kila@djag.gov.pg', 'Password123!', 'DJAG Parole Clerk', TRUE),
+(3, 'h.morris@djag.gov.pg', 'Password123!', 'DJAG Secretary', TRUE);
 
 INSERT INTO CorrectionalInstitution (InstitutionID, InstitutionName, Province, Address) VALUES
 (1, 'Bomana Correctional Centre', 'National Capital District', 'P.O. Box 123, Boroko, NCD'),

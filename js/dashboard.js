@@ -295,7 +295,7 @@
     usersOfficersOnly = officersOnly;
     let users = PMSStorage.getUsers();
     if (officersOnly || activeNavId === 'board-members') {
-      users = users.filter((u) => ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(u.role));
+      users = users.filter((u) => ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(u.role));
     }
     const roleF = document.getElementById('user-role-filter').value;
     const statusF = document.getElementById('user-status-filter').value;
@@ -347,8 +347,33 @@
     el.value = `${dashboardLabel(role)} (${PMSAuth.getDashboardForRole(role)})`;
   }
 
+  function suggestAgencyCredentials() {
+    if (document.getElementById('user-id')?.value) return;
+    const role = document.getElementById('user-role-select')?.value;
+    const firstName = document.getElementById('user-first-name')?.value.trim();
+    const lastName = document.getElementById('user-last-name')?.value.trim();
+    const username = PMSStorage.formatAgencyUsername(firstName, lastName, role);
+    if (!username) return;
+    document.getElementById('user-username').value = username;
+    document.getElementById('user-email').value = username;
+    const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
+    if (boardRoles.includes(role)) {
+      const startEl = document.getElementById('user-contract-start');
+      const expiryEl = document.getElementById('user-contract-expiry');
+      if (startEl && !startEl.value) {
+        const today = new Date().toISOString().slice(0, 10);
+        startEl.value = today;
+      }
+      if (expiryEl && startEl?.value) {
+        const d = new Date(startEl.value);
+        d.setFullYear(d.getFullYear() + PMSStorage.BOARD_CONTRACT_YEARS);
+        expiryEl.value = d.toISOString().slice(0, 10);
+      }
+    }
+  }
+
   function toggleBoardFields(role) {
-    const boardRoles = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
+    const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
     const show = boardRoles.includes(role);
     ['board-position-group', 'contract-start-group', 'contract-expiry-group'].forEach((id) => {
       document.getElementById(id)?.classList.toggle('hidden', !show);
@@ -394,6 +419,7 @@
     populateInstitutionSelects();
     if (user) document.getElementById('user-role-select').value = user.role;
     document.getElementById('user-modal').showModal();
+    if (!user) suggestAgencyCredentials();
   }
 
   /* ---- Institutions (summary) ---- */
@@ -523,7 +549,7 @@
     const ruleNote = document.getElementById('eligibility-rule-note');
     if (ruleNote) {
       ruleNote.textContent =
-        `Eligibility rule: ${settings.paroleEligibilityLabel}. Notifications are sent to System Administrator and PNGCS Parole Clerk.`;
+        `Eligibility rule: ${settings.paroleEligibilityLabel}. Notifications are sent to System Administrator and CS Parole Clerk.`;
     }
 
     const notifs = PMSStorage.getNotificationsForUser(actor);
@@ -691,7 +717,7 @@
   });
 
   // Institution management moved to institutions.html
-  // Prisoner CRUD is restricted to PNGCS Parole Clerks via prisoner-edit.html
+  // Prisoner CRUD is restricted to CS Parole Clerks via prisoner-edit.html
 
   // Settings form
   document.getElementById('settings-form').addEventListener('submit', async (e) => {
@@ -749,6 +775,20 @@
   document.getElementById('user-role-select')?.addEventListener('change', (e) => {
     toggleBoardFields(e.target.value);
     updateUserDashboardPreview(e.target.value);
+    suggestAgencyCredentials();
+  });
+  ['user-first-name', 'user-last-name'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', suggestAgencyCredentials);
+  });
+  document.getElementById('user-contract-start')?.addEventListener('change', () => {
+    const role = document.getElementById('user-role-select')?.value;
+    if (!['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(role)) return;
+    const start = document.getElementById('user-contract-start')?.value;
+    const expiryEl = document.getElementById('user-contract-expiry');
+    if (!start || !expiryEl) return;
+    const d = new Date(start);
+    d.setFullYear(d.getFullYear() + PMSStorage.BOARD_CONTRACT_YEARS);
+    expiryEl.value = d.toISOString().slice(0, 10);
   });
   if (!PMSUI.applyDeepLinkNav((panel, navId) => switchPanel(panel, navId))) switchPanel('overview');
 })();

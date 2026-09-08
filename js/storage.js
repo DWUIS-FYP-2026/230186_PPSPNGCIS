@@ -10,14 +10,47 @@ const PMSStorage = (() => {
 
   const DEMO_PASSWORDS = {
     admin: 'admin123',
-    'john.dole@cs.gov.pg': 'Password123!',
-    'mary.kila@djag.gov.pg': 'Password123!',
-    'officer.tau@cs.gov.pg': 'Password123!',
-    'secretary.morris@djag.gov.pg': 'Password123!',
-    'dr.sine@health.gov.pg': 'Password123!',
-    'commissioner.bain@cs.gov.pg': 'Password123!',
-    'pkoroma@cs.gov.pg': 'Password123!',
+    'j.dole@cs.gov.pg': 'Password123!',
+    'm.kila@djag.gov.pg': 'Password123!',
+    's.tau@cs.gov.pg': 'Password123!',
+    'h.morris@djag.gov.pg': 'Password123!',
+    'r.sine@health.gov.pg': 'Password123!',
+    't.bain@cs.gov.pg': 'Password123!',
+    'p.koroma@cs.gov.pg': 'Password123!',
   };
+
+  const LEGACY_USERNAME_MAP = {
+    'john.dole@cs.gov.pg': 'j.dole@cs.gov.pg',
+    'mary.kila@djag.gov.pg': 'm.kila@djag.gov.pg',
+    'officer.tau@cs.gov.pg': 's.tau@cs.gov.pg',
+    'secretary.morris@djag.gov.pg': 'h.morris@djag.gov.pg',
+    'dr.sine@health.gov.pg': 'r.sine@health.gov.pg',
+    'commissioner.bain@cs.gov.pg': 't.bain@cs.gov.pg',
+    'pkoroma@cs.gov.pg': 'p.koroma@cs.gov.pg',
+    'commander@cs.gov.pg': 'p.koroma@cs.gov.pg',
+  };
+
+  function agencyDomainForRole(role) {
+    if (role === 'Doctor') return 'health.gov.pg';
+    if (['DJAG Parole Clerk', 'DJAG Secretary'].includes(role)) return 'djag.gov.pg';
+    if (role === 'System Administrator') return 'pms.gov.pg';
+    return 'cs.gov.pg';
+  }
+
+  function formatAgencyUsername(firstName, lastName, role) {
+    if (role === 'System Administrator') return 'admin';
+    const initial = String(firstName || '').trim().charAt(0).toLowerCase();
+    const surname = String(lastName || '').trim().toLowerCase().replace(/\s+/g, '');
+    if (!initial || !surname) return '';
+    return `${initial}.${surname}@${agencyDomainForRole(role)}`;
+  }
+
+  function addYearsToDate(isoDate, years) {
+    const d = new Date(isoDate);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setFullYear(d.getFullYear() + years);
+    return d.toISOString().slice(0, 10);
+  }
 
   function hashPassword(password) {
     let h = 5381;
@@ -38,15 +71,27 @@ const PMSStorage = (() => {
   }
 
   const USER_ROLES = [
-    'System Administrator', 'CS Parole Officer', 'PNGCS Parole Clerk', 'Jail Commander',
-    'DJAG Parole Clerk', 'DJAG Secretary', 'Doctor', 'CS Commissioner', 'Parole Board Member',
+    'System Administrator', 'CS Parole Officer', 'CS Parole Clerk', 'Jail Commander',
+    'DJAG Parole Clerk', 'DJAG Secretary', 'Doctor', 'CS Commissioner',
   ];
   const OFFICER_ROLES = USER_ROLES.filter((r) => r !== 'System Administrator');
-  const BOARD_POSITIONS = ['Chairperson', 'Commissioner PNGCS', 'Medical Member', 'DJAG Secretary'];
+  const BOARD_POSITIONS = ['DJAG Secretary', 'Commissioner PNGCS', 'Medical Member'];
   const PAROLE_APPROVAL_THRESHOLD = 80;
   const HEARING_DEADLINE_DAYS = 14;
-  const BOARD_ASSESSOR_ROLES = Object.freeze(['Doctor', 'CS Commissioner', 'DJAG Secretary', 'Parole Board Member']);
+  const BOARD_ASSESSOR_ROLES = Object.freeze(['Doctor', 'CS Commissioner', 'DJAG Secretary']);
   const BOARD_VOTING_ROLES = BOARD_ASSESSOR_ROLES;
+
+  function applyBoardMemberContract(user) {
+    if (!BOARD_ASSESSOR_ROLES.includes(user.role)) return user;
+    const start = user.contractStartDate || user.dateAppointed || new Date().toISOString().slice(0, 10);
+    const expiry = user.contractExpiryDate || addYearsToDate(start, BOARD_CONTRACT_YEARS);
+    return {
+      ...user,
+      contractStartDate: start,
+      contractExpiryDate: expiry,
+      contractStatus: user.contractStatus || 'Active',
+    };
+  }
 
   function normalizeBoardVote(vote) {
     const map = {
@@ -274,14 +319,13 @@ const PMSStorage = (() => {
       institutions,
       users: [
         { id: 'USR-000001', officerId: null, employeeNumber: null, username: 'admin', email: 'admin@pms.gov.pg', firstName: 'System', lastName: 'Administrator', role: 'System Administrator', rank: 'Administrator', institutionId: null, province: '', position: 'Administrator', phone: '', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2018-01-01', lastLogin: '2026-07-30T09:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000002', officerId: 'OFF-000001', employeeNumber: 'EMP-000002', username: 'john.dole@cs.gov.pg', email: 'john.dole@cs.gov.pg', firstName: 'John', lastName: 'Dole', role: 'PNGCS Parole Clerk', rank: 'Parole Clerk', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Clerk', phone: '+675 7123 4567', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2020-05-10', lastLogin: '2026-07-29T14:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000003', officerId: 'OFF-000002', employeeNumber: 'EMP-000003', username: 'mary.kila@djag.gov.pg', email: 'mary.kila@djag.gov.pg', firstName: 'Mary', lastName: 'Kila', role: 'DJAG Parole Clerk', rank: 'Parole Clerk', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Clerk', phone: '+675 7234 5678', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2021-03-22', lastLogin: '2026-07-28T11:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000005', officerId: 'OFF-000004', employeeNumber: 'EMP-000005', username: 'judge.kakaraya@justice.gov.pg', email: 'judge.kakaraya@justice.gov.pg', firstName: 'Francis', lastName: 'Kakaraya', role: 'Parole Board Member', rank: 'Board Member', institutionId: 'INS-000001', province: 'National Capital District', position: 'Board Member', phone: '+675 7456 7890', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Chairperson', contractStartDate: '2021-01-01', contractExpiryDate: '2027-12-31', contractStatus: 'Active', status: 'Active', dateAppointed: '2016-11-05', lastLogin: '2026-07-27T10:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000024', officerId: 'OFF-000024', employeeNumber: 'EMP-000024', username: 'officer.tau@cs.gov.pg', email: 'officer.tau@cs.gov.pg', firstName: 'Samuel', lastName: 'Tau', role: 'CS Parole Officer', rank: 'Parole Officer', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Officer', phone: '+675 7123 4500', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2021-08-01', lastLogin: '2026-07-20T09:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000025', officerId: 'OFF-000025', employeeNumber: 'EMP-000025', username: 'secretary.morris@djag.gov.pg', email: 'secretary.morris@djag.gov.pg', firstName: 'Helen', lastName: 'Morris', role: 'DJAG Secretary', rank: 'Secretary', institutionId: 'INS-000001', province: 'National Capital District', position: 'DJAG Secretary', phone: '+675 7234 5600', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'DJAG Secretary', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2020-02-15', lastLogin: '2026-07-22T10:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000026', officerId: 'OFF-000026', employeeNumber: 'EMP-000026', username: 'dr.sine@health.gov.pg', email: 'dr.sine@health.gov.pg', firstName: 'Ruth', lastName: 'Sine', role: 'Doctor', rank: 'Medical Officer', institutionId: 'INS-000001', province: 'National Capital District', position: 'Medical Board Member', phone: '+675 7345 6700', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Medical Member', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2019-05-01', lastLogin: '2026-07-18T11:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000027', officerId: 'OFF-000027', employeeNumber: 'EMP-000027', username: 'commissioner.bain@cs.gov.pg', email: 'commissioner.bain@cs.gov.pg', firstName: 'Thomas', lastName: 'Bain', role: 'CS Commissioner', rank: 'Commissioner', institutionId: 'INS-000001', province: 'National Capital District', position: 'Commissioner PNGCS', phone: '+675 7345 6800', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Commissioner PNGCS', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2018-03-01', lastLogin: '2026-07-19T09:30:00.000Z', profilePhoto: null },
-        { id: 'USR-000028', officerId: 'OFF-000028', employeeNumber: 'EMP-000028', username: 'pkoroma@cs.gov.pg', email: 'pkoroma@cs.gov.pg', firstName: 'Peter', lastName: 'Koroma', role: 'Jail Commander', rank: 'Commander', institutionId: 'INS-000001', province: 'National Capital District', position: 'Jail Commander — Bomana', phone: '+675 7123 4600', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2019-04-01', lastLogin: '2026-07-25T08:00:00.000Z', profilePhoto: null },
+        { id: 'USR-000002', officerId: 'OFF-000001', employeeNumber: 'EMP-000002', username: 'j.dole@cs.gov.pg', email: 'j.dole@cs.gov.pg', firstName: 'John', lastName: 'Dole', role: 'CS Parole Clerk', rank: 'Parole Clerk', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Clerk', phone: '+675 7123 4567', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2020-05-10', lastLogin: '2026-07-29T14:00:00.000Z', profilePhoto: null },
+        { id: 'USR-000003', officerId: 'OFF-000002', employeeNumber: 'EMP-000003', username: 'm.kila@djag.gov.pg', email: 'm.kila@djag.gov.pg', firstName: 'Mary', lastName: 'Kila', role: 'DJAG Parole Clerk', rank: 'Parole Clerk', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Clerk', phone: '+675 7234 5678', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2021-03-22', lastLogin: '2026-07-28T11:00:00.000Z', profilePhoto: null },
+        { id: 'USR-000024', officerId: 'OFF-000024', employeeNumber: 'EMP-000024', username: 's.tau@cs.gov.pg', email: 's.tau@cs.gov.pg', firstName: 'Samuel', lastName: 'Tau', role: 'CS Parole Officer', rank: 'Parole Officer', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Officer', phone: '+675 7123 4500', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2021-08-01', lastLogin: '2026-07-20T09:00:00.000Z', profilePhoto: null },
+        { id: 'USR-000025', officerId: 'OFF-000025', employeeNumber: 'EMP-000025', username: 'h.morris@djag.gov.pg', email: 'h.morris@djag.gov.pg', firstName: 'Helen', lastName: 'Morris', role: 'DJAG Secretary', rank: 'Secretary', institutionId: 'INS-000001', province: 'National Capital District', position: 'DJAG Secretary', phone: '+675 7234 5600', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'DJAG Secretary', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-22T10:00:00.000Z', profilePhoto: null },
+        { id: 'USR-000026', officerId: 'OFF-000026', employeeNumber: 'EMP-000026', username: 'r.sine@health.gov.pg', email: 'r.sine@health.gov.pg', firstName: 'Ruth', lastName: 'Sine', role: 'Doctor', rank: 'Medical Officer', institutionId: 'INS-000001', province: 'National Capital District', position: 'Medical Board Member', phone: '+675 7345 6700', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Medical Member', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-18T11:00:00.000Z', profilePhoto: null },
+        { id: 'USR-000027', officerId: 'OFF-000027', employeeNumber: 'EMP-000027', username: 't.bain@cs.gov.pg', email: 't.bain@cs.gov.pg', firstName: 'Thomas', lastName: 'Bain', role: 'CS Commissioner', rank: 'Commissioner', institutionId: 'INS-000001', province: 'National Capital District', position: 'Commissioner PNGCS', phone: '+675 7345 6800', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Commissioner PNGCS', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-19T09:30:00.000Z', profilePhoto: null },
+        { id: 'USR-000028', officerId: 'OFF-000028', employeeNumber: 'EMP-000028', username: 'p.koroma@cs.gov.pg', email: 'p.koroma@cs.gov.pg', firstName: 'Peter', lastName: 'Koroma', role: 'Jail Commander', rank: 'Commander', institutionId: 'INS-000001', province: 'National Capital District', position: 'Jail Commander — Bomana', phone: '+675 7123 4600', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2019-04-01', lastLogin: '2026-07-25T08:00:00.000Z', profilePhoto: null },
       ],
       prisoners: [
         { id: 'PR-000001', prisonerNumber: 'PR-000001', institutionId: 'INS-000001', firstName: 'Paul', lastName: 'Kaupa', dateOfBirth: '1992-04-10', gender: 'Male', offense: 'Armed Robbery', sentenceStartDate: '2020-01-15', sentenceEndDate: '2030-01-15', status: 'Eligible for Parole', documents: [] },
@@ -314,8 +358,8 @@ const PMSStorage = (() => {
           boardDecision: null, workflowNotes: [], createdAt: now,
         },
         {
-          id: 'APP-000002', caseNumber: 'PMS-2026-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001', status: 'Draft',
-          submittedAt: null, submittedBy: null,
+          id: 'APP-000002', caseNumber: 'PMS-2026-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001', status: 'Pending Commander Review',
+          submittedAt: '2026-08-01', submittedBy: 'USR-000002',
           formData: {
             form1: {
               formId: 'F1-000002',
@@ -327,8 +371,23 @@ const PMSStorage = (() => {
               submittedAt: '2026-08-01T09:00:00.000Z',
               submittedBy: 'USR-000002',
             },
-            form2: { formId: 'F2-000002', sections: {} },
-            form3: {}, form4: {}, form5: {},
+            form2: {
+              formId: 'F2-000002',
+              sections: {
+                ddr: { submitted: true, confirmed: true, status: 'submitted', officerName: 'John Dole', submittedAt: '2026-08-05T10:00:00.000Z' },
+                ppr: { submitted: true, confirmed: true, status: 'submitted', officerName: 'Mary Kila', submittedAt: '2026-08-08T11:00:00.000Z' },
+              },
+            },
+            form3: {
+              formId: 'F3-000003',
+              status: 'submitted',
+              submitted: true,
+              commanderRecommendation: 'Recommended',
+              institutionalRecommendation: 'Recommended',
+              officerName: 'Mary Kila',
+              submittedAt: '2026-08-10T14:00:00.000Z',
+            },
+            form4: {}, form5: {},
           },
           boardDecision: null, workflowNotes: [], createdAt: now,
         },
@@ -342,12 +401,12 @@ const PMSStorage = (() => {
             form4: { formId: 'F4-000001', investigationSummary: 'Community support verified' },
             form5: { formId: 'F5-000001', boardDecision: 'Approved', conditions: 'Monthly reporting to PNGCS' },
           },
-          boardDecision: { outcome: 'Approved', conditions: 'Monthly reporting to PNGCS', deliberationNotes: 'Unanimous approval', decidedBy: 'USR-000005', decidedAt: '2026-01-20' },
+          boardDecision: { outcome: 'Approved', conditions: 'Monthly reporting to PNGCS', deliberationNotes: 'Unanimous approval', decidedBy: 'USR-000025', decidedAt: '2026-01-20' },
           workflowNotes: [], createdAt: '2025-10-01T00:00:00.000Z',
         },
         {
-          id: 'APP-000004', caseNumber: 'PMS-2026-000004', prisonerId: 'PR-000003', institutionId: 'INS-000001', status: 'Draft',
-          submittedAt: null, submittedBy: null,
+          id: 'APP-000004', caseNumber: 'PMS-2026-000004', prisonerId: 'PR-000003', institutionId: 'INS-000001', status: 'Pre-Parole Report Prepared',
+          submittedAt: '2026-07-15', submittedBy: 'USR-000002',
           formData: {
             form1: {
               formId: 'F1-000003',
@@ -370,31 +429,52 @@ const PMSStorage = (() => {
                   darOfficer: 'John Dole',
                   submittedAt: '2026-07-10T10:00:00.000Z',
                 },
-                ppr: {},
+                ppr: {
+                  submitted: true,
+                  confirmed: true,
+                  status: 'submitted',
+                  officerName: 'Mary Kila',
+                  submittedAt: '2026-07-12T11:00:00.000Z',
+                },
               },
             },
-            form3: {}, form4: {}, form5: {},
+            form3: {
+              formId: 'F3-000002',
+              status: 'approved',
+              submitted: true,
+              commanderRecommendation: 'Recommended',
+              institutionalRecommendation: 'Recommended',
+              officerName: 'Peter Koroma',
+              submittedAt: '2026-07-14T15:00:00.000Z',
+            },
+            form4: { investigationSummary: 'Pre-parole investigation complete — Sarah Tekate' },
+            form5: {},
           },
+          preParoleReport: 'Institutional verification complete. Recommended for parole hearing.',
+          commanderReview: { verifiedAt: '2026-07-14T15:00:00.000Z', recommendation: 'Recommended', verifiedBy: 'USR-000028' },
           boardDecision: null, workflowNotes: [], createdAt: now,
         },
       ],
       hearings: [
         { id: 'HRG-000001', applicationId: 'APP-000001', prisonerId: 'PR-000001', institutionId: 'INS-000001', scheduledDate: '2026-08-15', scheduledTime: '10:00', location: 'Parole Board Hearing Room A', notes: 'Initial board hearing', status: 'Scheduled' },
-        { id: 'HRG-000002', applicationId: 'APP-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001', scheduledDate: '2026-09-08', scheduledTime: '09:30', location: 'Parole Board Hearing Room B', notes: 'Board review — Peter Wama', status: 'Scheduled', boardMembers: ['USR-000005', 'USR-000006'] },
-        { id: 'HRG-000003', applicationId: 'APP-000001', prisonerId: 'PR-000001', institutionId: 'INS-000001', scheduledDate: '2026-09-18', scheduledTime: '14:00', location: 'Parole Board Hearing Room A', notes: 'Follow-up hearing — Paul Kaupa', status: 'Upcoming', boardMembers: ['USR-000005'] },
+        { id: 'HRG-000002', applicationId: 'APP-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001', scheduledDate: '2026-09-08', scheduledTime: '09:30', location: 'Parole Board Hearing Room B', notes: 'Board review — Peter Wama', status: 'Scheduled', boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'] },
+        { id: 'HRG-000003', applicationId: 'APP-000001', prisonerId: 'PR-000001', institutionId: 'INS-000001', scheduledDate: '2026-09-18', scheduledTime: '14:00', location: 'Parole Board Hearing Room A', notes: 'Follow-up hearing — Paul Kaupa', status: 'Upcoming', boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'] },
         { id: 'HRG-000004', applicationId: 'APP-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001', scheduledDate: '2026-09-25', scheduledTime: '11:00', location: 'DJAG Secretariat', notes: 'Pre-hearing briefing', status: 'Scheduled' },
       ],
       notifications: [
-        { id: 'NOT-000001', type: 'eligibility', title: 'Parole Eligibility Alert', message: 'Paul Kaupa (PR-000001) has reached parole eligibility threshold.', recipientRole: 'PNGCS Parole Clerk', recipientUserId: 'USR-000002', institutionId: 'INS-000001', prisonerId: 'PR-000001', eligibleDate: '2025-01-15', linkPanel: 'eligibility', read: false, resolved: false, createdAt: '2026-01-15T08:00:00.000Z', dedupeKey: 'eligibility:PR-000001:USR-000002:Parole Eligibility Alert' },
+        { id: 'NOT-000001', type: 'eligibility', title: 'Parole Eligibility Alert', message: 'Paul Kaupa (PR-000001) has reached parole eligibility threshold.', recipientRole: 'CS Parole Clerk', recipientUserId: 'USR-000002', institutionId: 'INS-000001', prisonerId: 'PR-000001', eligibleDate: '2025-01-15', linkPanel: 'eligibility', read: false, resolved: false, createdAt: '2026-01-15T08:00:00.000Z', dedupeKey: 'eligibility:PR-000001:USR-000002:Parole Eligibility Alert' },
         { id: 'NOT-000002', type: 'application', title: 'New Parole Application', message: 'PNGCS submitted application for Paul Kaupa — pending DJAG review.', recipientRole: 'DJAG Parole Clerk', recipientUserId: null, institutionId: 'INS-000001', prisonerId: 'PR-000001', applicationId: 'APP-000001', linkPanel: 'applications', read: false, resolved: false, createdAt: '2026-06-15T10:30:00.000Z', dedupeKey: 'application:APP-000001:DJAG Parole Clerk:New Parole Application' },
         { id: 'NOT-000003', type: 'eligibility', title: 'Parole Eligibility Alert', message: 'Paul Kaupa (PR-000001) reached eligibility: One-third (1/3) of total sentence.', recipientRole: 'System Administrator', recipientUserId: null, institutionId: 'INS-000001', prisonerId: 'PR-000001', eligibleDate: '2025-01-15', linkPanel: 'eligibility', read: false, resolved: false, createdAt: '2026-01-15T08:00:00.000Z', dedupeKey: 'eligibility:PR-000001:System Administrator:Parole Eligibility Alert' },
         { id: 'NOT-000004', type: 'form2', title: 'Form 2 Requires Action', message: 'DAR completed — PPR section required for Sarah Tekate (PMS-2026-000004)', recipientRole: 'DJAG Parole Clerk', recipientUserId: null, institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'applications', read: false, resolved: false, createdAt: '2026-07-10T10:05:00.000Z', dedupeKey: 'form2:APP-000004:DJAG Parole Clerk:Form 2 Requires Action' },
+        { id: 'NOT-000005', type: 'hearing', title: 'Schedule Hearing Required', message: 'Case PMS-2026-000004 (Sarah Tekate) requires a parole hearing within 14 days of Form 3 verification.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'hearings', read: false, resolved: false, createdAt: '2026-07-15T08:00:00.000Z', dedupeKey: 'hearing:APP-000004:DJAG Secretary:Schedule Hearing Required' },
+        { id: 'NOT-000006', type: 'board_review', title: 'Submit Board Assessment', message: 'Parole hearing scheduled for Paul Kaupa (PMS-2026-000001) — submit your Approve, Deny, or Defer vote when ready.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000001', applicationId: 'APP-000001', linkPanel: 'decisions', read: false, resolved: false, createdAt: '2026-06-20T09:00:00.000Z', dedupeKey: 'board_review:APP-000001:DJAG Secretary:Submit Board Assessment' },
+        { id: 'NOT-000007', type: 'verification', title: 'Institutional Verification Required', message: 'Peter Wama (PMS-2026-000002) — Forms 1–3 complete. Review and verify the case package.', recipientRole: 'Jail Commander', recipientUserId: 'USR-000028', institutionId: 'INS-000001', prisonerId: 'PR-000002', applicationId: 'APP-000002', linkPanel: 'verification', read: false, resolved: false, createdAt: '2026-08-10T15:00:00.000Z', dedupeKey: 'verification:APP-000002:Jail Commander:Institutional Verification Required' },
       ],
       auditLogs: [
-        { id: 'AUD-000001', userId: 'USR-000002', userName: 'John Dole', role: 'PNGCS Parole Clerk', action: 'CREATE', entity: 'ParoleApplication', entityId: 'APP-000001', details: 'Submitted parole application for Paul Kaupa', timestamp: '2026-06-15T10:30:00.000Z' },
+        { id: 'AUD-000001', userId: 'USR-000002', userName: 'John Dole', role: 'CS Parole Clerk', action: 'CREATE', entity: 'ParoleApplication', entityId: 'APP-000001', details: 'Submitted parole application for Paul Kaupa', timestamp: '2026-06-15T10:30:00.000Z' },
         { id: 'AUD-000002', userId: 'USR-000001', userName: 'System Administrator', role: 'System Administrator', action: 'LOGIN', entity: 'Session', entityId: 'USR-000001', details: 'Administrator signed in', timestamp: '2026-07-30T09:00:00.000Z' },
-        { id: 'AUD-000003', userId: 'USR-000002', userName: 'John Dole', role: 'PNGCS Parole Clerk', action: 'APPROVE', entity: 'InstitutionReport', entityId: 'INS-000001', details: 'Approved institutional report', timestamp: '2026-06-20T14:00:00.000Z' },
-        { id: 'AUD-000004', userId: 'USR-000005', userName: 'Francis Kakaraya', role: 'Parole Board Member', action: 'DECISION', entity: 'ParoleApplication', entityId: 'APP-000003', details: 'Board Approved — Peter Wama', timestamp: '2026-01-20T11:00:00.000Z' },
+        { id: 'AUD-000003', userId: 'USR-000002', userName: 'John Dole', role: 'CS Parole Clerk', action: 'APPROVE', entity: 'InstitutionReport', entityId: 'INS-000001', details: 'Approved institutional report', timestamp: '2026-06-20T14:00:00.000Z' },
+        { id: 'AUD-000004', userId: 'USR-000025', userName: 'Helen Morris', role: 'DJAG Secretary', action: 'DECISION', entity: 'ParoleApplication', entityId: 'APP-000003', details: 'Board Approved — Peter Wama', timestamp: '2026-01-20T11:00:00.000Z' },
       ],
       reports: [
         { id: 'RPT-000001', institutionId: 'INS-000001', type: 'institutional', title: 'Institutional Report', status: 'Approved', createdBy: 'USR-000002', createdAt: '2026-06-20T14:00:00.000Z' },
@@ -489,6 +569,7 @@ const PMSStorage = (() => {
 
       PMSIdGenerator.ensureCounters(data);
       migrateLegacyStatuses();
+      migrateRoleCorrections();
       syncBoardContracts();
       migrateCaseNumbers();
       migrateNotifications();
@@ -525,26 +606,91 @@ const PMSStorage = (() => {
     migrateDemoApplications();
   }
 
-  /** Repair demo cases where Form 1 was never seeded but Form 2 is expected (e.g. Peter Wama APP-000002). */
+  /** Rename legacy roles and retire obsolete Parole Board Member accounts. */
+  function migrateRoleCorrections() {
+    const roleMap = {
+      'PNGCS Parole Clerk': 'CS Parole Clerk',
+      'PNG Parole Clerk': 'CS Parole Clerk',
+    };
+    const renameRole = (value) => roleMap[value] || value;
+
+    data.users?.forEach((u) => {
+      if (roleMap[u.role]) u.role = roleMap[u.role];
+      if (u.role === 'Parole Board Member') {
+        u.status = 'Inactive';
+        u.accountStatus = 'Inactive';
+      }
+      const canonical = formatAgencyUsername(u.firstName, u.lastName, u.role);
+      const legacyKey = u.username?.toLowerCase();
+      const mapped = LEGACY_USERNAME_MAP[legacyKey];
+      const nextUsername = mapped || canonical;
+      if (nextUsername && nextUsername !== u.username) {
+        if (DEMO_PASSWORDS[u.username] && !DEMO_PASSWORDS[nextUsername]) {
+          DEMO_PASSWORDS[nextUsername] = DEMO_PASSWORDS[u.username];
+        }
+        delete DEMO_PASSWORDS[u.username];
+        u.username = nextUsername;
+        u.email = nextUsername;
+      } else if (canonical && (!u.email || u.email === legacyKey) && u.role !== 'System Administrator') {
+        u.email = u.username;
+      }
+      Object.assign(u, applyBoardMemberContract(u));
+    });
+    data.notifications?.forEach((n) => {
+      if (roleMap[n.recipientRole]) n.recipientRole = roleMap[n.recipientRole];
+      if (n.recipientRole === 'Parole Board Member') n.recipientRole = 'DJAG Secretary';
+    });
+    data.auditLog?.forEach((a) => {
+      if (roleMap[a.role]) a.role = roleMap[a.role];
+    });
+    data.applications?.forEach((app) => {
+      app.approvalSteps?.forEach((s) => {
+        if (roleMap[s.role]) s.role = roleMap[s.role];
+        if (s.role === 'Parole Board Member') s.role = 'DJAG Secretary';
+      });
+      if (app.boardDecision?.decidedBy === 'USR-000005') app.boardDecision.decidedBy = 'USR-000025';
+    });
+    data.hearings?.forEach((h) => {
+      if (!h.boardMembers?.length) return;
+      h.boardMembers = h.boardMembers
+        .map((id) => (id === 'USR-000005' ? 'USR-000025' : id))
+        .filter((id) => data.users.some((u) => u.id === id && u.status === 'Active'));
+      if (!h.boardMembers.length) h.boardMembers = ['USR-000025', 'USR-000026', 'USR-000027'];
+    });
+  }
+
+    /** Repair demo cases where Form 1 was never seeded but Form 2 is expected (e.g. Peter Wama APP-000002). */
   function migrateDemoApplications() {
     if (!data?.applications) return;
     const app2 = data.applications.find((a) => a.id === 'APP-000002' && a.prisonerId === 'PR-000002');
-    if (!app2) return;
-    app2.formData = app2.formData || createEmptyFormData();
-    const f1 = app2.formData.form1 || {};
-    const f1Empty = !f1.status && !f1.submittedAt && !f1.eligibilityOutcome && !Object.keys(f1.sections || {}).length;
-    if (!f1Empty) return;
-    app2.formData.form1 = {
-      formId: f1.formId || 'F1-000002',
-      status: 'submitted',
-      screeningDate: '2026-08-01',
-      eligibilityOutcome: 'eligible',
-      recommendationReason: 'Eligible under one-third rule — Peter Wama.',
-      officerName: 'John Dole',
-      submittedAt: '2026-08-01T09:00:00.000Z',
-      submittedBy: 'USR-000002',
-    };
-    app2.formData.form2 = { ...(app2.formData.form2 || {}), formId: app2.formData.form2?.formId || 'F2-000002', sections: app2.formData.form2?.sections || {} };
+    if (app2 && ['Draft', 'Submitted'].includes(app2.status)) {
+      const summary = getFormCompletionSummary(app2);
+      if (summary.checks.form1 && summary.checks.form2 && summary.checks.form3 && !isCommanderVerified(app2)) {
+        app2.status = 'Pending Commander Review';
+        app2.submittedAt = app2.submittedAt || '2026-08-01';
+        app2.submittedBy = app2.submittedBy || 'USR-000002';
+      }
+    }
+
+    const app4 = data.applications.find((a) => a.id === 'APP-000004' && a.prisonerId === 'PR-000003');
+    if (app4 && app4.status === 'Draft') {
+      app4.status = 'Pre-Parole Report Prepared';
+      app4.submittedAt = app4.submittedAt || '2026-07-15';
+      app4.submittedBy = app4.submittedBy || 'USR-000002';
+      app4.formData = app4.formData || createEmptyFormData();
+      app4.formData.form3 = {
+        formId: 'F3-000002',
+        status: 'approved',
+        submitted: true,
+        commanderRecommendation: 'Recommended',
+        institutionalRecommendation: 'Recommended',
+        officerName: 'Peter Koroma',
+        submittedAt: '2026-07-14T15:00:00.000Z',
+      };
+      app4.formData.form4 = { ...(app4.formData.form4 || {}), investigationSummary: 'Pre-parole investigation complete — Sarah Tekate' };
+      app4.preParoleReport = app4.preParoleReport || 'Institutional verification complete. Recommended for parole hearing.';
+      app4.commanderReview = app4.commanderReview || { verifiedAt: '2026-07-14T15:00:00.000Z', recommendation: 'Recommended', verifiedBy: 'USR-000028' };
+    }
   }
 
   function generateCaseNumber() {
@@ -574,7 +720,16 @@ const PMSStorage = (() => {
     const todayStr = today.toISOString().slice(0, 10);
     let changed = false;
     data.users.forEach((u) => {
-      const boardRoles = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
+      const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
+      if (boardRoles.includes(u.role)) {
+        const patched = applyBoardMemberContract(u);
+        if (patched.contractStartDate !== u.contractStartDate || patched.contractExpiryDate !== u.contractExpiryDate) {
+          u.contractStartDate = patched.contractStartDate;
+          u.contractExpiryDate = patched.contractExpiryDate;
+          u.contractStatus = patched.contractStatus;
+          changed = true;
+        }
+      }
       if (!boardRoles.includes(u.role) && !u.contractExpiryDate) return;
       if (!u.contractExpiryDate) return;
       const expiry = new Date(u.contractExpiryDate);
@@ -860,7 +1015,7 @@ const PMSStorage = (() => {
     if (!app) throw new Error('Application not found');
     const normalizedKey = sectionKey === 'dar' ? 'ddr' : sectionKey;
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
-    if (normalizedKey === 'ddr' && !['PNGCS Parole Clerk', 'System Administrator'].includes(role)) {
+    if (normalizedKey === 'ddr' && !['CS Parole Clerk', 'System Administrator'].includes(role)) {
       throw new Error('Only CS Parole Clerk may submit the DAR section.');
     }
     if (normalizedKey === 'ppr' && !['DJAG Parole Clerk', 'System Administrator'].includes(role)) {
@@ -911,7 +1066,7 @@ const PMSStorage = (() => {
     if (normalizedKey === 'ddr') {
       notifyRole('DJAG Parole Clerk', 'Form 2 Requires Action', `DDR completed — PPR section required for ${app.caseNumber || appId}`, app.institutionId, app.prisonerId, null, meta);
     } else {
-      notifyRoles(['PNGCS Parole Clerk', 'CS Parole Officer'], 'Form 2 Section Submitted', `PPR section submitted for ${app.caseNumber || appId}`, meta);
+      notifyRoles(['CS Parole Clerk', 'CS Parole Officer'], 'Form 2 Section Submitted', `PPR section submitted for ${app.caseNumber || appId}`, meta);
     }
     if (isForm2Complete(app.formData.form2)) {
       const prisoner = getPrisonerById(app.prisonerId);
@@ -923,14 +1078,14 @@ const PMSStorage = (() => {
         dedupeKey: `form2:complete:${appId}:board`,
       };
       notifyRoles(
-        ['PNGCS Parole Clerk', 'DJAG Parole Clerk'],
+        ['CS Parole Clerk', 'DJAG Parole Clerk'],
         'Form 2 Complete — Submitted to Board',
         `PPR and DAR submitted for ${pName} (${app.caseNumber || appId}) — ready for board workflow`,
         boardMeta
       );
       notifyInstitutionRoles(
         app.institutionId,
-        ['Jail Commander', 'PNGCS Parole Clerk'],
+        ['Jail Commander', 'CS Parole Clerk'],
         'Case Awaiting Verification',
         `Form 2 complete — institutional verification required for ${app.caseNumber || appId}`,
         { ...meta, type: 'verification', linkPanel: 'verification' }
@@ -942,8 +1097,8 @@ const PMSStorage = (() => {
 
   function saveCommanderCaseReview(appId, review, actor) {
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
-    if (!['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'].includes(role)) {
-      throw new Error('Only a Jail Commander or PNGCS Parole Clerk may record case verification.');
+    if (!['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(role)) {
+      throw new Error('Only a Jail Commander or CS Parole Clerk may record case verification.');
     }
     const app = getApplicationById(appId);
     if (!app) throw new Error('Application not found');
@@ -970,7 +1125,7 @@ const PMSStorage = (() => {
       app.hearingSchedulingAt = new Date().toISOString();
       transitionApplication(appId, 'Pre-Parole Report Prepared', actor, `Institutional verification complete — ready for hearing scheduling (${review.comments || ''})`);
       notifyRole('DJAG Secretary', 'Schedule Hearing Required', `Case ${app.caseNumber || app.id} requires hearing within ${HEARING_DEADLINE_DAYS} days`, app.institutionId, app.prisonerId, null, { applicationId: appId, type: 'hearing', linkPanel: 'hearings' });
-      notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Case Verified', `Case verified ${app.caseNumber || appId}`, { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'verification' });
+      notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Case Verified', `Case verified ${app.caseNumber || appId}`, { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'verification' });
     } else if (review.decision === 'Returned for Correction') {
       transitionApplication(appId, 'Returned for Correction', actor, review.comments || 'Returned for correction');
     } else if (review.decision === 'Rejected') {
@@ -1012,7 +1167,7 @@ const PMSStorage = (() => {
 
   function requiredApprovalsComplete(app) {
     const steps = app?.approvalSteps || [];
-    const required = ['Parole Board Member', 'PNGCS Parole Clerk'];
+    const required = ['DJAG Secretary', 'CS Parole Clerk'];
     return required.every((r) => steps.some((s) => s.role === r && s.decision === 'Approved'));
   }
 
@@ -1032,15 +1187,15 @@ const PMSStorage = (() => {
     const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'approval', linkPanel: 'applications' };
     if (step.decision === 'Approved' && requiredApprovalsComplete(app)) {
       transitionApplication(appId, 'Approved', actor, 'All required approvals completed');
-      notifyRole('PNGCS Parole Clerk', 'Release Authorized — Pending Action', `Approvals complete for ${app.caseNumber || appId} — authorize release`, app.institutionId, app.prisonerId, null, meta);
+      notifyRole('CS Parole Clerk', 'Release Authorized — Pending Action', `Approvals complete for ${app.caseNumber || appId} — authorize release`, app.institutionId, app.prisonerId, null, meta);
     } else if (step.decision === 'Rejected') {
       transitionApplication(appId, 'Refused', actor, step.comments || 'Approval rejected');
     } else if (step.decision === 'Returned for Correction') {
       transitionApplication(appId, 'Returned for Correction', actor, step.comments || 'Returned during approval');
     } else {
       app.status = 'Pending Approval';
-      notifyRole('Parole Board Member', 'Approval Required', `Approval pending for ${app.caseNumber || appId}`, app.institutionId, app.prisonerId, null, meta);
-      notifyRole('PNGCS Parole Clerk', 'Approval Required', `Approval pending for ${app.caseNumber || appId}`, app.institutionId, app.prisonerId, null, meta);
+      notifyRole('DJAG Secretary', 'Approval Required', `Approval pending for ${app.caseNumber || appId}`, app.institutionId, app.prisonerId, null, meta);
+      notifyRole('CS Parole Clerk', 'Approval Required', `Approval pending for ${app.caseNumber || appId}`, app.institutionId, app.prisonerId, null, meta);
     }
     persist();
     return app;
@@ -1259,7 +1414,6 @@ const PMSStorage = (() => {
       Doctor: 'Doctor',
       'CS Commissioner': 'CS Commissioner',
       'DJAG Secretary': 'DJAG Secretary',
-      'Parole Board Member': 'Parole Board Member',
     };
     if (!allowed[role]) throw new Error('Your role is not authorized to submit board votes.');
     if (!['Hearing Scheduled', 'Pending Board Review'].includes(app.status)) {
@@ -1294,6 +1448,8 @@ const PMSStorage = (() => {
     if (!isDraft) {
       ensureBoardReviewStarted(app, actor, `${role} submitted board vote (${vote})`);
       logAudit(actor, 'SAVE', 'BoardAssessment', appId, `${role} vote submitted (${vote})`);
+    } else {
+      logAudit(actor, 'SAVE', 'BoardAssessment', appId, `${role} decision saved as draft`);
     }
     const assessMeta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'board_review', linkPanel: 'decisions', linkHref: `forms/hearing-portal.html?appId=${encodeURIComponent(appId)}` };
     const progress = getBoardAssessmentProgress(app);
@@ -1384,7 +1540,7 @@ const PMSStorage = (() => {
       calculation: tally.calculation,
     };
     persist();
-    notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Board Decision Finalized', `${updated.caseNumber || appId}: ${tally.outcome}`, { applicationId: appId, institutionId: updated.institutionId, prisonerId: updated.prisonerId, type: 'board_review', linkPanel: 'decisions', linkHref: tally.outcome === 'Parole Granted' ? `forms/form4.html?appId=${encodeURIComponent(appId)}` : `forms/form5.html?appId=${encodeURIComponent(appId)}` });
+    notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Board Decision Finalized', `${updated.caseNumber || appId}: ${tally.outcome}`, { applicationId: appId, institutionId: updated.institutionId, prisonerId: updated.prisonerId, type: 'board_review', linkPanel: 'decisions', linkHref: tally.outcome === 'Parole Granted' ? `forms/form4.html?appId=${encodeURIComponent(appId)}` : `forms/form5.html?appId=${encodeURIComponent(appId)}` });
     return updated;
   }
 
@@ -1454,7 +1610,7 @@ const PMSStorage = (() => {
     const blockers = [];
     if (!app) return ['Application not found.'];
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor?.role) : actor?.role;
-    if (!['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'].includes(role)) {
+    if (!['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(role)) {
       return ['You do not have permission to authorize release.'];
     }
     if (app.status === 'Released') return ['Prisoner has already been released.'];
@@ -1467,7 +1623,7 @@ const PMSStorage = (() => {
     if (!isParoleGrantedForRelease(app)) {
       blockers.push('Parole must be granted before release can be authorized.');
     }
-    if (role === 'PNGCS Parole Clerk' && !requiredApprovalsComplete(app) && app.status !== 'Approved' && role !== 'System Administrator') {
+    if (role === 'CS Parole Clerk' && !requiredApprovalsComplete(app) && app.status !== 'Approved' && role !== 'System Administrator') {
       blockers.push('Required approval workflow must be completed before release.');
     }
     return blockers;
@@ -1511,9 +1667,9 @@ const PMSStorage = (() => {
     }
     const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'prisoner';
     const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'release', linkPanel: 'applications' };
-    notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Release Authorized', `${pName} released on parole from ${inst?.name || 'institution'}`, meta);
+    notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Release Authorized', `${pName} released on parole from ${inst?.name || 'institution'}`, meta);
     notifyRole('Jail Commander', 'Release Completed', `${pName} — release on parole recorded`, app.institutionId, app.prisonerId, actor.id, meta);
-    notifyRole('PNGCS Parole Clerk', 'Release Completed', `${pName} — release on parole recorded`, app.institutionId, app.prisonerId, actor.id, meta);
+    notifyRole('CS Parole Clerk', 'Release Completed', `${pName} — release on parole recorded`, app.institutionId, app.prisonerId, actor.id, meta);
     notifyRole('System Administrator', 'Release Authorized', `${app.caseNumber || appId}: ${pName} released on parole`, app.institutionId, app.prisonerId, null, meta);
     persist();
     return app;
@@ -1577,21 +1733,20 @@ const PMSStorage = (() => {
     let changed = false;
 
     const legacyCommander = data.users.find(
-      (u) => u.username?.toLowerCase() === 'commander@cs.gov.pg' || u.email?.toLowerCase() === 'commander@cs.gov.pg',
+      (u) => ['commander@cs.gov.pg', 'pkoroma@cs.gov.pg'].includes(u.username?.toLowerCase()),
     );
-    if (legacyCommander) {
-      legacyCommander.username = 'pkoroma@cs.gov.pg';
-      legacyCommander.email = 'pkoroma@cs.gov.pg';
-      if (DEMO_PASSWORDS['commander@cs.gov.pg']) {
-        DEMO_PASSWORDS['pkoroma@cs.gov.pg'] = DEMO_PASSWORDS['commander@cs.gov.pg'];
-        delete DEMO_PASSWORDS['commander@cs.gov.pg'];
+    if (legacyCommander && legacyCommander.username?.toLowerCase() !== 'p.koroma@cs.gov.pg') {
+      if (DEMO_PASSWORDS[legacyCommander.username] && !DEMO_PASSWORDS['p.koroma@cs.gov.pg']) {
+        DEMO_PASSWORDS['p.koroma@cs.gov.pg'] = DEMO_PASSWORDS[legacyCommander.username];
       }
+      legacyCommander.username = 'p.koroma@cs.gov.pg';
+      legacyCommander.email = 'p.koroma@cs.gov.pg';
       changed = true;
     }
 
     const commanderSeed = {
       id: 'USR-000028', officerId: 'OFF-000028', employeeNumber: 'EMP-000028',
-      username: 'pkoroma@cs.gov.pg', email: 'pkoroma@cs.gov.pg',
+      username: 'p.koroma@cs.gov.pg', email: 'p.koroma@cs.gov.pg',
       firstName: 'Peter', lastName: 'Koroma', role: 'Jail Commander', rank: 'Commander',
       institutionId: 'INS-000001', province: 'National Capital District',
       position: 'Jail Commander — Bomana', phone: '+675 7123 4600',
@@ -1623,7 +1778,7 @@ const PMSStorage = (() => {
     });
 
     const bomana = data.institutions?.find((i) => i.id === 'INS-000001');
-    const commander = data.users.find((u) => u.username === 'pkoroma@cs.gov.pg');
+    const commander = data.users.find((u) => u.username === 'p.koroma@cs.gov.pg');
     if (bomana && commander && bomana.commanderId !== commander.id) {
       bomana.commanderId = commander.id;
       changed = true;
@@ -1688,7 +1843,7 @@ const PMSStorage = (() => {
   function assertPrisonerModify(actor, prisoner = null) {
     if (typeof PMSRBAC === 'undefined' || !PMSRBAC.canModifyPrisoner(actor)) {
       logAccessDenied(actor, 'Prisoner', 'MODIFY', 'Unauthorized attempt to modify prisoner record');
-      const err = new Error('You do not have permission to modify prisoner records. Only PNGCS Parole Clerks may create, update, or delete prisoner data.');
+      const err = new Error('You do not have permission to modify prisoner records. Only CS Parole Clerks may create, update, or delete prisoner data.');
       err.code = 403;
       throw err;
     }
@@ -1727,7 +1882,7 @@ const PMSStorage = (() => {
     notifyRole('System Administrator', 'System Announcement', `System settings updated: ${label}`, null, null, null, {
       type: 'system', linkPanel: 'settings',
     });
-    notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'System Announcement', `System settings updated: ${label}`, { type: 'system' });
+    notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'System Announcement', `System settings updated: ${label}`, { type: 'system' });
     if (typeof PMSEligibility !== 'undefined') {
       PMSEligibility.syncAllPrisoners(actor, data.applications);
       syncParoleNotifications(actor);
@@ -1743,34 +1898,44 @@ const PMSStorage = (() => {
   function getUserByUsername(u) { return data?.users?.find((x) => x.username.toLowerCase() === u.toLowerCase()) || null; }
 
   function saveUser(user, actor) {
-    if (user.id) {
-      const idx = data.users.findIndex((u) => u.id === user.id);
+    let payload = { ...user };
+    if (!payload.id) {
+      if (!payload.username?.trim() && payload.firstName && payload.lastName && payload.role) {
+        payload.username = formatAgencyUsername(payload.firstName, payload.lastName, payload.role);
+      }
+      payload.email = payload.email?.trim() || payload.username;
+    }
+    payload = applyBoardMemberContract(payload);
+
+    if (payload.id) {
+      const idx = data.users.findIndex((u) => u.id === payload.id);
       if (idx < 0) throw new Error('User not found');
       const existing = data.users[idx];
-      const { id: _id, officerId: _oid, employeeNumber: _emp, ...updates } = user;
+      const { id: _id, officerId: _oid, employeeNumber: _emp, ...updates } = payload;
       data.users[idx] = { ...existing, ...updates, id: existing.id, officerId: existing.officerId, employeeNumber: existing.employeeNumber };
-      if (user.password) setUserPassword(data.users[idx].username, user.password);
+      if (payload.password) setUserPassword(data.users[idx].username, payload.password);
     } else {
-      const username = user.username.trim();
+      const username = payload.username.trim();
       if (data.users.some((u) => u.username.toLowerCase() === username.toLowerCase()))
         throw new Error('Username already exists');
       const id = generateId('user');
-      const role = user.role;
+      const role = payload.role;
       const officerId = PMSIdGenerator.isOfficerRole(role) ? generateId('officer') : null;
       const employeeNumber = PMSIdGenerator.isOfficerRole(role) ? generateId('employee') : null;
       data.users.push({
-        ...user,
+        ...payload,
         id,
         officerId,
         employeeNumber,
         username,
-        status: user.status || 'Active',
+        email: payload.email || username,
+        status: payload.status || 'Active',
       });
-      if (user.password) setUserPassword(username, user.password);
+      if (payload.password) setUserPassword(username, payload.password);
     }
-    const saved = user.id ? getUserById(user.id) : data.users.at(-1);
-    logAudit(actor, user.id ? 'UPDATE' : 'CREATE', 'User', saved.id, saved.username);
-    const userAction = user.id ? 'updated' : 'created';
+    const saved = payload.id ? getUserById(payload.id) : data.users.at(-1);
+    logAudit(actor, payload.id ? 'UPDATE' : 'CREATE', 'User', saved.id, saved.username);
+    const userAction = payload.id ? 'updated' : 'created';
     notifyRole('System Administrator', 'User Account Change', `User account ${userAction}: ${saved.username} (${saved.role})`, null, null, null, {
       type: 'user', linkPanel: 'users',
     });
@@ -1807,15 +1972,20 @@ const PMSStorage = (() => {
       logAudit(null, 'ACCESS_DENIED', 'Session', login, 'Account temporarily locked after failed login attempts', { denied: true });
       return null;
     }
-    const user = data.users.find((u) =>
+    let user = data.users.find((u) =>
       u.status === 'Active' && (u.username.toLowerCase() === login || u.email.toLowerCase() === login));
+    if (!user && LEGACY_USERNAME_MAP[login]) {
+      const mapped = LEGACY_USERNAME_MAP[login].toLowerCase();
+      user = data.users.find((u) =>
+        u.status === 'Active' && (u.username.toLowerCase() === mapped || u.email.toLowerCase() === mapped));
+    }
     if (!user) {
       recordLoginFailure(login);
       return null;
     }
     if (user.employmentStatus === 'Inactive' || user.accountStatus === 'Suspended' || user.accountStatus === 'Expired') return null;
     if (user.contractExpiryDate && user.contractExpiryDate < new Date().toISOString().slice(0, 10)) return null;
-    const expected = DEMO_PASSWORDS[user.username] || DEMO_PASSWORDS[login];
+    const expected = DEMO_PASSWORDS[user.username] || DEMO_PASSWORDS[login] || DEMO_PASSWORDS[LEGACY_USERNAME_MAP[login]];
     if (!expected || !verifyPassword(expected, password)) {
       recordLoginFailure(login);
       logAudit(null, 'ACCESS_DENIED', 'Session', user.id, `Failed login for ${user.username}`, { denied: true });
@@ -2063,7 +2233,7 @@ const PMSStorage = (() => {
     notifyRole('DJAG Parole Clerk', 'Document Uploaded', `${entry.name} attached to ${p.firstName} ${p.lastName}`, p.institutionId, prisonerId, null, {
       type: 'document', prisonerId, linkHref: `prisoner-profile.html?id=${encodeURIComponent(prisonerId)}`,
     });
-    notifyRole('PNGCS Parole Clerk', 'Document Uploaded', `${entry.name} attached to ${p.firstName} ${p.lastName}`, p.institutionId, prisonerId, null, {
+    notifyRole('CS Parole Clerk', 'Document Uploaded', `${entry.name} attached to ${p.firstName} ${p.lastName}`, p.institutionId, prisonerId, null, {
       type: 'document', prisonerId, linkHref: `prisoner-profile.html?id=${encodeURIComponent(prisonerId)}`,
     });
     persist();
@@ -2176,8 +2346,8 @@ const PMSStorage = (() => {
 
     if (supervisorReview) {
       const role = PMSRBAC.normalizeRole(actor.role);
-      if (!['PNGCS Parole Clerk', 'System Administrator'].includes(role)) {
-        throw new Error('Only a PNGCS Parole Clerk or System Administrator may record supervisory review.');
+      if (!['CS Parole Clerk', 'System Administrator'].includes(role)) {
+        throw new Error('Only a CS Parole Clerk or System Administrator may record supervisory review.');
       }
       if (existing.status !== 'submitted') {
         throw new Error('Supervisory review requires a submitted Form 1.');
@@ -2218,7 +2388,7 @@ const PMSStorage = (() => {
       logAudit(actor, 'SUBMIT', 'Form', merged.formId || `${appId}-form1`, 'Form 1 — Parole Eligibility Screening submitted', {
         newValues: { prisonerId: prisoner.id, applicationId: appId, eligibilityOutcome: merged.eligibilityOutcome },
       });
-      notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Form 1 Submitted', `Form 1 submitted for ${prisoner.firstName} ${prisoner.lastName}`, {
+      notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Form 1 Submitted', `Form 1 submitted for ${prisoner.firstName} ${prisoner.lastName}`, {
         applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'form1', linkPanel: 'applications',
       });
       applyPrisonerEligibility(prisoner, actor);
@@ -2321,7 +2491,7 @@ const PMSStorage = (() => {
       }
       notifyInstitutionRoles(
         app.institutionId,
-        ['Jail Commander', 'PNGCS Parole Clerk'],
+        ['Jail Commander', 'CS Parole Clerk'],
         'Verification Required',
         `Form 3 complete — institutional verification pending for ${pName}`,
         { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'verification', linkPanel: 'verification' }
@@ -2365,7 +2535,7 @@ const PMSStorage = (() => {
     if (toStatus === 'Pending Commander Review') {
       notifyInstitutionRoles(
         app.institutionId,
-        ['PNGCS Parole Clerk', 'Jail Commander'],
+        ['CS Parole Clerk', 'Jail Commander'],
         'Institutional Verification Required',
         `Form 3 and case verification required for ${pName}`,
         { ...appMeta, type: 'verification', linkPanel: 'verification' }
@@ -2374,27 +2544,27 @@ const PMSStorage = (() => {
     if (toStatus === 'Returned for Correction') {
       notifyInstitutionRoles(
         app.institutionId,
-        ['PNGCS Parole Clerk', 'CS Parole Officer'],
+        ['CS Parole Clerk', 'CS Parole Officer'],
         'Application Returned',
         notes || 'Application returned for correction',
         { ...appMeta, type: 'returned' }
       );
     }
     if (toStatus === 'Under DJAG Review') {
-      notifyRole('PNGCS Parole Clerk', 'Application Under Review', `Application for ${pName} is under DJAG review`, app.institutionId, app.prisonerId, null, appMeta);
+      notifyRole('CS Parole Clerk', 'Application Under Review', `Application for ${pName} is under DJAG review`, app.institutionId, app.prisonerId, null, appMeta);
     }
     if (toStatus === 'Pre-Parole Report Prepared') {
-      notifyRole('Parole Board Member', 'Pre-Parole Report Ready', `Pre-parole report prepared for ${pName}`, app.institutionId, app.prisonerId, null, appMeta);
+      notifyRoles(['Doctor', 'CS Commissioner', 'DJAG Secretary'], 'Pre-Parole Report Ready', `Pre-parole report prepared for ${pName}`, appMeta);
     }
     if (toStatus === 'Hearing Scheduled') {
-      notifyRoles(['Parole Board Member', 'PNGCS Parole Clerk', 'DJAG Parole Clerk', 'DJAG Secretary'], 'Hearing Scheduled',
+      notifyRoles(['Doctor', 'CS Commissioner', 'DJAG Secretary', 'CS Parole Clerk', 'DJAG Parole Clerk'], 'Hearing Scheduled',
         `Parole hearing scheduled for ${pName}`, { ...appMeta, type: 'hearing', linkPanel: 'hearings' });
     }
     if (toStatus === 'Pending Board Review') {
-      notifyRole('Parole Board Member', 'Application Ready for Board', `Application ready for board review: ${pName}`, app.institutionId, app.prisonerId, null, appMeta);
+      notifyRoles(['Doctor', 'CS Commissioner', 'DJAG Secretary'], 'Application Ready for Board', `Application ready for board review: ${pName}`, appMeta);
     }
     if (toStatus === 'Approved') {
-      notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Application Approved', `Parole application approved for ${pName}`, appMeta);
+      notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Application Approved', `Parole application approved for ${pName}`, appMeta);
       notifyInstitutionRoles(
         app.institutionId,
         ['Jail Commander'],
@@ -2404,19 +2574,19 @@ const PMSStorage = (() => {
       );
     }
     if (toStatus === 'Refused') {
-      notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Application Refused', notes || `Parole application refused for ${pName}`, appMeta);
+      notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Application Refused', notes || `Parole application refused for ${pName}`, appMeta);
     }
     if (toStatus === 'Pending Approval') {
-      notifyRoles(['Parole Board Member', 'PNGCS Parole Clerk'], 'Approval Required', `Final approval required for ${pName}`, { ...appMeta, type: 'approval' });
+      notifyRoles(['DJAG Secretary', 'CS Parole Clerk'], 'Approval Required', `Final approval required for ${pName}`, { ...appMeta, type: 'approval' });
     }
     if (toStatus === 'Parole Granted') {
-      notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Decision Available', `Parole granted for ${pName}`, appMeta);
+      notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Decision Available', `Parole granted for ${pName}`, appMeta);
     }
     if (toStatus === 'Released') {
-      notifyRoles(['System Administrator', 'PNGCS Parole Clerk'], 'Release Recorded', `${pName} release on parole recorded`, appMeta);
+      notifyRoles(['System Administrator', 'CS Parole Clerk'], 'Release Recorded', `${pName} release on parole recorded`, appMeta);
     }
     if (toStatus === 'Deferred') {
-      notifyRoles(['PNGCS Parole Clerk', 'DJAG Parole Clerk'], 'Decision Deferred', notes || `Parole decision deferred for ${pName}`, appMeta);
+      notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Decision Deferred', notes || `Parole decision deferred for ${pName}`, appMeta);
     }
     if (prisoner) applyPrisonerEligibility(prisoner, actor);
     persist();
@@ -2566,7 +2736,7 @@ const PMSStorage = (() => {
     };
     if (schedulingAction && saved.status !== 'Cancelled') {
       notifyRoles(
-        ['DJAG Parole Clerk', 'Parole Board Member', 'Doctor', 'CS Commissioner'],
+        ['DJAG Parole Clerk', 'Doctor', 'CS Commissioner', 'DJAG Secretary'],
         title,
         msg,
         hearingMeta,
@@ -2574,7 +2744,7 @@ const PMSStorage = (() => {
       if (p?.institutionId) {
         notifyInstitutionRoles(
           p.institutionId,
-          ['PNGCS Parole Clerk', 'Jail Commander', 'CS Parole Officer'],
+          ['CS Parole Clerk', 'Jail Commander', 'CS Parole Officer'],
           title,
           msg,
           hearingMeta,
@@ -2582,7 +2752,7 @@ const PMSStorage = (() => {
       }
     } else if (saved.status === 'Cancelled') {
       notifyRoles(
-        ['DJAG Parole Clerk', 'Parole Board Member', 'Doctor', 'CS Commissioner'],
+        ['DJAG Parole Clerk', 'Doctor', 'CS Commissioner', 'DJAG Secretary'],
         'Hearing Cancelled',
         `Parole hearing for ${pName} on ${dateLabel} was cancelled.`,
         hearingMeta,
@@ -2590,7 +2760,7 @@ const PMSStorage = (() => {
       if (p?.institutionId) {
         notifyInstitutionRoles(
           p.institutionId,
-          ['PNGCS Parole Clerk', 'Jail Commander'],
+          ['CS Parole Clerk', 'Jail Commander'],
           'Hearing Cancelled',
           `Parole hearing for ${pName} on ${dateLabel} was cancelled.`,
           hearingMeta,
@@ -2628,6 +2798,16 @@ const PMSStorage = (() => {
 
   function migrateNotifications() {
     if (!data.notifications) data.notifications = [];
+    const secretaryNotifs = [
+      { id: 'NOT-000005', type: 'hearing', title: 'Schedule Hearing Required', message: 'Case PMS-2026-000004 (Sarah Tekate) requires a parole hearing within 14 days of Form 3 verification.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'hearings', read: false, resolved: false, createdAt: '2026-07-15T08:00:00.000Z', dedupeKey: 'hearing:APP-000004:DJAG Secretary:Schedule Hearing Required' },
+      { id: 'NOT-000006', type: 'board_review', title: 'Submit Board Assessment', message: 'Parole hearing scheduled for Paul Kaupa (PMS-2026-000001) — submit your Approve, Deny, or Defer vote when ready.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000001', applicationId: 'APP-000001', linkPanel: 'decisions', read: false, resolved: false, createdAt: '2026-06-20T09:00:00.000Z', dedupeKey: 'board_review:APP-000001:DJAG Secretary:Submit Board Assessment' },
+      { id: 'NOT-000007', type: 'verification', title: 'Institutional Verification Required', message: 'Peter Wama (PMS-2026-000002) — Forms 1–3 complete. Review and verify the case package.', recipientRole: 'Jail Commander', recipientUserId: 'USR-000028', institutionId: 'INS-000001', prisonerId: 'PR-000002', applicationId: 'APP-000002', linkPanel: 'verification', read: false, resolved: false, createdAt: '2026-08-10T15:00:00.000Z', dedupeKey: 'verification:APP-000002:Jail Commander:Institutional Verification Required' },
+    ];
+    secretaryNotifs.forEach((seed) => {
+      if (!data.notifications.some((n) => n.id === seed.id || n.dedupeKey === seed.dedupeKey)) {
+        data.notifications.push(seed);
+      }
+    });
     const seen = new Set();
     data.notifications = data.notifications.filter((n) => {
       if (!n.dedupeKey) {
@@ -2716,7 +2896,7 @@ const PMSStorage = (() => {
       notifyRole('System Administrator', 'Parole Eligibility Alert', msg, p.institutionId, p.id, null, eligMeta);
       notifyInstitutionRoles(
         p.institutionId,
-        ['PNGCS Parole Clerk', 'CS Parole Officer'],
+        ['CS Parole Clerk', 'CS Parole Officer'],
         'Parole Eligibility Alert',
         msg,
         eligMeta
@@ -2757,7 +2937,7 @@ const PMSStorage = (() => {
       return `?panel=hearings&hearing=${encodeURIComponent(h.id)}`;
     }
 
-    const boardRoles = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
+    const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
     const globalHearingRoles = ['System Administrator', 'DJAG Parole Clerk', 'DJAG Secretary'];
     const canSeeAllHearings = globalHearingRoles.includes(role) || role === 'System Administrator';
 
@@ -2805,7 +2985,7 @@ const PMSStorage = (() => {
       });
     });
 
-    const scopeInst = ['PNGCS Parole Clerk', 'CS Parole Officer'].includes(role) ? user.institutionId : null;
+    const scopeInst = ['CS Parole Clerk', 'CS Parole Officer'].includes(role) ? user.institutionId : null;
     getEscalations(scopeInst || null).forEach((e, idx) => {
       let apps = getParoleApplications();
       if (scopeInst) apps = apps.filter((a) => a.institutionId === scopeInst);
@@ -2846,7 +3026,7 @@ const PMSStorage = (() => {
   function getNotificationsForUser(user) {
     if (!user) return [];
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(user.role) : user.role;
-    const INSTITUTION_SCOPED = ['PNGCS Parole Clerk', 'CS Parole Officer', 'Jail Commander'];
+    const INSTITUTION_SCOPED = ['CS Parole Clerk', 'CS Parole Officer', 'Jail Commander'];
     return data.notifications.filter((n) => {
       const nRole = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(n.recipientRole) : n.recipientRole;
       if (nRole !== role) return false;
@@ -2965,13 +3145,13 @@ const PMSStorage = (() => {
     const pendingNotifications = data.notifications.filter((n) => !n.read && !n.resolved).length;
     const hearings = getHearings();
     const users = data.users || [];
-    const boardRoles = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
+    const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
     const granted = apps.filter((a) => a.status === 'Approved' || a.status === 'Parole Granted' || a.formData?.form4?.status === 'Parole Granted').length;
     const refused = apps.filter((a) => ['Refused', 'Parole Refused'].includes(a.status) || a.formData?.form5?.status === 'Parole Refused').length;
     return {
       totalUsers: data.users.length,
       totalStaff: data.users.filter((u) => u.role !== 'System Administrator').length,
-      totalOfficers: data.users.filter((u) => ['PNGCS Parole Clerk', 'CS Parole Officer', 'Jail Commander'].includes(u.role)).length,
+      totalOfficers: data.users.filter((u) => ['CS Parole Clerk', 'CS Parole Officer', 'Jail Commander'].includes(u.role)).length,
       totalPrisoners: prisoners.length,
       totalInstitutions: data.institutions.length,
       totalParoleCases: apps.length,
@@ -3012,7 +3192,7 @@ const PMSStorage = (() => {
     assignJailCommander, saveInstitution, deleteInstitution, getOfficersByInstitution,
     getPrisoners, getPrisonerById, getSentenceDurationMonths, getParoleEligibilityDate, getPrisonerProgress,
     savePrisoner, deletePrisoner, addPrisonerDocument, removePrisonerDocument, addCaseDocument, getCaseDocuments,
-    DOCUMENT_CATEGORIES, BOARD_CONTRACT_YEARS,
+    formatAgencyUsername, agencyDomainForRole, applyBoardMemberContract, BOARD_CONTRACT_YEARS,
     getParoleApplications, getApplicationById, saveParoleApplication, uploadApplicationForm,
     verifyApplicationForm, submitApplicationToDJAG, createEmptyForms, createEmptyFormData,
     saveFormData, saveForm1Screening, saveForm2Section, getOrCreateDraftApplication, isForm1Complete, isForm2Complete, needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm4Complete, isForm5Complete,

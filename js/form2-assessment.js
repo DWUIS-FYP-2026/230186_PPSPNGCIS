@@ -840,7 +840,7 @@ const PMSForm2Assessment = (() => {
       : ['DJAG Parole Clerk', 'System Administrator'].includes(role);
     canEditDar = typeof PMSRBAC !== 'undefined'
       ? PMSRBAC.canEditForm2Section(actor, 'ddr')
-      : ['PNGCS Parole Clerk', 'System Administrator'].includes(role);
+      : ['CS Parole Clerk', 'System Administrator'].includes(role);
 
     if (['Approved', 'Refused', 'Released'].includes(app.status)) {
       showToast(`This case is already ${app.status.toLowerCase()}. Form 2 changes are saved for the record only.`, 'warning');
@@ -877,7 +877,7 @@ const PMSForm2Assessment = (() => {
 
   async function init() {
     await PMSStorage.ensureLoaded();
-    actor = PMSAuth.requireRole(['PNGCS Parole Clerk', 'CS Parole Officer', 'DJAG Parole Clerk', 'System Administrator']);
+    actor = PMSAuth.requireRole(['CS Parole Clerk', 'CS Parole Officer', 'DJAG Parole Clerk', 'System Administrator']);
     if (!actor) return;
 
     const params = new URLSearchParams(window.location.search);

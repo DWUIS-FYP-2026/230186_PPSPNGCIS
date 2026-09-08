@@ -7,7 +7,7 @@ const PMSForm4Grant = (() => {
 
   async function init() {
     await PMSStorage.ensureLoaded();
-    const actor = PMSAuth.requireRole(['Parole Board Member', 'DJAG Parole Clerk', 'System Administrator']);
+    const actor = PMSAuth.requireRole(['DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator']);
     if (!actor) return;
 
     const wf = PMSFormWorkflow.initPage(4);

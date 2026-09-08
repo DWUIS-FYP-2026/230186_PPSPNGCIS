@@ -8,13 +8,12 @@ const PMSSidebar = (() => {
   const ROLE_BRAND = {
     'System Administrator': { logo: 'images/PNG CS Logo.jpg', subtitle: 'System Administrator', wide: false },
     'CS Parole Officer': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Parole Officer', wide: false },
-    'PNGCS Parole Clerk': { logo: 'images/PNG CS Logo.jpg', subtitle: 'PNGCS Parole Clerk', wide: false },
+    'CS Parole Clerk': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Parole Clerk', wide: false },
     'Jail Commander': { logo: 'images/PNG CS Logo.jpg', subtitle: 'Jail Commander', wide: false },
     'DJAG Parole Clerk': { logo: 'images/djag.png', subtitle: 'DJAG Parole Clerk', wide: true },
-    'DJAG Secretary': { logo: 'images/djag.png', subtitle: 'DJAG Secretary', wide: true },
+    'DJAG Secretary': { logo: 'images/djag.png', subtitle: 'DJAG Secretary · Board Chair', wide: true },
     'Doctor': { logo: 'images/djag.png', subtitle: 'Board Medical Assessor', wide: true },
-    'CS Commissioner': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Commissioner', wide: false },
-    'Parole Board Member': { logo: 'images/djag.png', subtitle: 'Parole Board', wide: true },
+    'CS Commissioner': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Commissioner · Board Member', wide: false },
   };
 
   /** Menu sections for grouped navigation */
@@ -29,7 +28,7 @@ const PMSSidebar = (() => {
       { label: 'Reports & Analytics', ids: ['reports', 'analytics', 'audit'] },
       { label: 'Administration', ids: ['users', 'board-members', 'institutions', 'settings', 'profile'] },
     ],
-    'PNGCS Parole Clerk': [
+    'CS Parole Clerk': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1', 'form2', 'form3'] },
       { label: 'Prisoners', ids: ['prisoners'] },
@@ -58,8 +57,8 @@ const PMSSidebar = (() => {
     ],
     'DJAG Secretary': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings'] },
-      { label: 'Board', ids: ['decisions'] },
+      { label: 'Hearings', ids: ['hearing-portal', 'hearings', 'applications'] },
+      { label: 'Board', ids: ['decisions', 'form4', 'form5'] },
       { label: 'Operations', ids: ['notifications', 'profile'] },
     ],
     'Doctor': [
@@ -72,12 +71,6 @@ const PMSSidebar = (() => {
     'CS Commissioner': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Board', ids: ['hearing-portal', 'decisions'] },
-      { label: 'Reports', ids: ['reports', 'notifications', 'profile'] },
-    ],
-    'Parole Board Member': [
-      { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Parole Management', ids: ['applications', 'form4', 'form5'] },
-      { label: 'Board', ids: ['hearing-portal', 'prisoners', 'hearings', 'decisions', 'history'] },
       { label: 'Reports', ids: ['reports', 'notifications', 'profile'] },
     ],
   };
@@ -108,7 +101,7 @@ const PMSSidebar = (() => {
       { id: 'settings', module: 'settings', panel: 'settings', label: 'System Settings', icon: 'fi fi-rr-settings' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
-    'PNGCS Parole Clerk': [
+    'CS Parole Clerk': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
       { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
@@ -147,7 +140,10 @@ const PMSSidebar = (() => {
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Assessments', icon: 'fi fi-rr-gavel' },
+      { id: 'applications', module: 'applications', panel: 'applications', label: 'Schedule Hearings', icon: 'fi fi-rr-hourglass-end' },
+      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
+      { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'My Board Assessment', icon: 'fi fi-rr-gavel' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
@@ -166,20 +162,6 @@ const PMSSidebar = (() => {
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
       { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Commissioner Assessments', icon: 'fi fi-rr-gavel' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
-      { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
-    ],
-    'Parole Board Member': [
-      { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
-      { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
-      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
-      { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
-      { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Schedule', icon: 'fi fi-rr-calendar' },
-      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Decisions', icon: 'fi fi-rr-gavel' },
-      { id: 'history', module: 'history', panel: 'history', label: 'Decision History', icon: 'fi fi-rr-time-past' },
-      { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],

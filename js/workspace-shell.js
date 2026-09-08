@@ -5,7 +5,7 @@
 const PMSWorkspace = (() => {
   const ROLE_THEME = {
     'System Administrator': 'theme-admin',
-    'PNGCS Parole Clerk': 'theme-corrections',
+    'CS Parole Clerk': 'theme-corrections',
     'CS Parole Officer': 'theme-corrections',
     'Jail Commander': 'theme-corrections',
     'DJAG Parole Clerk': 'theme-djag',

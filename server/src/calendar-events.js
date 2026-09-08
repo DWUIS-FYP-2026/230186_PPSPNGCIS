@@ -3,8 +3,8 @@ const { loadAll } = require('./db-sync');
 function normalizeRole(role) {
   const map = {
     Admin: 'System Administrator',
-    'CS Parole Clerk': 'PNGCS Parole Clerk',
-    'Board Member': 'Parole Board Member',
+    'CS Parole Clerk': 'CS Parole Clerk',
+    'Board Member': 'DJAG Secretary',
     Secretariat: 'DJAG Parole Clerk',
   };
   return map[role] || role;
@@ -28,12 +28,12 @@ function buildEventsForUser(user, data) {
     events.push(evt);
   }
 
-  const boardRoles = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
+  const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const globalRoles = ['System Administrator', 'DJAG Parole Clerk', 'DJAG Secretary'];
   const canSeeAll = globalRoles.includes(role);
 
   let hearings = (data.hearings || []).filter((h) => !['Cancelled', 'Completed'].includes(h.status));
-  if (['PNGCS Parole Clerk', 'CS Parole Officer'].includes(role) && user.institutionId) {
+  if (['CS Parole Clerk', 'CS Parole Officer'].includes(role) && user.institutionId) {
     hearings = hearings.filter((h) => h.institutionId === user.institutionId);
   }
   if (boardRoles.includes(role) && !canSeeAll) {
@@ -57,7 +57,7 @@ function buildEventsForUser(user, data) {
     const nRole = normalizeRole(n.recipientRole);
     if (nRole !== role) return;
     if (n.recipientUserId && n.recipientUserId !== user.id) return;
-    if (user.institutionId && ['PNGCS Parole Clerk', 'CS Parole Officer'].includes(role)
+    if (user.institutionId && ['CS Parole Clerk', 'CS Parole Officer'].includes(role)
       && n.institutionId && n.institutionId !== user.institutionId) return;
     const date = String(n.eligibleDate || n.createdAt || '').slice(0, 10);
     if (!date) return;

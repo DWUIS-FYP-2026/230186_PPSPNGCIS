@@ -34,7 +34,7 @@ const BOARD_COMPOSITION = Object.freeze([
 ]);
 
 const ROLES = Object.freeze({
-  CS_PAROLE_CLERK: 'PNGCS Parole Clerk',
+  CS_PAROLE_CLERK: 'CS Parole Clerk',
   CS_OFFICER: 'CS Parole Officer',
   PROBATION_OFFICER: 'DJAG Parole Clerk',
   CHAIRMAN: 'DJAG Secretary',

@@ -243,7 +243,19 @@ const PMSUI = (() => {
     }
     const dash = (typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(user.role) : null)
       || window.location.pathname.split('/').pop();
+    const canSchedule = typeof PMSRBAC !== 'undefined'
+      ? PMSRBAC.canScheduleHearing(user)
+      : user?.role === 'DJAG Secretary';
+    if (n.applicationId && canSchedule && (n.type === 'hearing' || n.type === 'escalation' || n.type === 'deadline' || n.linkPanel === 'hearings')) {
+      return `forms/hearing-portal.html?appId=${encodeURIComponent(n.applicationId)}`;
+    }
+    if (n.type === 'verification' && n.applicationId && user?.role === 'Jail Commander') {
+      return `${dash}?panel=verification&app=${encodeURIComponent(n.applicationId)}`;
+    }
     if (n.type === 'board_review' && n.applicationId) {
+      if (n.linkPanel === 'decisions') {
+        return `${dash}?panel=decisions&navId=decisions`;
+      }
       return `forms/hearing-portal.html?appId=${encodeURIComponent(n.applicationId)}`;
     }
     if (n.applicationId) return `${dash}?panel=applications&app=${encodeURIComponent(n.applicationId)}`;

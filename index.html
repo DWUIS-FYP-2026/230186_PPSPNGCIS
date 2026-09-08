@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
+  <link rel="icon" type="image/jpeg" href="images/djag_logo.jpg">
   <title>Parole Management System — PNG Correctional Service &amp; DJAG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,7 +46,7 @@
       position: fixed;
       inset: 0;
       z-index: -2;
-      background: var(--lp-bg) url('images/login background.png') center/cover no-repeat;
+      background: var(--lp-bg);
     }
 
     .lp-bg::after {
@@ -59,8 +59,11 @@
     .lp-bg-image {
       position: absolute;
       inset: 0;
-      background: url('images/login background.png') center/cover no-repeat;
-      opacity: 0.15;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(26, 107, 60, 0.08), transparent),
+        radial-gradient(ellipse 70% 50% at 85% 90%, rgba(13, 43, 78, 0.1), transparent),
+        linear-gradient(165deg, #e8eef5 0%, var(--lp-bg) 45%, #eef2f7 100%);
+      opacity: 1;
     }
 
     /* ---- Header ---- */
@@ -830,7 +833,7 @@
       <a href="#home" class="lp-brand" aria-label="Parole Management System home">
         <div class="lp-brand__logos">
           <div class="lp-logo-badge lp-logo-badge--pngcs">
-            <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service logo">
+            <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service logo" data-pms-logo-fallback="images/djag_logo.jpg">
           </div>
           <span class="lp-logo-divider" aria-hidden="true"></span>
           <div class="lp-logo-badge lp-logo-badge--djag">
@@ -908,7 +911,7 @@
         <div class="lp-agency-grid">
           <article class="lp-agency-card lp-agency-card--pngcs">
             <div class="lp-agency-card__head">
-              <img src="images/PNG CS Logo.jpg" alt="">
+              <img src="images/PNG CS Logo.jpg" alt="" data-pms-logo-fallback="images/djag_logo.jpg">
               <div>
                 <h3>PNG Correctional Service</h3>
                 <span class="lp-tag lp-tag--pngcs">PNGCS</span>
@@ -984,7 +987,7 @@
             <span class="lp-step-num" aria-hidden="true">4</span>
             <div>
               <strong>Parole Board — Hearing &amp; Decision</strong>
-              <p>Board members deliberate and record approved, deferred, or refused outcomes.</p>
+              <p>The DJAG Secretary, CS Commissioner, and Doctor evaluate the parolee and record approved, deferred, or refused outcomes.</p>
             </div>
           </li>
         </ol>
@@ -1029,7 +1032,7 @@
     <div class="lp-modal__card">
       <button type="button" class="lp-modal__close" id="home-login-close" aria-label="Close sign in dialog">&times;</button>
       <div class="lp-modal__logos">
-        <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service">
+        <img src="images/PNG CS Logo.jpg" alt="PNG Correctional Service" data-pms-logo-fallback="images/djag_logo.jpg">
         <span aria-hidden="true"></span>
         <img src="images/djag_logo.jpg" alt="DJAG">
       </div>
@@ -1070,8 +1073,10 @@
   <div class="lp-toast-wrap" id="lp-toast-wrap" aria-live="polite" aria-atomic="true"></div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/pms-brand.js"></script>
   <script>
     lucide.createIcons();
+    if (typeof PMSBrand !== 'undefined') PMSBrand.wireLogoFallbacks();
 
     (function landingPage() {
       const nav = document.getElementById('lp-nav');

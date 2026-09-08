@@ -2,7 +2,7 @@
 
   await PMSStorage.ensureLoaded();
 
-  const actor = PMSAuth.requireRole(['PNGCS Parole Clerk']);
+  const actor = PMSAuth.requireRole(['CS Parole Clerk']);
 
   if (!actor) return;
 
@@ -10,7 +10,7 @@
 
   if (!PMSRBAC.canModifyPrisoner(actor)) {
 
-    PMSAuth.redirectAccessDenied('Only PNGCS Parole Clerks may create or modify prisoner records.');
+    PMSAuth.redirectAccessDenied('Only CS Parole Clerks may create or modify prisoner records.');
 
     return;
 

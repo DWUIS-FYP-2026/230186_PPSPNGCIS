@@ -320,20 +320,35 @@ async function syncMissingSeedUsers() {
     const ids = new Set(existingUsers.map((u) => u.id));
     const usernames = new Set(existingUsers.map((u) => u.username.toLowerCase()));
 
-    await conn.execute(
-      'UPDATE users SET username = ?, email = ? WHERE LOWER(username) = ? OR LOWER(email) = ?',
-      ['pkoroma@cs.gov.pg', 'pkoroma@cs.gov.pg', 'commander@cs.gov.pg', 'commander@cs.gov.pg'],
-    ).catch(() => {});
+    const LEGACY_USERNAME_MAP = {
+      'john.dole@cs.gov.pg': 'j.dole@cs.gov.pg',
+      'mary.kila@djag.gov.pg': 'm.kila@djag.gov.pg',
+      'officer.tau@cs.gov.pg': 's.tau@cs.gov.pg',
+      'secretary.morris@djag.gov.pg': 'h.morris@djag.gov.pg',
+      'dr.sine@health.gov.pg': 'r.sine@health.gov.pg',
+      'commissioner.bain@cs.gov.pg': 't.bain@cs.gov.pg',
+      'pkoroma@cs.gov.pg': 'p.koroma@cs.gov.pg',
+      'commander@cs.gov.pg': 'p.koroma@cs.gov.pg',
+    };
 
-    const [legacyCreds] = await conn.execute(
-      'SELECT username FROM user_credentials WHERE LOWER(username) = ?',
-      ['commander@cs.gov.pg'],
-    );
-    if (legacyCreds.length) {
+    for (const [legacy, canonical] of Object.entries(LEGACY_USERNAME_MAP)) {
+      await conn.execute(
+        'UPDATE users SET username = ?, email = ? WHERE LOWER(username) = ? OR LOWER(email) = ?',
+        [canonical, canonical, legacy, legacy],
+      ).catch(() => {});
       await conn.execute(
         'UPDATE user_credentials SET username = ? WHERE LOWER(username) = ?',
-        ['pkoroma@cs.gov.pg', 'commander@cs.gov.pg'],
-      );
+        [canonical, legacy],
+      ).catch(() => {});
+    }
+
+    const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
+    for (const user of seed.users.filter((u) => boardRoles.includes(u.role))) {
+      await conn.execute(
+        `UPDATE users SET contract_start_date = ?, contract_expiry_date = ?, contract_status = 'Active'
+         WHERE id = ?`,
+        [user.contractStartDate, user.contractExpiryDate, user.id],
+      ).catch(() => {});
     }
 
     let added = 0;
@@ -362,15 +377,15 @@ async function syncMissingSeedUsers() {
       added += 1;
     }
 
-    const pkoroma = seed.users.find((u) => u.username === 'pkoroma@cs.gov.pg');
-    if (pkoroma) {
+    const commander = seed.users.find((u) => u.username === 'p.koroma@cs.gov.pg');
+    if (commander) {
       await conn.execute(
         'INSERT INTO user_credentials (username, password) VALUES (?, ?) ON DUPLICATE KEY UPDATE password = VALUES(password)',
-        [pkoroma.username, demoPasswords[pkoroma.username] || 'Password123!'],
+        [commander.username, demoPasswords[commander.username] || 'Password123!'],
       );
       await conn.execute(
         'UPDATE institutions SET commander_id = ? WHERE id = ?',
-        [pkoroma.id, 'INS-000001'],
+        [commander.id, 'INS-000001'],
       );
     }
 

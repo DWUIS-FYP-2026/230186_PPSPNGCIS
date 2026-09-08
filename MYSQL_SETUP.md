@@ -103,8 +103,14 @@ SESSION_TTL_HOURS=8
 | Role | Username | Password |
 |------|----------|----------|
 | System Administrator | admin | admin123 |
-| PNGCS Parole Clerk | john.dole@cs.gov.pg | Password123! |
-| Jail Commander (Bomana) | pkoroma@cs.gov.pg | Password123! |
+| CS Parole Clerk | j.dole@cs.gov.pg | Password123! |
+| DJAG Parole Clerk | m.kila@djag.gov.pg | Password123! |
+| DJAG Secretary (Board) | h.morris@djag.gov.pg | Password123! |
+| CS Commissioner (Board) | t.bain@cs.gov.pg | Password123! |
+| Doctor (Board) | r.sine@health.gov.pg | Password123! |
+| Jail Commander (Bomana) | p.koroma@cs.gov.pg | Password123! |
+
+Board member accounts include a **5-year contract** (`contractStartDate` → `contractExpiryDate`). Expired contracts are deactivated automatically on login.
 
 ## Verify in MySQL Workbench
 

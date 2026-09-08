@@ -335,7 +335,7 @@ const PMSFormWorkflow = (() => {
     if (!user) return false;
     return [
       'DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator',
-      'Parole Board Member', 'Doctor', 'CS Commissioner',
+      'Doctor', 'CS Commissioner',
     ].includes(user.role);
   }
 
@@ -479,7 +479,7 @@ const PMSFormWorkflow = (() => {
       <div class="wf-gate__panel" role="dialog">
         <h2>Form Locked</h2>
         <p>${blocker?.key === 'board'
-          ? `All four board members must submit their Approve, Deny, or Defer votes before <strong>${def?.title || 'this form'}</strong> can be opened.`
+          ? `All three board members (DJAG Secretary, CS Commissioner, and Doctor) must submit their Approve, Deny, or Defer votes before <strong>${def?.title || 'this form'}</strong> can be opened.`
           : `Complete <strong>${blocker?.title || 'the previous form'}</strong> before accessing <strong>${def?.title || 'this form'}</strong>.`}</p>
         <div class="wf-gate__actions">
           ${blocker?.key === 'board' ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-hearing">Open Hearing Portal</button>` : ''}

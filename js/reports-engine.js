@@ -296,7 +296,7 @@ const PMSReports = (() => {
       case 'board_member':
       case 'contract_expiry':
         headers.push('Name', 'Role', 'Position', 'Contract Expiry', 'Status');
-        users.filter((u) => ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(u.role))
+        users.filter((u) => ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(u.role))
           .filter((u) => reportType !== 'contract_expiry' || ['Approaching Expiry', 'Expired'].includes(u.contractStatus))
           .forEach((u) => rows.push([`${u.firstName} ${u.lastName}`, u.role, u.boardPosition || u.position || '—', fmtDate(u.contractExpiryDate), u.contractStatus || u.status]));
         break;

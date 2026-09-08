@@ -3,14 +3,16 @@ const { query } = require('./db');
 const config = require('./config');
 const { mapUserRow, toMysqlDatetime } = require('./mappers');
 
-const PRISONER_MODIFY_ROLES = ['PNGCS Parole Clerk', 'CS Parole Clerk'];
+const PRISONER_MODIFY_ROLES = ['CS Parole Clerk'];
 const ADMIN_ROLES = ['System Administrator', 'Admin'];
 
 function normalizeRole(role) {
   const map = {
     Admin: 'System Administrator',
-    'CS Parole Clerk': 'PNGCS Parole Clerk',
-    'Board Member': 'Parole Board Member',
+    'PNGCS Parole Clerk': 'CS Parole Clerk',
+    'PNG Parole Clerk': 'CS Parole Clerk',
+    'Parole Board Member': 'DJAG Secretary',
+    'Board Member': 'DJAG Secretary',
     Secretariat: 'DJAG Parole Clerk',
   };
   return map[role] || role;

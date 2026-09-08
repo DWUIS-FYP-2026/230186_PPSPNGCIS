@@ -148,6 +148,10 @@
             <label for="assessment-feedback">Comments / feedback</label>
             <textarea id="assessment-feedback" rows="3" placeholder="Optional notes supporting your score…"></textarea>
             <div class="assessor-form-status" id="assessor-form-status" hidden></div>
+            <div class="action-buttons assessor-form-actions">
+              <button type="button" class="btn btn-secondary" id="btn-save-assessment">Save Decision</button>
+              <button type="button" class="btn btn-success" id="btn-record-decision">Submit My Vote</button>
+            </div>
           </div>
           <div id="chair-decision-form">
           <label class="section-title" id="decision-form-title">Record Decision</label>
@@ -162,7 +166,7 @@
           <label>Parole Conditions <span class="hint">(if approved)</span></label>
           <textarea id="hearing-conditions" placeholder="Conditions of parole if approved…"></textarea>
           <div class="action-buttons">
-            <button type="button" class="btn btn-success" id="btn-record-decision">Record Decision</button>
+            <button type="button" class="btn btn-success" id="btn-record-final-decision">Record Final Decision</button>
             <button type="button" class="btn btn-secondary" id="btn-open-form">Generate Form 4/5</button>
             <button type="button" class="btn btn-outline" id="btn-reset-decision">Reset</button>
           </div>

@@ -70,7 +70,7 @@ const PMSPrisonerUI = (() => {
           ${fieldRow('Final Status', '<span class="status-pill status-pill--released">RELEASED ON PAROLE</span>')}
           ${fieldRow('Release Date', fmtDate(releaseInfo.releaseDate))}
           ${fieldRow('Releasing Officer', esc(releaseInfo.authorizedByName))}
-          ${fieldRow('Authorization Role', esc(releaseInfo.authorizedByRole || 'PNGCS Parole Clerk'))}
+          ${fieldRow('Authorization Role', esc(releaseInfo.authorizedByRole || 'CS Parole Clerk'))}
           ${fieldRow('Institution', esc(releaseInfo.institutionName))}
           ${fieldRow('Case Number', esc(releaseInfo.caseNumber))}
           ${fieldRow('Final Approval Verified', releaseInfo.finalApprovalVerified ? 'Yes' : 'No')}

@@ -10,7 +10,7 @@
 
   const panelTitles = {
 
-    overview: ['Overview', 'PNGCS Parole Clerk — operational summary'],
+    overview: ['Overview', 'CS Parole Clerk — operational summary'],
 
     prisoners: ['Prisoner Records', 'Register and manage prisoner records (PNGCS data ownership)'],
 
@@ -50,10 +50,10 @@
 
   const FORM_WORKFLOW = [
     { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', owner: 'CS Parole Officer', prereqs: [] },
-    { n: 2, key: 'form2', label: 'Form 2 — Personal Particulars', owner: 'PNGCS Parole Clerk', prereqs: ['form1'] },
-    { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', owner: 'PNGCS Parole Clerk', prereqs: ['form1', 'form2'] },
-    { n: 4, key: 'form4', label: 'Form 4 — Parole Granted', owner: 'Parole Board Member', prereqs: ['form1', 'form2', 'form3'] },
-    { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', owner: 'Parole Board Member', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 2, key: 'form2', label: 'Form 2 — Personal Particulars', owner: 'CS Parole Clerk', prereqs: ['form1'] },
+    { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', owner: 'CS Parole Clerk', prereqs: ['form1', 'form2'] },
+    { n: 4, key: 'form4', label: 'Form 4 — Parole Granted', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'] },
   ];
 
   let comboboxPrisoners = [];

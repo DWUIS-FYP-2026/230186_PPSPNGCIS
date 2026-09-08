@@ -3,20 +3,20 @@
  */
 const PMSWorkflow = (() => {
   const STEPS = [
-    { id: 1, name: 'Prisoner Registration', status: null, role: 'PNGCS Parole Clerk', action: 'Register prisoner record with SSD, SED, and institution' },
+    { id: 1, name: 'Prisoner Registration', status: null, role: 'CS Parole Clerk', action: 'Register prisoner record with SSD, SED, and institution' },
     { id: 2, name: 'Eligibility Calculation', status: 'Eligible for Parole Application', role: 'System (Automated)', action: 'Calculate eligibility at one-third (1/3) of sentence served' },
-    { id: 3, name: 'Eligibility Notification', status: null, role: 'System (Automated)', action: 'Notify PNGCS Parole Clerk, CS Parole Officer, and System Administrator' },
+    { id: 3, name: 'Eligibility Notification', status: null, role: 'System (Automated)', action: 'Notify CS Parole Clerk, CS Parole Officer, and System Administrator' },
     { id: 4, name: 'Forms 1 & 2 Preparation', status: 'Draft', role: 'CS Parole Officer / PNGCS & DJAG Clerks', action: 'Complete Form 1 and Form 2 (DDR by CS, PPR by DJAG)' },
     { id: 5, name: 'Institutional Verification', status: 'Pending Commander Review', role: 'Jail Commander', action: 'Verify assessment information and institutional readiness' },
-    { id: 6, name: 'Form 3 — Institutional Report', status: 'Draft', role: 'PNGCS Parole Clerk', action: 'Complete Form 3 (Institutional Report)' },
-    { id: 7, name: 'Submit to DJAG', status: 'Submitted', role: 'PNGCS Parole Clerk', action: 'Submit complete application package to DJAG' },
+    { id: 6, name: 'Form 3 — Institutional Report', status: 'Draft', role: 'CS Parole Clerk', action: 'Complete Form 3 (Institutional Report)' },
+    { id: 7, name: 'Submit to DJAG', status: 'Submitted', role: 'CS Parole Clerk', action: 'Submit complete application package to DJAG' },
     { id: 8, name: 'DJAG Review', status: 'Under DJAG Review', role: 'DJAG Parole Clerk', action: 'Verify documentation and review application' },
     { id: 9, name: 'Return for Correction', status: 'Returned for Correction', role: 'DJAG Parole Clerk', action: 'Return application to PNGCS for correction if required' },
     { id: 10, name: 'Schedule Hearing', status: 'Hearing Scheduled', role: 'DJAG Secretary', action: 'Schedule parole hearing within 2 weeks' },
     { id: 11, name: 'Board Assessments', status: 'Pending Board Review', role: 'Doctor / CS Commissioner / DJAG Secretary', action: 'Submit individual board assessments' },
     { id: 12, name: 'Score Calculation', status: 'Pending Board Review', role: 'System (Automated)', action: 'Calculate final parole score (80% threshold)' },
-    { id: 13, name: 'Form 4 or 5 Outcome', status: 'Parole Granted|Parole Refused', role: 'Parole Board Member', action: 'Record Form 4 (Granted) or Form 5 (Refused) based on score' },
-    { id: 14, name: 'Approval Workflow', status: 'Pending Approval', role: 'Board / PNGCS Parole Clerk', action: 'Complete required approvals before release' },
+    { id: 13, name: 'Form 4 or 5 Outcome', status: 'Parole Granted|Parole Refused', role: 'DJAG Secretary', action: 'Record Form 4 (Granted) or Form 5 (Refused) based on board vote' },
+    { id: 14, name: 'Approval Workflow', status: 'Pending Approval', role: 'DJAG Secretary / CS Parole Clerk', action: 'Complete required approvals before release' },
     { id: 15, name: 'Release Authorization', status: 'Approved', role: 'Jail Commander', action: 'Authorize release from institution after board interviews' },
     { id: 16, name: 'Audit & Notification', status: null, role: 'System (Automated)', action: 'Log all actions and notify stakeholders' },
   ];
@@ -37,43 +37,43 @@ const PMSWorkflow = (() => {
   };
 
   const TRANSITION_ROLES = {
-    'Draft→Submitted': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
-    'Draft→Pending Commander Review': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
+    'Draft→Submitted': ['CS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
+    'Draft→Pending Commander Review': ['CS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
     'Submitted→Under DJAG Review': ['DJAG Parole Clerk', 'System Administrator'],
-    'Submitted→Returned for Correction': ['DJAG Parole Clerk', 'PNGCS Parole Clerk', 'System Administrator'],
-    'Submitted→Pending Commander Review': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
-    'Pending Commander Review→Pre-Parole Report Prepared': ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'],
-    'Pending Commander Review→Returned for Correction': ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'],
-    'Pending Commander Review→Refused': ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'],
+    'Submitted→Returned for Correction': ['DJAG Parole Clerk', 'CS Parole Clerk', 'System Administrator'],
+    'Submitted→Pending Commander Review': ['CS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
+    'Pending Commander Review→Pre-Parole Report Prepared': ['Jail Commander', 'CS Parole Clerk', 'System Administrator'],
+    'Pending Commander Review→Returned for Correction': ['Jail Commander', 'CS Parole Clerk', 'System Administrator'],
+    'Pending Commander Review→Refused': ['Jail Commander', 'CS Parole Clerk', 'System Administrator'],
     'Under DJAG Review→Pre-Parole Report Prepared': ['DJAG Parole Clerk', 'System Administrator'],
     'Under DJAG Review→Returned for Correction': ['DJAG Parole Clerk', 'System Administrator'],
-    'Returned for Correction→Draft': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
-    'Returned for Correction→Submitted': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
-    'Returned for Correction→Pending Commander Review': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
-    'Pre-Parole Report Prepared→Under DJAG Review': ['PNGCS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
+    'Returned for Correction→Draft': ['CS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
+    'Returned for Correction→Submitted': ['CS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
+    'Returned for Correction→Pending Commander Review': ['CS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
+    'Pre-Parole Report Prepared→Under DJAG Review': ['CS Parole Clerk', 'CS Parole Officer', 'System Administrator'],
     'Pre-Parole Report Prepared→Hearing Scheduled': ['DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator'],
     'Pre-Parole Report Prepared→Pending Board Review': ['DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator'],
-    'Hearing Scheduled→Pending Board Review': ['DJAG Secretary', 'DJAG Parole Clerk', 'Parole Board Member', 'Doctor', 'CS Commissioner', 'System Administrator'],
-    'Hearing Scheduled→In Progress': ['DJAG Secretary', 'Parole Board Member', 'System Administrator'],
-    'Pending Board Review→Pending Approval': ['Parole Board Member', 'System Administrator'],
-    'Pending Board Review→Parole Granted': ['Parole Board Member', 'System Administrator'],
-    'Pending Board Review→Parole Refused': ['Parole Board Member', 'System Administrator'],
-    'Pending Board Review→Deferred': ['Parole Board Member', 'System Administrator'],
-    'Parole Granted→Pending Approval': ['Parole Board Member', 'System Administrator'],
-    'Parole Granted→Approved': ['Parole Board Member', 'PNGCS Parole Clerk', 'System Administrator'],
-    'Parole Refused→Refused': ['Parole Board Member', 'System Administrator'],
-    'Pending Approval→Approved': ['Parole Board Member', 'PNGCS Parole Clerk', 'System Administrator'],
-    'Pending Approval→Returned for Correction': ['Parole Board Member', 'PNGCS Parole Clerk', 'System Administrator'],
-    'Pending Approval→Refused': ['Parole Board Member', 'System Administrator'],
-    'Approved→Released': ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'],
+    'Hearing Scheduled→Pending Board Review': ['DJAG Secretary', 'DJAG Parole Clerk', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing Scheduled→In Progress': ['DJAG Secretary', 'System Administrator'],
+    'Pending Board Review→Pending Approval': ['DJAG Secretary', 'System Administrator'],
+    'Pending Board Review→Parole Granted': ['DJAG Secretary', 'System Administrator'],
+    'Pending Board Review→Parole Refused': ['DJAG Secretary', 'System Administrator'],
+    'Pending Board Review→Deferred': ['DJAG Secretary', 'System Administrator'],
+    'Parole Granted→Pending Approval': ['DJAG Secretary', 'System Administrator'],
+    'Parole Granted→Approved': ['DJAG Secretary', 'CS Parole Clerk', 'System Administrator'],
+    'Parole Refused→Refused': ['DJAG Secretary', 'System Administrator'],
+    'Pending Approval→Approved': ['DJAG Secretary', 'CS Parole Clerk', 'System Administrator'],
+    'Pending Approval→Returned for Correction': ['DJAG Secretary', 'CS Parole Clerk', 'System Administrator'],
+    'Pending Approval→Refused': ['DJAG Secretary', 'System Administrator'],
+    'Approved→Released': ['Jail Commander', 'CS Parole Clerk', 'System Administrator'],
   };
 
   const FORM_OWNERS = {
     1: 'CS Parole Officer',
-    2: 'PNGCS Parole Clerk / DJAG Parole Clerk',
-    3: 'PNGCS Parole Clerk',
-    4: 'Parole Board Member',
-    5: 'Parole Board Member',
+    2: 'CS Parole Clerk / DJAG Parole Clerk',
+    3: 'CS Parole Clerk',
+    4: 'DJAG Secretary',
+    5: 'DJAG Secretary',
   };
 
   function canTransition(user, fromStatus, toStatus) {
@@ -83,12 +83,12 @@ const PMSWorkflow = (() => {
     const roles = TRANSITION_ROLES[key] || ['System Administrator'];
     const role = user?.role || '';
     if (roles.includes(role)) return true;
-    if (role === 'PNGCS Parole Clerk' && roles.includes('CS Parole Officer')) return true;
+    if (role === 'CS Parole Clerk' && roles.includes('CS Parole Officer')) return true;
     return false;
   }
 
   function getFormOwner(formNumber) {
-    return FORM_OWNERS[formNumber] || 'PNGCS Parole Clerk';
+    return FORM_OWNERS[formNumber] || 'CS Parole Clerk';
   }
 
   function getFormWorkflowStep(formNumber) {
@@ -141,9 +141,9 @@ const PMSWorkflow = (() => {
   }
 
   function getReturnTarget(fromStatus) {
-    if (fromStatus === 'Returned for Correction') return { role: 'PNGCS Parole Clerk', stage: 'Form 1 / Form 2 correction' };
+    if (fromStatus === 'Returned for Correction') return { role: 'CS Parole Clerk', stage: 'Form 1 / Form 2 correction' };
     if (fromStatus === 'Under DJAG Review') return { role: 'DJAG Parole Clerk', stage: 'DJAG review' };
-    return { role: 'PNGCS Parole Clerk', stage: 'Case preparation' };
+    return { role: 'CS Parole Clerk', stage: 'Case preparation' };
   }
 
   return { STEPS, TRANSITIONS, TRANSITION_ROLES, FORM_OWNERS, canTransition, getFormOwner, getFormWorkflowStep, getAdvanceBlockers, canAdvanceApplication, getReturnTarget };

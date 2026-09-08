@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
 router.post('/', requireRole(PRISONER_MODIFY_ROLES), async (req, res) => {
   try {
     if (!canModifyPrisoners(req.user)) {
-      return res.status(403).json({ success: false, error: 'Only PNGCS Parole Clerks may upload documents.' });
+      return res.status(403).json({ success: false, error: 'Only CS Parole Clerks may upload documents.' });
     }
 
     const prisonerRows = await query('SELECT id FROM prisoners WHERE id = ? OR prisoner_number = ? LIMIT 1', [

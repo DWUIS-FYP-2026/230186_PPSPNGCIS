@@ -13,7 +13,7 @@ Login was failing because the backend was configured for **SQL Server LocalDB**,
 | 3 | **Schema mismatch** | App expected columns not in MySQL `Users` table | `AppUser` mapped to `UserID, Username, PasswordHash, Role, IsActive` only |
 | 4 | **Wrong login field** | Auth queried `Email` column (does not exist) | Query `Username` only (seed uses email as username) |
 | 5 | **Invalid seed passwords** | PMSDB.sql bcrypt hashes are placeholders | Run `PMSDB_MySQL_SetPasswords.sql` |
-| 6 | **Role name mismatch** | MySQL: `CS Parole Clerk` vs frontend: `PNGCS Parole Clerk` | `AuthHelper.MapDbRoleToFrontend()` |
+| 6 | **Role name mismatch** | MySQL: `CS Parole Clerk` vs frontend: `CS Parole Clerk` | `AuthHelper.MapDbRoleToFrontend()` |
 | 7 | **EnsureCreated** | Could conflict with existing MySQL schema | Removed; connection test only |
 | 8 | **Generic errors** | "Sign In Failed" with no detail | API returns specific MySQL/auth messages |
 
@@ -53,9 +53,12 @@ Open the URL shown (e.g. `https://localhost:7110`).
 
 | Username | Password | Dashboard |
 |----------|----------|-----------|
-| john.dole@cs.gov.pg | Password123! | PNGCS Parole Clerk |
-| mary.kila@djag.gov.pg | Password123! | DJAG Parole Clerk |
-| judge.kakaraya@justice.gov.pg | Password123! | Parole Board |
+| j.dole@cs.gov.pg | Password123! | CS Parole Clerk |
+| m.kila@djag.gov.pg | Password123! | DJAG Parole Clerk |
+| h.morris@djag.gov.pg | Password123! | DJAG Secretary (Board) |
+| t.bain@cs.gov.pg | Password123! | CS Commissioner (Board) |
+| r.sine@health.gov.pg | Password123! | Doctor (Board) |
+| p.koroma@cs.gov.pg | Password123! | Jail Commander |
 
 **Important:** Use the full **Username** from the `Users` table, not a short name like `admin`.
 

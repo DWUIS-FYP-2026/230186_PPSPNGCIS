@@ -4,12 +4,12 @@
 const PMSHearingPortal = (() => {
   const PORTAL_ROLES = [
     'DJAG Secretary', 'DJAG Parole Clerk', 'System Administrator',
-    'Parole Board Member', 'Doctor', 'CS Commissioner',
+    'Doctor', 'CS Commissioner',
   ];
   const SCHEDULE_ROLES = ['DJAG Secretary', 'System Administrator'];
-  const DECIDE_ROLES = ['Parole Board Member', 'System Administrator'];
-  const ASSESS_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary', 'Parole Board Member'];
-  const PANEL_ROLES = ['Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'];
+  const DECIDE_ROLES = ['DJAG Secretary', 'System Administrator'];
+  const ASSESS_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
+  const PANEL_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const SCHEDULABLE_STATUSES = ['Pre-Parole Report Prepared', 'Hearing Scheduled'];
   const CLOSED_STATUSES = ['Refused', 'Approved', 'Released', 'Parole Granted', 'Parole Refused'];
 
@@ -357,7 +357,9 @@ const PMSHearingPortal = (() => {
     const assessorForm = $('assessor-form');
     const chairForm = $('chair-decision-form');
     const select = $('hearing-decision');
-    const recordBtn = $('btn-record-decision');
+    const recordBtn = $('btn-record-final-decision');
+    const assessSubmitBtn = $('btn-record-decision');
+    const assessSaveBtn = $('btn-save-assessment');
 
     area.hidden = !inReview && !finalized;
     if (!inReview && !finalized) return;
@@ -365,7 +367,9 @@ const PMSHearingPortal = (() => {
     if (finalized && progress.complete) {
       assessorForm.hidden = true;
       chairForm.hidden = true;
-      recordBtn.hidden = true;
+      if (recordBtn) recordBtn.hidden = true;
+      if (assessSaveBtn) assessSaveBtn.hidden = true;
+      if (assessSubmitBtn) assessSubmitBtn.hidden = true;
       noteEl.hidden = false;
       noteEl.textContent = `Board decision finalized: ${outcome}. ${outcome === 'Parole Granted' ? 'Complete Form 4 to issue the parole grant.' : 'Complete Form 5 to record the refusal.'}`;
       updateOpenFormButton(app);
@@ -377,16 +381,25 @@ const PMSHearingPortal = (() => {
     if (canAssess) {
       assessorForm.hidden = false;
       chairForm.hidden = true;
+      if (assessSaveBtn) assessSaveBtn.hidden = false;
+      if (assessSubmitBtn) assessSubmitBtn.hidden = false;
+      if (recordBtn) recordBtn.hidden = true;
       updateOpenFormButton(app);
       noteEl.hidden = false;
       noteEl.textContent = progress.complete
         ? 'All board votes are in. The outcome will be finalized automatically.'
-        : `Panel progress: ${progress.submitted}/${progress.total}. Cast your Approve, Deny, or Defer vote when ready — other members vote separately.`;
+        : `Panel progress: ${progress.submitted}/${progress.total}. Save your decision at any time, then submit when ready — other members vote separately.`;
 
       const statusEl = $('assessor-form-status');
       if (mine?.submissionStatus === 'Submitted') {
         statusEl.hidden = false;
         statusEl.innerHTML = `<strong>Your vote recorded:</strong> ${mine.vote}${mine.score != null ? ` (${mine.score}%)` : ''} on ${PMSUI.fmtDate(mine.submittedAt)}. You may update it below if needed.`;
+        $('assessment-vote').value = mine.vote || '';
+        $('assessment-score').value = mine.score ?? '';
+        $('assessment-feedback').value = mine.feedback || '';
+      } else if (mine?.submissionStatus === 'Draft') {
+        statusEl.hidden = false;
+        statusEl.innerHTML = `<strong>Saved draft:</strong> ${mine.vote || 'No vote selected yet'}${mine.score != null ? ` (${mine.score}%)` : ''} · last updated ${PMSUI.fmtDate(mine.updatedAt)}`;
         $('assessment-vote').value = mine.vote || '';
         $('assessment-score').value = mine.score ?? '';
         $('assessment-feedback').value = mine.feedback || '';
@@ -397,11 +410,15 @@ const PMSHearingPortal = (() => {
         $('assessment-feedback').value = mine?.feedback || '';
       }
 
-      recordBtn.textContent = mine?.submissionStatus === 'Submitted' ? 'Update My Vote' : 'Submit My Vote';
-      recordBtn.disabled = false;
+      if (assessSubmitBtn) {
+        assessSubmitBtn.textContent = mine?.submissionStatus === 'Submitted' ? 'Update My Vote' : 'Submit My Vote';
+        assessSubmitBtn.disabled = false;
+      }
       return;
     }
 
+    if (assessSaveBtn) assessSaveBtn.hidden = true;
+    if (assessSubmitBtn) assessSubmitBtn.hidden = true;
     assessorForm.hidden = true;
     chairForm.hidden = false;
     select.innerHTML = `
@@ -421,6 +438,7 @@ const PMSHearingPortal = (() => {
     const finalRecorded = !!app.boardDecision;
     recordBtn.textContent = 'Record Final Decision';
     recordBtn.disabled = !canDecide || finalRecorded || !progress.complete;
+    recordBtn.hidden = false;
     select.disabled = !canDecide || finalRecorded || !progress.complete;
     $('hearing-denial-reason').disabled = !canDecide || finalRecorded || !progress.complete;
     $('hearing-conditions').disabled = !canDecide || finalRecorded || !progress.complete;
@@ -557,6 +575,34 @@ const PMSHearingPortal = (() => {
     }
   }
 
+  function buildAssessmentPayload(submissionStatus) {
+    const vote = $('assessment-vote').value;
+    const scoreVal = $('assessment-score').value;
+    const feedback = $('assessment-feedback').value.trim();
+    const payload = { submissionStatus, feedback, recommendation: vote || '' };
+    if (vote) payload.vote = vote;
+    if (scoreVal !== '' && !Number.isNaN(Number(scoreVal))) payload.score = Number(scoreVal);
+    return payload;
+  }
+
+  function saveAssessmentDraft() {
+    if (!currentAppId || !canAssess) return;
+    const vote = $('assessment-vote').value;
+    const feedback = $('assessment-feedback').value.trim();
+    const scoreVal = $('assessment-score').value;
+    if (!vote && !feedback && scoreVal === '') {
+      showToast('Select a vote or enter comments before saving.');
+      return;
+    }
+    try {
+      PMSStorage.saveBoardAssessment(currentAppId, buildAssessmentPayload('Draft'), actor);
+      showToast('Your decision has been saved. Submit when you are ready.');
+      selectCase(currentIndex);
+    } catch (err) {
+      showToast(err.message);
+    }
+  }
+
   async function recordDecision() {
     if (!currentAppId) return;
     const app = PMSStorage.getApplicationById(currentAppId);
@@ -580,8 +626,7 @@ const PMSHearingPortal = (() => {
         $('assessment-feedback').focus();
         return;
       }
-      const payload = { vote, feedback, recommendation: vote };
-      if (scoreVal !== '' && !Number.isNaN(Number(scoreVal))) payload.score = Number(scoreVal);
+      const payload = buildAssessmentPayload('Submitted');
       try {
         PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
         showToast('Your vote has been recorded. Other members may vote when ready.');
@@ -668,6 +713,8 @@ const PMSHearingPortal = (() => {
     });
 
     $('btn-record-decision')?.addEventListener('click', recordDecision);
+    $('btn-save-assessment')?.addEventListener('click', saveAssessmentDraft);
+    $('btn-record-final-decision')?.addEventListener('click', recordDecision);
 
     $('btn-open-form')?.addEventListener('click', () => {
       if (!currentAppId) return;

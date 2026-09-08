@@ -4,32 +4,26 @@ const PMSAuth = (() => {
   const ROLE_DASHBOARDS = {
     'System Administrator': 'admin-dashboard.html',
     'CS Parole Officer': 'dashboard-pngcs.html',
-    'PNGCS Parole Clerk': 'dashboard-pngcs.html',
+    'CS Parole Clerk': 'dashboard-pngcs.html',
     'Jail Commander': 'dashboard-commander.html',
     'DJAG Parole Clerk': 'dashboard-djag.html',
     'DJAG Secretary': 'dashboard-board.html',
     'Doctor': 'dashboard-doctor.html',
     'CS Commissioner': 'dashboard-board.html',
-    'Parole Board Member': 'dashboard-board.html',
     Admin: 'admin-dashboard.html',
-    'CS Parole Clerk': 'dashboard-pngcs.html',
-    'Board Member': 'dashboard-board.html',
     Secretariat: 'dashboard-djag.html',
   };
 
   const ROLE_DASHBOARD_LABELS = {
     'System Administrator': 'Admin Dashboard',
     'CS Parole Officer': 'PNGCS Dashboard',
-    'PNGCS Parole Clerk': 'PNGCS Dashboard',
+    'CS Parole Clerk': 'CS Parole Clerk Dashboard',
     'Jail Commander': 'Jail Commander Dashboard',
     'DJAG Parole Clerk': 'DJAG Dashboard',
     'DJAG Secretary': 'Board Dashboard',
     'Doctor': 'Medical Board Dashboard',
     'CS Commissioner': 'Board Dashboard',
-    'Parole Board Member': 'Board Dashboard',
     Admin: 'Admin Dashboard',
-    'CS Parole Clerk': 'PNGCS Dashboard',
-    'Board Member': 'Board Dashboard',
     Secretariat: 'DJAG Dashboard',
   };
 
@@ -38,8 +32,10 @@ const PMSAuth = (() => {
   function normalizeRole(role) {
     const map = {
       Admin: 'System Administrator',
-      'CS Parole Clerk': 'PNGCS Parole Clerk',
-      'Board Member': 'Parole Board Member',
+      'PNGCS Parole Clerk': 'CS Parole Clerk',
+      'PNG Parole Clerk': 'CS Parole Clerk',
+      'Parole Board Member': 'DJAG Secretary',
+      'Board Member': 'DJAG Secretary',
       Secretariat: 'DJAG Parole Clerk',
     };
     return map[role] || role;
@@ -173,12 +169,12 @@ const PMSAuth = (() => {
 
   function canAccessInstitution(user, institutionId) {
     if (user.role === 'System Administrator') return true;
-    if (['PNGCS Parole Clerk', 'DJAG Parole Clerk', 'Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(user.role)) return true;
+    if (['CS Parole Clerk', 'DJAG Parole Clerk', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(normalizeRole(user.role))) return true;
     return user.institutionId === institutionId;
   }
 
   function filterByInstitution(items, user, institutionKey = 'institutionId') {
-    if (!user.institutionId || ['System Administrator', 'PNGCS Parole Clerk', 'DJAG Parole Clerk', 'Parole Board Member', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(user.role)) {
+    if (!user.institutionId || ['System Administrator', 'CS Parole Clerk', 'DJAG Parole Clerk', 'Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(normalizeRole(user.role))) {
       if (user.role === 'CS Parole Officer' && user.institutionId) {
         return items.filter((i) => i[institutionKey] === user.institutionId);
       }

@@ -34,7 +34,7 @@ describe('Parole Act 1991 — state machine guards', () => {
     assert.throws(() => {
       validateTransition(PAROLE_STATUSES.AWAITING_PRISONER_CONSENT, PAROLE_STATUSES.REPORT_PREPARATION, {
         prisonerConsent: false,
-      }, 'PNGCS Parole Clerk');
+      }, 'CS Parole Clerk');
     }, /Prisoner consent must be recorded as Yes/);
   });
 

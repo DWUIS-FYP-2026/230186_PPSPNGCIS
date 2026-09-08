@@ -2,8 +2,8 @@
  * PMS Role-Based Access Control — permissions matrix aligned with official workflow.
  */
 const PMSRBAC = (() => {
-  const PRISONER_MODIFY_ROLE = 'PNGCS Parole Clerk';
-  const FORM_EDIT_ROLES = ['PNGCS Parole Clerk', 'CS Parole Officer'];
+  const PRISONER_MODIFY_ROLE = 'CS Parole Clerk';
+  const FORM_EDIT_ROLES = ['CS Parole Clerk', 'CS Parole Officer'];
 
   const PERMISSIONS = {
     'System Administrator': {
@@ -32,7 +32,7 @@ const PMSRBAC = (() => {
       reports: ['operational', 'prisoner', 'application'],
       notifications: ['eligibility', 'application', 'returned', 'form2'],
     },
-    'PNGCS Parole Clerk': {
+    'CS Parole Clerk': {
       modules: ['overview', 'prisoners', 'eligibility', 'applications', 'cases', 'notifications', 'reports', 'forms', 'guarantors', 'documents', 'release'],
       prisoners: { create: true, read: true, update: true, delete: false, scope: 'all', export: true },
       applications: { create: true, read: true, update: true, delete: false, scope: 'institution' },
@@ -75,14 +75,14 @@ const PMSRBAC = (() => {
       modules: ['overview', 'applications', 'cases', 'hearings', 'decisions', 'notifications', 'reports', 'forms', 'analytics'],
       prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: false },
       applications: { create: false, read: true, update: true, delete: false, scope: 'all' },
-      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
+      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'edit', 5: 'edit' },
       users: { create: false, read: false, update: false, delete: false },
       institutions: { create: false, read: true, update: false, delete: false },
       hearings: { create: true, read: true, update: true },
-      decisions: { create: false, read: true },
+      decisions: { create: true, read: true },
       assessments: { create: true, read: true },
-      reports: ['hearing', 'application'],
-      notifications: ['hearing', 'deadline'],
+      reports: ['hearing', 'application', 'board', 'decision', 'meeting'],
+      notifications: ['hearing', 'deadline', 'board_review'],
     },
     'Doctor': {
       modules: ['overview', 'prisoners', 'applications', 'decisions', 'notifications', 'forms'],
@@ -110,26 +110,15 @@ const PMSRBAC = (() => {
       reports: ['board', 'institutional'],
       notifications: ['board_review'],
     },
-    'Parole Board Member': {
-      modules: ['overview', 'prisoners', 'applications', 'cases', 'hearings', 'decisions', 'history', 'reports', 'notifications', 'forms', 'analytics'],
-      prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: true },
-      applications: { create: false, read: true, update: true, delete: false, scope: 'all' },
-      forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'edit' },
-      users: { create: false, read: false, update: false, delete: false },
-      institutions: { create: false, read: true, update: false, delete: false },
-      hearings: { create: false, read: true, update: false },
-      decisions: { create: true, read: true },
-      assessments: { create: false, read: true },
-      reports: ['board', 'decision', 'meeting'],
-      notifications: ['board_review', 'hearing'],
-    },
   };
 
   function normalizeRole(role) {
     const map = {
       Admin: 'System Administrator',
-      'CS Parole Clerk': 'PNGCS Parole Clerk',
-      'Board Member': 'Parole Board Member',
+      'PNGCS Parole Clerk': 'CS Parole Clerk',
+      'PNG Parole Clerk': 'CS Parole Clerk',
+      'Parole Board Member': 'DJAG Secretary',
+      'Board Member': 'DJAG Secretary',
       Secretariat: 'DJAG Parole Clerk',
     };
     return map[role] || role;
@@ -219,7 +208,7 @@ const PMSRBAC = (() => {
 
   function requirePrisonerModify(user, prisonerId = null) {
     if (!user || !canModifyPrisoner(user)) {
-      PMSAuth.redirectAccessDenied('Only PNGCS Parole Clerks may create or modify prisoner records.');
+      PMSAuth.redirectAccessDenied('Only CS Parole Clerks may create or modify prisoner records.');
       return false;
     }
     if (prisonerId) {
@@ -242,7 +231,7 @@ const PMSRBAC = (() => {
   }
 
   function canSubmitAssessment(user) {
-    return ['Doctor', 'CS Commissioner', 'DJAG Secretary', 'Parole Board Member'].includes(normalizeRole(user?.role));
+    return ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(normalizeRole(user?.role));
   }
 
   /** Form 2 section ownership: DAR/DDR = CS (PNGCS) Parole Clerk; PPR = DJAG Parole Clerk. */
@@ -250,7 +239,7 @@ const PMSRBAC = (() => {
     const role = normalizeRole(user?.role);
     const key = String(sectionKey || '').toLowerCase();
     if (key === 'ddr' || key === 'dar') {
-      return ['PNGCS Parole Clerk', 'System Administrator'].includes(role);
+      return ['CS Parole Clerk', 'System Administrator'].includes(role);
     }
     if (key === 'ppr') {
       return ['DJAG Parole Clerk', 'System Administrator'].includes(role);
@@ -259,11 +248,11 @@ const PMSRBAC = (() => {
   }
 
   function canVerifyApplication(user) {
-    return ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
+    return ['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
   }
 
   function canAuthorizeRelease(user) {
-    return ['Jail Commander', 'PNGCS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
+    return ['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
   }
 
   /** Only DJAG Secretary may set or change parole hearing dates (System Administrator for support). */
@@ -277,9 +266,9 @@ const PMSRBAC = (() => {
     const access = p.forms[formNumber];
     if (mode === 'edit') {
       if (formNumber === 1) return canEditForms(user);
-      if (formNumber === 3) return normalizeRole(user?.role) === 'PNGCS Parole Clerk';
-      if (formNumber === 4) return normalizeRole(user?.role) === 'DJAG Parole Clerk';
-      if (formNumber === 5) return normalizeRole(user?.role) === 'Parole Board Member';
+      if (formNumber === 3) return normalizeRole(user?.role) === 'CS Parole Clerk';
+      if (formNumber === 4) return normalizeRole(user?.role) === 'DJAG Secretary';
+      if (formNumber === 5) return normalizeRole(user?.role) === 'DJAG Secretary';
       return access === 'edit';
     }
     return access === 'view' || access === 'edit';

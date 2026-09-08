@@ -48,7 +48,7 @@
       </div></div>
 
       <div class="card role-card mb-4"><div class="card-body">
-        <h3>PNGCS Parole Clerk</h3>
+        <h3>CS Parole Clerk</h3>
         <p><strong>Purpose:</strong> Registers prisoners, monitors eligibility, prepares Forms 1–2, coordinates Form 3, and submits complete application packages to DJAG.</p>
         <div class="row g-3">
           <div class="col-md-6"><strong>Modules:</strong> Overview, Prisoners, Eligibility, Applications, Notifications, Reports, Forms 1–2 (edit), Forms 3–5 (view)</div>
@@ -71,16 +71,16 @@
       </div></div>
 
       <div class="card role-card mb-4"><div class="card-body">
-        <h3>Parole Board Members</h3>
-        <p>The Board comprises three members who collectively review applications and record the final parole decision on Form 5.</p>
+        <h3>Parole Board</h3>
+        <p>The Board comprises three members who collectively review applications, evaluate the parolee, and record the final parole decision:</p>
         <ul>
-          <li><strong>Chairperson (Secretary, DJAG)</strong> — Presides over hearings, records official decision, signs Form 5</li>
-          <li><strong>Commissioner, PNG Correctional Service (PNGCS)</strong> — Provides correctional perspective on conduct and rehabilitation</li>
-          <li><strong>Medical Member (Doctor)</strong> — Assesses medical and mental health suitability for parole</li>
+          <li><strong>DJAG Secretary</strong> — Presides over hearings, schedules dates, records the official decision, and signs Forms 4–5</li>
+          <li><strong>CS Commissioner (PNG Correctional Service)</strong> — Provides correctional perspective on conduct and rehabilitation</li>
+          <li><strong>Doctor</strong> — Assesses medical and mental health suitability for parole</li>
         </ul>
         <div class="row g-3">
-          <div class="col-md-6"><strong>Modules:</strong> Overview, Applications, Hearings, Decisions, History, Reports, Form 5 (edit)</div>
-          <div class="col-md-6"><strong>Decisions:</strong> Approved · Deferred · Refused (with conditions and deliberation notes)</div>
+          <div class="col-md-6"><strong>Modules:</strong> Overview, Applications, Hearings, Decisions, Reports, Forms 4–5 (DJAG Secretary)</div>
+          <div class="col-md-6"><strong>Decisions:</strong> Each member submits Approve · Deny · Defer; DJAG Secretary finalizes the outcome</div>
         </div>
       </div></div>
     </section>
@@ -90,18 +90,18 @@
       <div class="table-responsive"><table class="table table-bordered bg-white step-table">
         <thead class="table-light"><tr><th>Step</th><th>Action</th><th>Status</th><th>Responsible Role</th></tr></thead>
         <tbody>
-          <tr><td>1</td><td>Prisoner registration (Prisoner Number, SSD, SED, offense, institution)</td><td>—</td><td>PNGCS Parole Clerk</td></tr>
+          <tr><td>1</td><td>Prisoner registration (Prisoner Number, SSD, SED, offense, institution)</td><td>—</td><td>CS Parole Clerk</td></tr>
           <tr><td>2</td><td>Automatic eligibility calculation (one-third / 1/3 of sentence from SSD)</td><td>Eligible for Parole</td><td>System (Automated)</td></tr>
-          <tr><td>3</td><td>Eligibility notification to PNGCS Parole Clerk, CS Parole Officer, and System Administrator</td><td>—</td><td>System (Automated)</td></tr>
-          <tr><td>4</td><td>Prepare Form 1 (Application) and Form 2 (Personal Particulars)</td><td>Draft</td><td>PNGCS Parole Clerk</td></tr>
-          <tr><td>5</td><td>Complete Form 3 (Institutional Report)</td><td>Draft</td><td>PNGCS Parole Clerk</td></tr>
-          <tr><td>6</td><td>Submit complete application package to DJAG</td><td>Submitted</td><td>PNGCS Parole Clerk</td></tr>
+          <tr><td>3</td><td>Eligibility notification to CS Parole Clerk, CS Parole Officer, and System Administrator</td><td>—</td><td>System (Automated)</td></tr>
+          <tr><td>4</td><td>Prepare Form 1 (Application) and Form 2 (Personal Particulars)</td><td>Draft</td><td>CS Parole Clerk</td></tr>
+          <tr><td>5</td><td>Complete Form 3 (Institutional Report)</td><td>Draft</td><td>CS Parole Clerk</td></tr>
+          <tr><td>6</td><td>Submit complete application package to DJAG</td><td>Submitted</td><td>CS Parole Clerk</td></tr>
           <tr><td>7</td><td>Review documentation and verify forms</td><td>Under DJAG Review</td><td>DJAG Parole Clerk</td></tr>
           <tr><td>8</td><td>Return for correction (if incomplete)</td><td>Returned for Correction</td><td>DJAG Parole Clerk</td></tr>
           <tr><td>9</td><td>Complete Form 4 (Pre-Parole Investigation Report)</td><td>Pre-Parole Report Prepared</td><td>DJAG Parole Clerk</td></tr>
-          <tr><td>10</td><td>Schedule parole hearing and notify Board</td><td>Hearing Scheduled</td><td>DJAG Parole Clerk</td></tr>
-          <tr><td>11–12</td><td>Board review and deliberation at hearing</td><td>Pending Board Review</td><td>Parole Board</td></tr>
-          <tr><td>13</td><td>Record decision on Form 5</td><td>Approved / Deferred / Refused</td><td>Parole Board (Chairperson records)</td></tr>
+          <tr><td>10</td><td>Schedule parole hearing and notify Board</td><td>Hearing Scheduled</td><td>DJAG Secretary</td></tr>
+          <tr><td>11–12</td><td>Board review — DJAG Secretary, CS Commissioner, and Doctor evaluate the parolee</td><td>Pending Board Review</td><td>Parole Board (3 members)</td></tr>
+          <tr><td>13</td><td>Record decision on Form 4 or Form 5</td><td>Approved / Deferred / Refused</td><td>DJAG Secretary (after board vote)</td></tr>
           <tr><td>14</td><td>Audit logging and stakeholder notifications</td><td>—</td><td>System (Automated)</td></tr>
         </tbody>
       </table></div>
@@ -112,16 +112,16 @@
       <div class="row g-3">
         <div class="col-md-6"><div class="card h-100"><div class="card-body">
           <h5>Form 1 — Parole Eligibility Screening</h5>
-          <p class="small">PNGCS Parole Clerk · Step 4 · Eligibility assessment against PMS criteria before Forms 2–5</p>
+          <p class="small">CS Parole Clerk · Step 4 · Eligibility assessment against PMS criteria before Forms 2–5</p>
           <a href="forms/form1.html" class="btn btn-sm btn-pms-outline disabled">Requires application ID</a>
         </div></div></div>
         <div class="col-md-6"><div class="card h-100"><div class="card-body">
           <h5>Form 2 — Personal Particulars of Offender</h5>
-          <p class="small">PNGCS Parole Clerk · Step 4 · Next of kin, background, medical history</p>
+          <p class="small">CS Parole Clerk · Step 4 · Next of kin, background, medical history</p>
         </div></div></div>
         <div class="col-md-6"><div class="card h-100"><div class="card-body">
           <h5>Form 3 — Institutional Report</h5>
-          <p class="small">PNGCS Parole Clerk · Step 5 · Conduct, programs, and institutional recommendation</p>
+          <p class="small">CS Parole Clerk · Step 5 · Conduct, programs, and institutional recommendation</p>
         </div></div></div>
         <div class="col-md-6"><div class="card h-100"><div class="card-body">
           <h5>Form 4 — Pre-Parole Investigation Report</h5>
@@ -129,7 +129,7 @@
         </div></div></div>
         <div class="col-12"><div class="card"><div class="card-body">
           <h5>Form 5 — Parole Board Decision Record</h5>
-          <p class="small">Parole Board · Step 13 · Deliberation, decision (Approved/Deferred/Refused), conditions, signatures</p>
+          <p class="small">Parole Board (DJAG Secretary, CS Commissioner, Doctor) · Step 13 · Deliberation, decision, conditions, signatures</p>
           <p class="mb-0 small text-muted">Open forms from your role dashboard after creating or selecting an application.</p>
         </div></div></div>
       </div>

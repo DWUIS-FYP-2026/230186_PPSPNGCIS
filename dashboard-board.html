@@ -41,6 +41,10 @@
           <div class="card"><div class="card-header"><h2>Upcoming Hearings</h2></div><div class="card-body" id="overview-hearings"></div></div>
           <div class="card"><div class="card-header"><h2>Decision Summary</h2></div><div class="card-body chart-body" id="chart-decisions"></div></div>
         </div>
+        <div class="card overview-notifications-card" id="overview-notifications-card" hidden>
+          <div class="card-header"><h2>Action Required</h2></div>
+          <div class="card-body" id="overview-notifications"></div>
+        </div>
       </section>
 
       <section class="panel" id="panel-prisoners">
@@ -52,7 +56,11 @@
       </section>
 
       <section class="panel" id="panel-applications">
-        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Institution</th><th>Sentence</th><th>Pre-Parole Report</th><th>Forms</th><th></th></tr></thead><tbody id="apps-tbody"></tbody></table></div></div>
+        <div class="panel-toolbar" id="applications-toolbar" hidden>
+          <button type="button" class="btn-primary" id="btn-schedule-from-queue">Open Hearing Portal</button>
+          <p class="toolbar-note">Cases verified through Form 3 — schedule the parole hearing within 14 days.</p>
+        </div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Institution</th><th>Status</th><th>Deadline</th><th>Forms</th><th></th></tr></thead><tbody id="apps-tbody"></tbody></table></div></div>
       </section>
 
       <section class="panel" id="panel-hearings">
@@ -104,6 +112,30 @@
       <div class="form-group form-group--full"><label>Hearing Deliberation Notes</label><textarea id="dec-deliberation" rows="4" placeholder="Record board deliberations…"></textarea></div>
     </div>
     <div class="modal-actions"><button type="button" class="btn-secondary" data-close="decision-modal">Cancel</button><button type="submit" class="btn-primary">Record Board Decision</button></div>
+  </form></dialog>
+
+  <dialog class="modal modal--lg" id="assessment-modal"><form id="assessment-form" class="modal-form">
+    <div class="modal-header"><h2>Board Assessment</h2><button type="button" class="modal-close" data-close="assessment-modal">&times;</button></div>
+    <input type="hidden" id="assess-app-id">
+    <div class="form-grid">
+      <div class="form-group form-group--full" id="assess-prisoner-info"></div>
+      <div class="form-group"><label for="assess-vote">Your Decision</label>
+        <select id="assess-vote">
+          <option value="">Select vote…</option>
+          <option value="Approved">Approve Parole</option>
+          <option value="Refused">Deny Parole</option>
+          <option value="Deferred">Defer / Continue</option>
+        </select>
+      </div>
+      <div class="form-group"><label for="assess-score">Score (optional, 0–100)</label><input type="number" id="assess-score" min="0" max="100" step="1" placeholder="Optional"></div>
+      <div class="form-group form-group--full"><label for="assess-feedback">Comments / Deliberation Notes</label><textarea id="assess-feedback" rows="4" placeholder="Reasons supporting your vote…"></textarea></div>
+      <div class="form-group form-group--full"><p class="toolbar-note" id="assess-status-note"></p></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" data-close="assessment-modal">Cancel</button>
+      <button type="button" class="btn-secondary" id="btn-assess-save">Save Decision</button>
+      <button type="submit" class="btn-primary" id="btn-assess-submit">Submit My Vote</button>
+    </div>
   </form></dialog>
 
   <script src="js/pms-core.js"></script>

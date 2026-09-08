@@ -43,7 +43,7 @@ Open the URL shown in the console (typically `https://localhost:7110`).
 | Role | Username | Password |
 |------|----------|----------|
 | System Administrator | admin | admin123 |
-| PNGCS Parole Clerk | pngcs.clerk | clerk123 |
+| CS Parole Clerk | pngcs.clerk | clerk123 |
 | DJAG Parole Clerk | djag.clerk | clerk123 |
 | Jail Commander | commander | cmd123 |
 | Board Chairperson | board.chair | board123 |
