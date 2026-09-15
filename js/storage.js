@@ -19,6 +19,20 @@ const PMSStorage = (() => {
     'p.koroma@cs.gov.pg': 'Password123!',
   };
 
+  /** Unique 6-digit signing PINs for digital form authorization (demo). */
+  const DEMO_SIGNING_PINS = {
+    admin: '100001',
+    'j.dole@cs.gov.pg': '000000',
+    'm.kila@djag.gov.pg': '284719',
+    's.tau@cs.gov.pg': '395826',
+    'h.morris@djag.gov.pg': '471528',
+    'r.sine@health.gov.pg': '583940',
+    't.bain@cs.gov.pg': '692047',
+    'p.koroma@cs.gov.pg': '715836',
+  };
+
+  const SIGNING_PINS_LS_KEY = 'pms_signing_pins_v1';
+
   const LEGACY_USERNAME_MAP = {
     'john.dole@cs.gov.pg': 'j.dole@cs.gov.pg',
     'mary.kila@djag.gov.pg': 'm.kila@djag.gov.pg',
@@ -70,16 +84,91 @@ const PMSStorage = (() => {
     DEMO_PASSWORDS[username] = hashPassword(password);
   }
 
+  function loadSigningPinsFromStorage() {
+    try {
+      const raw = localStorage.getItem(SIGNING_PINS_LS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') Object.assign(DEMO_SIGNING_PINS, parsed);
+    } catch (_) { /* ignore */ }
+  }
+
+  function persistSigningPins() {
+    try { localStorage.setItem(SIGNING_PINS_LS_KEY, JSON.stringify(DEMO_SIGNING_PINS)); } catch (_) { /* ignore */ }
+  }
+
+  function generateUniqueSigningPin() {
+    const used = new Set(Object.values(DEMO_SIGNING_PINS));
+    let pin;
+    do {
+      pin = String(Math.floor(100000 + Math.random() * 900000));
+    } while (used.has(pin));
+    return pin;
+  }
+
+  function generateSigningPinForUser(user) {
+    const seed = `${user?.id || ''}-${user?.username || ''}`;
+    let h = 5381;
+    for (let i = 0; i < seed.length; i += 1) {
+      h = ((h << 5) + h) ^ seed.charCodeAt(i);
+    }
+    const pin = String((h >>> 0) % 900000 + 100000).padStart(6, '0');
+    if (Object.values(DEMO_SIGNING_PINS).includes(pin)) return generateUniqueSigningPin();
+    return pin;
+  }
+
+  function ensureUserSigningPin(user) {
+    if (!user?.username) return null;
+    const key = user.username.toLowerCase() === 'admin' ? 'admin' : user.username;
+    if (!DEMO_SIGNING_PINS[key]) {
+      DEMO_SIGNING_PINS[key] = generateSigningPinForUser(user);
+      persistSigningPins();
+    }
+    return DEMO_SIGNING_PINS[key];
+  }
+
+  function verifySigningPin(user, pin) {
+    if (!user || !/^\d{6}$/.test(String(pin || ''))) return false;
+    ensureUserSigningPin(user);
+    const key = user.username?.toLowerCase() === 'admin' ? 'admin' : user.username;
+    return DEMO_SIGNING_PINS[key] === String(pin);
+  }
+
+  function getSigningPinForUser(userOrUsername) {
+    const user = typeof userOrUsername === 'string'
+      ? getUserByUsername(userOrUsername)
+      : userOrUsername;
+    if (!user) return null;
+    return ensureUserSigningPin(user);
+  }
+
+  function ensureSigningPins() {
+    if (!data?.users) return;
+    let changed = false;
+    data.users.forEach((u) => {
+      const key = u.username?.toLowerCase() === 'admin' ? 'admin' : u.username;
+      if (key && !DEMO_SIGNING_PINS[key]) {
+        DEMO_SIGNING_PINS[key] = generateSigningPinForUser(u);
+        changed = true;
+      }
+    });
+    if (changed) persistSigningPins();
+  }
+
   const USER_ROLES = [
     'System Administrator', 'CS Parole Officer', 'CS Parole Clerk', 'Jail Commander',
     'DJAG Parole Clerk', 'DJAG Secretary', 'Doctor', 'CS Commissioner',
   ];
   const OFFICER_ROLES = USER_ROLES.filter((r) => r !== 'System Administrator');
-  const BOARD_POSITIONS = ['DJAG Secretary', 'Commissioner PNGCS', 'Medical Member'];
-  const PAROLE_APPROVAL_THRESHOLD = 80;
+  const BOARD_POSITIONS = ['DJAG Secretary', 'PNGCS Commissioner', 'Psychiatrist'];
   const HEARING_DEADLINE_DAYS = 14;
+  const LIFE_ELIGIBILITY_YEARS = 10;
   const BOARD_ASSESSOR_ROLES = Object.freeze(['Doctor', 'CS Commissioner', 'DJAG Secretary']);
   const BOARD_VOTING_ROLES = BOARD_ASSESSOR_ROLES;
+
+  function isLifeSentence(p) {
+    return p?.sentenceType === 'Life' || p?.sentence_type === 'Life';
+  }
 
   function applyBoardMemberContract(user) {
     if (!BOARD_ASSESSOR_ROLES.includes(user.role)) return user;
@@ -107,14 +196,14 @@ const PMSStorage = (() => {
   const PAROLE_FORMS = [
     { number: 1, name: 'Form 1 — Parole Eligibility Screening' },
     { number: 2, name: 'Form 2 — Assessment Records (DDR & PPR)' },
-    { number: 3, name: 'Form 3 — Institutional Report' },
+    { number: 3, name: 'Form 3 — Institutional Report & Hearing Record' },
     { number: 4, name: 'Form 4 — Parole Granted' },
     { number: 5, name: 'Form 5 — Parole Refused' },
   ];
   const APPLICATION_STATUSES = [
     'Draft', 'Submitted', 'Under DJAG Review', 'Returned for Correction',
     'Pending Commander Review', 'Pre-Parole Report Prepared', 'Hearing Scheduled',
-    'Pending Board Review', 'Parole Granted', 'Parole Refused', 'Pending Approval',
+    'Hearing In Progress', 'Pending Board Review', 'Parole Granted', 'Parole Refused', 'Pending Approval',
     'Approved', 'Deferred', 'Refused', 'Released',
   ];
   const HEARING_STATUSES = ['Pending', 'Scheduled', 'Upcoming', 'In Progress', 'Completed', 'Cancelled', 'Rescheduled'];
@@ -139,9 +228,11 @@ const PMSStorage = (() => {
     'Sentence Completed',
   ];
   const DEFAULT_SETTINGS = {
-    paroleEligibilityFraction: 1 / 3,
-    paroleEligibilityLabel: 'One-third (1/3) of total sentence',
+    paroleEligibilityFraction: 1 / 2,
+    paroleEligibilityLabel: 'One-half (1/2) of total sentence',
     systemName: 'Parole Management System',
+    /** When false, frontend skips /api/parole/* mirror writes (legacy workflow only). */
+    act1991ParoleSyncEnabled: false,
   };
 
   let data = null;
@@ -261,8 +352,9 @@ const PMSStorage = (() => {
       body: JSON.stringify({ data: snapshot, demoPasswords: DEMO_PASSWORDS }),
     });
     if (res.status === 401) {
-      clearSession();
-      throw new Error('Session expired. Please sign in again.');
+      dbSyncEnabled = false;
+      console.warn('Database sync disabled — API session rejected; continuing with local storage.');
+      return;
     }
     const payload = await res.json();
     if (!res.ok || payload.success === false) {
@@ -323,14 +415,14 @@ const PMSStorage = (() => {
         { id: 'USR-000003', officerId: 'OFF-000002', employeeNumber: 'EMP-000003', username: 'm.kila@djag.gov.pg', email: 'm.kila@djag.gov.pg', firstName: 'Mary', lastName: 'Kila', role: 'DJAG Parole Clerk', rank: 'Parole Clerk', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Clerk', phone: '+675 7234 5678', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2021-03-22', lastLogin: '2026-07-28T11:00:00.000Z', profilePhoto: null },
         { id: 'USR-000024', officerId: 'OFF-000024', employeeNumber: 'EMP-000024', username: 's.tau@cs.gov.pg', email: 's.tau@cs.gov.pg', firstName: 'Samuel', lastName: 'Tau', role: 'CS Parole Officer', rank: 'Parole Officer', institutionId: 'INS-000001', province: 'National Capital District', position: 'Parole Officer', phone: '+675 7123 4500', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2021-08-01', lastLogin: '2026-07-20T09:00:00.000Z', profilePhoto: null },
         { id: 'USR-000025', officerId: 'OFF-000025', employeeNumber: 'EMP-000025', username: 'h.morris@djag.gov.pg', email: 'h.morris@djag.gov.pg', firstName: 'Helen', lastName: 'Morris', role: 'DJAG Secretary', rank: 'Secretary', institutionId: 'INS-000001', province: 'National Capital District', position: 'DJAG Secretary', phone: '+675 7234 5600', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'DJAG Secretary', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-22T10:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000026', officerId: 'OFF-000026', employeeNumber: 'EMP-000026', username: 'r.sine@health.gov.pg', email: 'r.sine@health.gov.pg', firstName: 'Ruth', lastName: 'Sine', role: 'Doctor', rank: 'Medical Officer', institutionId: 'INS-000001', province: 'National Capital District', position: 'Medical Board Member', phone: '+675 7345 6700', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Medical Member', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-18T11:00:00.000Z', profilePhoto: null },
-        { id: 'USR-000027', officerId: 'OFF-000027', employeeNumber: 'EMP-000027', username: 't.bain@cs.gov.pg', email: 't.bain@cs.gov.pg', firstName: 'Thomas', lastName: 'Bain', role: 'CS Commissioner', rank: 'Commissioner', institutionId: 'INS-000001', province: 'National Capital District', position: 'Commissioner PNGCS', phone: '+675 7345 6800', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Commissioner PNGCS', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-19T09:30:00.000Z', profilePhoto: null },
+        { id: 'USR-000026', officerId: 'OFF-000026', employeeNumber: 'EMP-000026', username: 'r.sine@health.gov.pg', email: 'r.sine@health.gov.pg', firstName: 'Ruth', lastName: 'Sine', role: 'Doctor', rank: 'Psychiatrist', institutionId: 'INS-000001', province: 'National Capital District', position: 'Psychiatrist — Parole Board', phone: '+675 7345 6700', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'Psychiatrist', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-18T11:00:00.000Z', profilePhoto: null },
+        { id: 'USR-000027', officerId: 'OFF-000027', employeeNumber: 'EMP-000027', username: 't.bain@cs.gov.pg', email: 't.bain@cs.gov.pg', firstName: 'Thomas', lastName: 'Bain', role: 'CS Commissioner', rank: 'Commissioner', institutionId: 'INS-000001', province: 'National Capital District', position: 'PNGCS Commissioner', phone: '+675 7345 6800', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: 'PNGCS Commissioner', contractStartDate: '2022-01-01', contractExpiryDate: '2027-01-01', contractStatus: 'Active', status: 'Active', dateAppointed: '2022-01-01', lastLogin: '2026-07-19T09:30:00.000Z', profilePhoto: null },
         { id: 'USR-000028', officerId: 'OFF-000028', employeeNumber: 'EMP-000028', username: 'p.koroma@cs.gov.pg', email: 'p.koroma@cs.gov.pg', firstName: 'Peter', lastName: 'Koroma', role: 'Jail Commander', rank: 'Commander', institutionId: 'INS-000001', province: 'National Capital District', position: 'Jail Commander — Bomana', phone: '+675 7123 4600', employmentStatus: 'Active', accountStatus: 'Active', boardPosition: null, status: 'Active', dateAppointed: '2019-04-01', lastLogin: '2026-07-25T08:00:00.000Z', profilePhoto: null },
       ],
       prisoners: [
-        { id: 'PR-000001', prisonerNumber: 'PR-000001', institutionId: 'INS-000001', firstName: 'Paul', lastName: 'Kaupa', dateOfBirth: '1992-04-10', gender: 'Male', offense: 'Armed Robbery', sentenceStartDate: '2020-01-15', sentenceEndDate: '2030-01-15', status: 'Eligible for Parole', documents: [] },
-        { id: 'PR-000002', prisonerNumber: 'PR-000002', institutionId: 'INS-000001', firstName: 'Peter', lastName: 'Wama', dateOfBirth: '1988-09-18', gender: 'Male', offense: 'Unlawful Wounding', sentenceStartDate: '2019-06-01', sentenceEndDate: '2027-06-01', status: 'In Custody', documents: [] },
-        { id: 'PR-000003', prisonerNumber: 'PR-000003', institutionId: 'INS-000001', firstName: 'Sarah', lastName: 'Tekate', dateOfBirth: '1995-12-01', gender: 'Female', offense: 'Grand Larceny', sentenceStartDate: '2022-03-10', sentenceEndDate: '2028-03-10', status: 'In Custody', documents: [] },
+        { id: 'PR-000001', prisonerNumber: 'PR-000001', institutionId: 'INS-000001', firstName: 'Paul', lastName: 'Kaupa', dateOfBirth: '1992-04-10', gender: 'Male', offense: 'Armed Robbery', sentenceStartDate: '2020-01-15', sentenceEndDate: '2030-01-15', status: 'Hearing Scheduled', documents: [] },
+        { id: 'PR-000002', prisonerNumber: 'PR-000002', institutionId: 'INS-000001', firstName: 'Peter', lastName: 'Wama', dateOfBirth: '1988-09-18', gender: 'Male', offense: 'Unlawful Wounding', sentenceStartDate: '2019-06-01', sentenceEndDate: '2027-06-01', status: 'Assessment in Progress', documents: [] },
+        { id: 'PR-000003', prisonerNumber: 'PR-000003', institutionId: 'INS-000001', firstName: 'Sarah', lastName: 'Tekate', dateOfBirth: '1995-12-01', gender: 'Female', offense: 'Grand Larceny', sentenceStartDate: '2022-03-10', sentenceEndDate: '2028-03-10', status: 'Assessment in Progress', documents: [] },
       ],
       offenses: [],
       applications: [
@@ -343,7 +435,7 @@ const PMSStorage = (() => {
               status: 'submitted',
               screeningDate: '2026-06-15',
               eligibilityOutcome: 'eligible',
-              recommendationReason: 'Meets one-third sentence threshold and eligibility criteria.',
+              recommendationReason: 'Meets one-half sentence threshold and eligibility criteria.',
               officerName: 'John Dole',
               officerId: 'OFF-000001',
               submittedAt: '2026-06-15T10:30:00.000Z',
@@ -366,7 +458,7 @@ const PMSStorage = (() => {
               status: 'submitted',
               screeningDate: '2026-08-01',
               eligibilityOutcome: 'eligible',
-              recommendationReason: 'Eligible under one-third rule — Peter Wama.',
+              recommendationReason: 'Eligible under one-half rule — Peter Wama.',
               officerName: 'John Dole',
               submittedAt: '2026-08-01T09:00:00.000Z',
               submittedBy: 'USR-000002',
@@ -392,19 +484,6 @@ const PMSStorage = (() => {
           boardDecision: null, workflowNotes: [], createdAt: now,
         },
         {
-          id: 'APP-000003', caseNumber: 'PMS-2026-000003', prisonerId: 'PR-000002', institutionId: 'INS-000001', status: 'Approved',
-          submittedAt: '2025-11-01', submittedBy: 'USR-000002',
-          formData: {
-            form1: { formId: 'F1-000002', status: 'submitted', eligibilityOutcome: 'eligible', screeningDate: '2026-05-01', officerName: 'John Dole', recommendationReason: 'Eligible under PMS one-third rule.' },
-            form2: { formId: 'F2-000002', nextOfKinName: 'Grace Wama' },
-            form3: { formId: 'F3-000001', commanderRecommendation: 'Recommended' },
-            form4: { formId: 'F4-000001', investigationSummary: 'Community support verified' },
-            form5: { formId: 'F5-000001', boardDecision: 'Approved', conditions: 'Monthly reporting to PNGCS' },
-          },
-          boardDecision: { outcome: 'Approved', conditions: 'Monthly reporting to PNGCS', deliberationNotes: 'Unanimous approval', decidedBy: 'USR-000025', decidedAt: '2026-01-20' },
-          workflowNotes: [], createdAt: '2025-10-01T00:00:00.000Z',
-        },
-        {
           id: 'APP-000004', caseNumber: 'PMS-2026-000004', prisonerId: 'PR-000003', institutionId: 'INS-000001', status: 'Pre-Parole Report Prepared',
           submittedAt: '2026-07-15', submittedBy: 'USR-000002',
           formData: {
@@ -428,6 +507,26 @@ const PMSStorage = (() => {
                   officerName: 'John Dole',
                   darOfficer: 'John Dole',
                   submittedAt: '2026-07-10T10:00:00.000Z',
+                  attachments: {
+                    darConductDocs: [{
+                      id: 'F2F-DEMO-DAR-CONDUCT',
+                      fileName: 'DAR-Conduct-Report-Kaupa.txt',
+                      fileType: 'text/plain',
+                      fileSize: 48,
+                      dataUrl: 'data:text/plain;base64,SW5zdGl0dXRpb25hbCBjb25kdWN0IGxvZyBmb3IgUGF1bCBLYXVwYQ==',
+                      uploadedAt: '2026-07-10T10:00:00.000Z',
+                      uploadedByName: 'John Dole',
+                    }],
+                    darHealthDocs: [{
+                      id: 'F2F-DEMO-DAR-HEALTH',
+                      fileName: 'DAR-Health-Summary-Kaupa.txt',
+                      fileType: 'text/plain',
+                      fileSize: 42,
+                      dataUrl: 'data:text/plain;base64,SGVhbHRoIGFzc2Vzc21lbnQgc3VtbWFyeSAtIGNoYXJhY3Rlcg==',
+                      uploadedAt: '2026-07-10T10:00:00.000Z',
+                      uploadedByName: 'John Dole',
+                    }],
+                  },
                 },
                 ppr: {
                   submitted: true,
@@ -435,6 +534,26 @@ const PMSStorage = (() => {
                   status: 'submitted',
                   officerName: 'Mary Kila',
                   submittedAt: '2026-07-12T11:00:00.000Z',
+                  attachments: {
+                    pprCommunityDocs: [{
+                      id: 'F2F-DEMO-PPR-COMMUNITY',
+                      fileName: 'PPR-Community-Interview-Kaupa.txt',
+                      fileType: 'text/plain',
+                      fileSize: 44,
+                      dataUrl: 'data:text/plain;base64,Q29tbXVuaXR5IGxlYWRlciBpbnRlcnZpZXcgc3VtbWFyeQ==',
+                      uploadedAt: '2026-07-12T11:00:00.000Z',
+                      uploadedByName: 'Mary Kila',
+                    }],
+                    pprVictimImpactDocs: [{
+                      id: 'F2F-DEMO-PPR-VICTIM',
+                      fileName: 'PPR-Victim-Consultation-Kaupa.txt',
+                      fileType: 'text/plain',
+                      fileSize: 40,
+                      dataUrl: 'data:text/plain;base64,VmljdGltIGltcGFjdCBjb25zdWx0YXRpb24gbm90ZXM=',
+                      uploadedAt: '2026-07-12T11:00:00.000Z',
+                      uploadedByName: 'Mary Kila',
+                    }],
+                  },
                 },
               },
             },
@@ -451,40 +570,48 @@ const PMSStorage = (() => {
             form5: {},
           },
           preParoleReport: 'Institutional verification complete. Recommended for parole hearing.',
-          commanderReview: { verifiedAt: '2026-07-14T15:00:00.000Z', recommendation: 'Recommended', verifiedBy: 'USR-000028' },
+          commanderReview: {
+            verifiedAt: '2026-07-14T15:00:00.000Z', reviewedAt: '2026-07-14T15:00:00.000Z',
+            decision: 'Verified', recommendation: 'Recommended', verifiedBy: 'USR-000028',
+            commanderId: 'USR-000028', commanderName: 'Peter Koroma', finalized: true,
+            prisonerId: 'PR-000003', caseNumber: 'PMS-2026-000004',
+          },
           boardDecision: null, workflowNotes: [], createdAt: now,
         },
       ],
       hearings: [
-        { id: 'HRG-000001', applicationId: 'APP-000001', prisonerId: 'PR-000001', institutionId: 'INS-000001', scheduledDate: '2026-08-15', scheduledTime: '10:00', location: 'Parole Board Hearing Room A', notes: 'Initial board hearing', status: 'Scheduled' },
-        { id: 'HRG-000002', applicationId: 'APP-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001', scheduledDate: '2026-09-08', scheduledTime: '09:30', location: 'Parole Board Hearing Room B', notes: 'Board review — Peter Wama', status: 'Scheduled', boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'] },
-        { id: 'HRG-000003', applicationId: 'APP-000001', prisonerId: 'PR-000001', institutionId: 'INS-000001', scheduledDate: '2026-09-18', scheduledTime: '14:00', location: 'Parole Board Hearing Room A', notes: 'Follow-up hearing — Paul Kaupa', status: 'Upcoming', boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'] },
-        { id: 'HRG-000004', applicationId: 'APP-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001', scheduledDate: '2026-09-25', scheduledTime: '11:00', location: 'DJAG Secretariat', notes: 'Pre-hearing briefing', status: 'Scheduled' },
+        { id: 'HRG-000001', applicationId: 'APP-000001', prisonerId: 'PR-000001', institutionId: 'INS-000001', scheduledDate: '2026-09-18', scheduledTime: '14:00', location: 'PNG CS HQ Conference Room 3', notes: 'Board hearing — Paul Kaupa', status: 'Scheduled', boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'] },
       ],
       notifications: [
         { id: 'NOT-000001', type: 'eligibility', title: 'Parole Eligibility Alert', message: 'Paul Kaupa (PR-000001) has reached parole eligibility threshold.', recipientRole: 'CS Parole Clerk', recipientUserId: 'USR-000002', institutionId: 'INS-000001', prisonerId: 'PR-000001', eligibleDate: '2025-01-15', linkPanel: 'eligibility', read: false, resolved: false, createdAt: '2026-01-15T08:00:00.000Z', dedupeKey: 'eligibility:PR-000001:USR-000002:Parole Eligibility Alert' },
-        { id: 'NOT-000002', type: 'application', title: 'New Parole Application', message: 'PNGCS submitted application for Paul Kaupa — pending DJAG review.', recipientRole: 'DJAG Parole Clerk', recipientUserId: null, institutionId: 'INS-000001', prisonerId: 'PR-000001', applicationId: 'APP-000001', linkPanel: 'applications', read: false, resolved: false, createdAt: '2026-06-15T10:30:00.000Z', dedupeKey: 'application:APP-000001:DJAG Parole Clerk:New Parole Application' },
-        { id: 'NOT-000003', type: 'eligibility', title: 'Parole Eligibility Alert', message: 'Paul Kaupa (PR-000001) reached eligibility: One-third (1/3) of total sentence.', recipientRole: 'System Administrator', recipientUserId: null, institutionId: 'INS-000001', prisonerId: 'PR-000001', eligibleDate: '2025-01-15', linkPanel: 'eligibility', read: false, resolved: false, createdAt: '2026-01-15T08:00:00.000Z', dedupeKey: 'eligibility:PR-000001:System Administrator:Parole Eligibility Alert' },
-        { id: 'NOT-000004', type: 'form2', title: 'Form 2 Requires Action', message: 'DAR completed — PPR section required for Sarah Tekate (PMS-2026-000004)', recipientRole: 'DJAG Parole Clerk', recipientUserId: null, institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'applications', read: false, resolved: false, createdAt: '2026-07-10T10:05:00.000Z', dedupeKey: 'form2:APP-000004:DJAG Parole Clerk:Form 2 Requires Action' },
-        { id: 'NOT-000005', type: 'hearing', title: 'Schedule Hearing Required', message: 'Case PMS-2026-000004 (Sarah Tekate) requires a parole hearing within 14 days of Form 3 verification.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'hearings', read: false, resolved: false, createdAt: '2026-07-15T08:00:00.000Z', dedupeKey: 'hearing:APP-000004:DJAG Secretary:Schedule Hearing Required' },
+        { id: 'NOT-000003', type: 'eligibility', title: 'Parole Eligibility Alert', message: 'Paul Kaupa (PR-000001) reached eligibility: One-half (1/2) of total sentence.', recipientRole: 'System Administrator', recipientUserId: null, institutionId: 'INS-000001', prisonerId: 'PR-000001', eligibleDate: '2025-01-15', linkPanel: 'eligibility', read: false, resolved: false, createdAt: '2026-01-15T08:00:00.000Z', dedupeKey: 'eligibility:PR-000001:System Administrator:Parole Eligibility Alert' },
+        { id: 'NOT-000005', type: 'escalation', title: 'Hearing Overdue', message: 'Case PMS-2026-000004 (Sarah Tekate) is overdue for hearing scheduling.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'hearings', read: false, resolved: false, createdAt: '2026-07-15T08:00:00.000Z', dedupeKey: 'escalation:APP-000004:DJAG Secretary:Hearing Overdue' },
         { id: 'NOT-000006', type: 'board_review', title: 'Submit Board Assessment', message: 'Parole hearing scheduled for Paul Kaupa (PMS-2026-000001) — submit your Approve, Deny, or Defer vote when ready.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000001', applicationId: 'APP-000001', linkPanel: 'decisions', read: false, resolved: false, createdAt: '2026-06-20T09:00:00.000Z', dedupeKey: 'board_review:APP-000001:DJAG Secretary:Submit Board Assessment' },
-        { id: 'NOT-000007', type: 'verification', title: 'Institutional Verification Required', message: 'Peter Wama (PMS-2026-000002) — Forms 1–3 complete. Review and verify the case package.', recipientRole: 'Jail Commander', recipientUserId: 'USR-000028', institutionId: 'INS-000001', prisonerId: 'PR-000002', applicationId: 'APP-000002', linkPanel: 'verification', read: false, resolved: false, createdAt: '2026-08-10T15:00:00.000Z', dedupeKey: 'verification:APP-000002:Jail Commander:Institutional Verification Required' },
       ],
       auditLogs: [
         { id: 'AUD-000001', userId: 'USR-000002', userName: 'John Dole', role: 'CS Parole Clerk', action: 'CREATE', entity: 'ParoleApplication', entityId: 'APP-000001', details: 'Submitted parole application for Paul Kaupa', timestamp: '2026-06-15T10:30:00.000Z' },
         { id: 'AUD-000002', userId: 'USR-000001', userName: 'System Administrator', role: 'System Administrator', action: 'LOGIN', entity: 'Session', entityId: 'USR-000001', details: 'Administrator signed in', timestamp: '2026-07-30T09:00:00.000Z' },
         { id: 'AUD-000003', userId: 'USR-000002', userName: 'John Dole', role: 'CS Parole Clerk', action: 'APPROVE', entity: 'InstitutionReport', entityId: 'INS-000001', details: 'Approved institutional report', timestamp: '2026-06-20T14:00:00.000Z' },
-        { id: 'AUD-000004', userId: 'USR-000025', userName: 'Helen Morris', role: 'DJAG Secretary', action: 'DECISION', entity: 'ParoleApplication', entityId: 'APP-000003', details: 'Board Approved — Peter Wama', timestamp: '2026-01-20T11:00:00.000Z' },
       ],
       reports: [
         { id: 'RPT-000001', institutionId: 'INS-000001', type: 'institutional', title: 'Institutional Report', status: 'Approved', createdBy: 'USR-000002', createdAt: '2026-06-20T14:00:00.000Z' },
       ],
+      paroleGrantedArchive: [],
     };
     PMSIdGenerator.ensureCounters(seed);
     return seed;
   }
 
-  function persist() {
+  function notifyDataChange(detail = {}) {
+    if (typeof window === 'undefined') return;
+    try {
+      window.dispatchEvent(new CustomEvent('pms:data-changed', {
+        detail: { ...detail, at: Date.now() },
+      }));
+    } catch (_) { /* ignore */ }
+  }
+
+  function persist(meta = {}) {
     try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) { console.warn('Storage persist failed', e); }
     if (dbSyncEnabled) {
       clearTimeout(syncTimer);
@@ -492,6 +619,7 @@ const PMSStorage = (() => {
         syncToDatabase().catch((err) => console.warn('MySQL sync failed:', err.message));
       }, 400);
     }
+    notifyDataChange(meta);
   }
 
   function loadSession() {
@@ -574,6 +702,8 @@ const PMSStorage = (() => {
       migrateCaseNumbers();
       migrateNotifications();
       mergeSeedUsers();
+      loadSigningPinsFromStorage();
+      ensureSigningPins();
       runEscalationChecks();
       migratePasswordHashes();
       if (typeof PMSEligibility !== 'undefined') {
@@ -591,6 +721,19 @@ const PMSStorage = (() => {
     }
   }
 
+  function migrateEligibilitySettings() {
+    if (!data?.settings) return;
+    const f = Number(data.settings.paroleEligibilityFraction);
+    if (Math.abs(f - (1 / 3)) < 0.001 || f === 0.333333) {
+      data.settings.paroleEligibilityFraction = 0.5;
+      data.settings.paroleEligibilityLabel = 'One-half (1/2) of total sentence';
+    }
+    if (/one-third|1\/3/i.test(data.settings.paroleEligibilityLabel || '')) {
+      data.settings.paroleEligibilityLabel = 'One-half (1/2) of total sentence';
+      data.settings.paroleEligibilityFraction = 0.5;
+    }
+  }
+
   function migrateLegacyStatuses() {
     if (!data.prisoners) return;
     data.prisoners.forEach((p) => {
@@ -601,9 +744,15 @@ const PMSStorage = (() => {
     if (data.notifications) {
       data.notifications.forEach((n) => {
         if (n.type === 'parole_eligibility') n.type = 'eligibility';
+        if (n.message && /one-third|1\/3/i.test(n.message)) {
+          n.message = n.message.replace(/One-third \(1\/3\) of total sentence/gi, 'One-half (1/2) of total sentence');
+        }
       });
     }
+    migrateEligibilitySettings();
     migrateDemoApplications();
+    syncAllApplicationWorkflowStates();
+    persist();
   }
 
   /** Rename legacy roles and retire obsolete Parole Board Member accounts. */
@@ -634,6 +783,14 @@ const PMSStorage = (() => {
       } else if (canonical && (!u.email || u.email === legacyKey) && u.role !== 'System Administrator') {
         u.email = u.username;
       }
+      const boardPosMap = {
+        'Medical Member': 'Psychiatrist',
+        Psychiatric: 'Psychiatrist',
+        'Commissioner PNGCS': 'PNGCS Commissioner',
+      };
+      if (u.boardPosition && boardPosMap[u.boardPosition]) {
+        u.boardPosition = boardPosMap[u.boardPosition];
+      }
       Object.assign(u, applyBoardMemberContract(u));
     });
     data.notifications?.forEach((n) => {
@@ -644,6 +801,12 @@ const PMSStorage = (() => {
       if (roleMap[a.role]) a.role = roleMap[a.role];
     });
     data.applications?.forEach((app) => {
+      app.boardAssessments?.forEach((a) => {
+        if (a.boardPosition === 'Medical Member' || a.boardPosition === 'Psychiatric') {
+          a.boardPosition = 'Psychiatrist';
+        }
+        if (a.boardPosition === 'Commissioner PNGCS') a.boardPosition = 'PNGCS Commissioner';
+      });
       app.approvalSteps?.forEach((s) => {
         if (roleMap[s.role]) s.role = roleMap[s.role];
         if (s.role === 'Parole Board Member') s.role = 'DJAG Secretary';
@@ -659,10 +822,348 @@ const PMSStorage = (() => {
     });
   }
 
-    /** Repair demo cases where Form 1 was never seeded but Form 2 is expected (e.g. Peter Wama APP-000002). */
+  function buildDemoDigitalSignature({
+    officerName = 'John Dole',
+    officerId = 'OFF-000001',
+    userId = 'USR-000002',
+    timestamp,
+    applicationId = '',
+    formNumber = 1,
+  } = {}) {
+    const ts = timestamp || new Date().toISOString();
+    return {
+      verified: true,
+      officerId,
+      officerName,
+      role: 'CS Parole Clerk',
+      userId,
+      timestamp: ts,
+      ipAddress: '10.0.4.122',
+      sha256: `demo${String(applicationId).replace(/\W/g, '')}f${formNumber}`.padEnd(24, '0'),
+      formNumber,
+      applicationId,
+    };
+  }
+
+  function ensureForm1SubmittedRecord(form1, {
+    applicationId,
+    screeningDate,
+    officerName = 'John Dole',
+    officerId = 'OFF-000001',
+    submittedBy = 'USR-000002',
+  } = {}) {
+    if (!form1) return form1;
+    const date = screeningDate || form1.screeningDate || new Date().toISOString().slice(0, 10);
+    const submittedAt = form1.submittedAt || `${date}T10:00:00.000Z`;
+    const prior = form1.sectionE || form1.sections?.E || {};
+    const digitalSignature = prior.digital_signature || prior.digitalSignature || form1.digitalSignature
+      || buildDemoDigitalSignature({
+        officerName: form1.officerName || officerName,
+        officerId: form1.officerId || officerId,
+        userId: form1.submittedBy || submittedBy,
+        timestamp: submittedAt,
+        applicationId,
+      });
+    const sectionE = {
+      eligibility_assessment: prior.eligibility_assessment
+        || (form1.eligibilityOutcome === 'not_eligible' ? 'not_eligible' : 'eligible'),
+      prisoner_consent: form1.eligibilityOutcome !== 'not_eligible',
+      consent_date: prior.consent_date || prior.consentDate || date,
+      digital_signature: digitalSignature,
+      officer_signature: prior.officer_signature || form1.officerName || officerName,
+      officer_sign_date: prior.officer_sign_date || prior.officerSignDate || date,
+      signature: 'Recorded in PMS',
+    };
+    return {
+      ...form1,
+      status: form1.status === 'verified' ? 'verified' : 'submitted',
+      submittedAt,
+      submittedBy: form1.submittedBy || submittedBy,
+      screeningDate: date,
+      eligibilityOutcome: form1.eligibilityOutcome || 'eligible',
+      recommendationReason: form1.recommendationReason || 'Meets parole eligibility criteria.',
+      officerName: form1.officerName || officerName,
+      officerId: form1.officerId || officerId,
+      sectionE,
+      sections: { ...(form1.sections || {}), E: sectionE },
+      digitalSignature,
+    };
+  }
+
+  function buildDemoCommanderReview({
+    prisonerId,
+    caseNumber,
+    verifiedAt = '2026-07-14T15:00:00.000Z',
+  }) {
+    return {
+      commanderId: 'USR-000028',
+      commanderName: 'Peter Koroma',
+      institutionId: 'INS-000001',
+      prisonerId,
+      caseNumber,
+      decision: 'Verified',
+      recommendation: 'Recommended',
+      reviewedAt: verifiedAt,
+      verifiedAt,
+      verifiedBy: 'USR-000028',
+      finalized: true,
+      comments: 'Institutional verification complete — case package approved.',
+    };
+  }
+
+  function getDemoForm2AttachmentBundle() {
+    return {
+      ddr: {
+        darConductDocs: [{
+          id: 'F2F-DEMO-DAR-CONDUCT',
+          fileName: 'DAR-Conduct-Report.txt',
+          fileType: 'text/plain',
+          fileSize: 48,
+          dataUrl: 'data:text/plain;base64,SW5zdGl0dXRpb25hbCBjb25kdWN0IGxvZyBmb3IgZGVtbyByZWNvcmQ=',
+          uploadedAt: '2026-07-10T10:00:00.000Z',
+          uploadedByName: 'John Dole',
+        }],
+        darHealthDocs: [{
+          id: 'F2F-DEMO-DAR-HEALTH',
+          fileName: 'DAR-Health-Summary.txt',
+          fileType: 'text/plain',
+          fileSize: 42,
+          dataUrl: 'data:text/plain;base64,SGVhbHRoIGFzc2Vzc21lbnQgc3VtbWFyeSAtIGNoYXJhY3Rlcg==',
+          uploadedAt: '2026-07-10T10:00:00.000Z',
+          uploadedByName: 'John Dole',
+        }],
+      },
+      ppr: {
+        pprCommunityDocs: [{
+          id: 'F2F-DEMO-PPR-COMMUNITY',
+          fileName: 'PPR-Community-Interview.txt',
+          fileType: 'text/plain',
+          fileSize: 44,
+          dataUrl: 'data:text/plain;base64,Q29tbXVuaXR5IGxlYWRlciBpbnRlcnZpZXcgc3VtbWFyeQ==',
+          uploadedAt: '2026-07-12T11:00:00.000Z',
+          uploadedByName: 'Mary Kila',
+        }],
+        pprVictimImpactDocs: [{
+          id: 'F2F-DEMO-PPR-VICTIM',
+          fileName: 'PPR-Victim-Consultation.txt',
+          fileType: 'text/plain',
+          fileSize: 40,
+          dataUrl: 'data:text/plain;base64,VmljdGltIGltcGFjdCBjb25zdWx0YXRpb24gbm90ZXM=',
+          uploadedAt: '2026-07-12T11:00:00.000Z',
+          uploadedByName: 'Mary Kila',
+        }],
+      },
+    };
+  }
+
+  function syncPrisonerParoleStatus(prisoner, app) {
+    if (!prisoner || !app) return false;
+    if (isTerminalApplicationStatus(app.status)) return false;
+    if (['Released on Parole', 'Released'].includes(prisoner.status)) return false;
+    let next = prisoner.status;
+    if (app.status === 'Hearing Scheduled' || app.status === 'Hearing In Progress') next = 'Hearing Scheduled';
+    else if (app.status === 'Pending Board Review') next = 'Board Review';
+    else if (['Pre-Parole Report Prepared', 'Pending Commander Review', 'Submitted', 'Under DJAG Review'].includes(app.status)) {
+      next = 'Assessment in Progress';
+    } else if (app.status === 'Draft') {
+      const prog = getPrisonerProgress(prisoner);
+      next = prog.eligible ? 'Eligible for Parole Application' : prisoner.status;
+    }
+    if (next !== prisoner.status) {
+      prisoner.status = next;
+      return true;
+    }
+    return false;
+  }
+
+  const POST_HEARING_SCHEDULE_STATUSES = [
+    'Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review', 'Parole Granted', 'Parole Refused',
+    'Pending Approval', 'Approved', 'Refused', 'Released', 'Deferred',
+  ];
+
+  /** Statuses at or after commander sign-off — do not re-queue for verification. */
+  const POST_COMMANDER_VERIFICATION_STATUSES = [
+    'Pre-Parole Report Prepared', ...POST_HEARING_SCHEDULE_STATUSES,
+  ];
+
+  function findActiveHearingRecord(applicationId) {
+    const active = (data.hearings || []).filter(
+      (h) => h.applicationId === applicationId && !['Cancelled', 'Completed'].includes(h.status),
+    );
+    if (!active.length) return null;
+    return active.sort(
+      (a, b) => new Date(b.updatedAt || b.createdAt || b.scheduledDate || 0)
+        - new Date(a.updatedAt || a.createdAt || a.scheduledDate || 0),
+    )[0];
+  }
+
+  function hearingRecencyScore(h) {
+    return new Date(h?.updatedAt || h?.createdAt || h?.scheduledDate || 0).getTime();
+  }
+
+  function dedupeActiveHearingsPerApplication() {
+    if (!data?.hearings) return;
+    const winners = new Map();
+    data.hearings.forEach((h) => {
+      if (!h.applicationId || ['Cancelled', 'Completed'].includes(h.status)) return;
+      const prev = winners.get(h.applicationId);
+      if (!prev || hearingRecencyScore(h) >= hearingRecencyScore(prev)) {
+        winners.set(h.applicationId, h);
+      }
+    });
+    data.hearings.forEach((h) => {
+      if (!h.applicationId || ['Cancelled', 'Completed'].includes(h.status)) return;
+      const winner = winners.get(h.applicationId);
+      if (winner && winner.id !== h.id) {
+        h.status = 'Cancelled';
+        h.supersededAt = h.supersededAt || new Date().toISOString();
+        h.supersededReason = h.supersededReason || 'Superseded by rescheduled hearing';
+      }
+    });
+  }
+
+  function getScheduledHearings() {
+    dedupeActiveHearingsPerApplication();
+    const byApp = new Map();
+    (data.hearings || [])
+      .filter((h) => h.applicationId && ['Scheduled', 'Upcoming'].includes(h.status))
+      .sort((a, b) => hearingRecencyScore(b) - hearingRecencyScore(a))
+      .forEach((h) => {
+        if (!byApp.has(h.applicationId)) byApp.set(h.applicationId, h);
+      });
+    return Array.from(byApp.values()).sort(
+      (a, b) => new Date(a.scheduledDate || 0) - new Date(b.scheduledDate || 0),
+    );
+  }
+
+  function syncHearingApplicationStatuses() {
+    if (!data?.hearings || !data?.applications) return;
+    data.hearings.forEach((h) => {
+      if (!h.applicationId || !h.scheduledDate || ['Cancelled', 'Completed'].includes(h.status)) return;
+      const app = data.applications.find((a) => a.id === h.applicationId);
+      if (!app) return;
+      if (['Pre-Parole Report Prepared', 'Pending Commander Review', 'Submitted', 'Under DJAG Review'].includes(app.status)) {
+        app.status = 'Hearing Scheduled';
+      }
+    });
+  }
+
+  function preserveScheduledHearings() {
+    if (!data?.hearings) return;
+    const preHearingStatuses = ['Draft', 'Submitted', 'Pending Commander Review', 'Pre-Parole Report Prepared', 'Returned for Correction'];
+    data.hearings = data.hearings.filter((h) => {
+      const linked = data.applications.find((a) => a.id === h.applicationId);
+      if (!linked) return false;
+      if (['Cancelled', 'Completed'].includes(h.status)) return true;
+      if (h.scheduledDate && h.location) return true;
+      if (preHearingStatuses.includes(linked.status) && linked.id !== 'APP-000001') return false;
+      return POST_HEARING_SCHEDULE_STATUSES.includes(linked.status) || linked.id === 'APP-000001';
+    });
+  }
+
+  /** Repair demo cases and reconcile workflow state for all parole applications. */
   function migrateDemoApplications() {
     if (!data?.applications) return;
-    const app2 = data.applications.find((a) => a.id === 'APP-000002' && a.prisonerId === 'PR-000002');
+
+    // Remove retired duplicate Peter Wama case (historical APP-000003).
+    data.applications = data.applications.filter((a) => a.id !== 'APP-000003');
+    if (data.auditLogs) {
+      data.auditLogs = data.auditLogs.filter((a) => a.entityId !== 'APP-000003');
+    }
+
+    const app2Template = {
+      id: 'APP-000002', caseNumber: 'PMS-2026-000002', prisonerId: 'PR-000002', institutionId: 'INS-000001',
+      status: 'Pending Commander Review', submittedAt: '2026-08-01', submittedBy: 'USR-000002',
+      formData: {
+        form1: {
+          formId: 'F1-000002', status: 'submitted', screeningDate: '2026-08-01', submittedAt: '2026-08-01T10:00:00.000Z',
+          eligibilityOutcome: 'eligible',
+          recommendationReason: 'Eligible under one-half rule — Peter Wama.',
+          officerName: 'John Dole', officerId: 'OFF-000001', submittedBy: 'USR-000002',
+        },
+        form2: {
+          formId: 'F2-000002',
+          sections: {
+            ddr: {
+              submitted: true, confirmed: true, status: 'submitted', officerName: 'John Dole',
+              institutionName: 'Bomana Correctional Institution',
+              assessmentSummary: 'Satisfactory conduct and program participation during custody.',
+              submittedAt: '2026-08-05T10:00:00.000Z',
+            },
+            ppr: {
+              submitted: true, confirmed: true, status: 'submitted', clerkName: 'Mary Kila', pprOfficer: 'Mary Kila',
+              personalParticulars: 'Family and community review completed with supporting statements.',
+              submittedAt: '2026-08-08T11:00:00.000Z',
+            },
+          },
+        },
+        form3: {
+          formId: 'F3-000003',
+          status: 'submitted',
+          submitted: true,
+          conductDuringSentence: 'Good conduct with no major incidents in the last 12 months.',
+          programParticipation: 'Completed vocational training and counselling programs.',
+          institutionalRecommendation: 'Recommended',
+          commanderRecommendation: 'Recommended',
+          officerName: 'John Dole',
+          submittedAt: '2026-08-10T14:00:00.000Z',
+        },
+        form4: {}, form5: {},
+      },
+      boardDecision: null, workflowNotes: [], createdAt: new Date().toISOString(),
+    };
+
+    data.applications?.forEach((application) => {
+      const f1 = application.formData?.form1;
+      if (!f1) return;
+      const shouldBeSubmitted = f1.status === 'submitted' || f1.status === 'verified'
+        || f1.eligibilityOutcome || f1.submittedAt;
+      if (shouldBeSubmitted) {
+        application.formData.form1 = ensureForm1SubmittedRecord(f1, {
+          applicationId: application.id,
+          screeningDate: f1.screeningDate,
+          officerName: f1.officerName,
+          officerId: f1.officerId,
+          submittedBy: f1.submittedBy || application.submittedBy,
+        });
+      }
+    });
+
+    let app2 = data.applications.find((a) => a.id === 'APP-000002' && a.prisonerId === 'PR-000002');
+    if (!app2) {
+      data.applications.push({ ...app2Template });
+      app2 = data.applications.find((a) => a.id === 'APP-000002');
+    } else {
+      const summary = getFormCompletionSummary(app2);
+      app2.formData = app2.formData || createEmptyFormData();
+      if (!summary.checks.form1) app2.formData.form1 = { ...app2Template.formData.form1, ...(app2.formData.form1 || {}) };
+      if (!summary.checks.form2) app2.formData.form2 = { ...app2Template.formData.form2, ...(app2.formData.form2 || {}) };
+      if (!summary.checks.form3) app2.formData.form3 = { ...app2Template.formData.form3, ...(app2.formData.form3 || {}) };
+      if (!summary.checks.form1 || !summary.checks.form2 || !summary.checks.form3) {
+        app2.status = 'Pending Commander Review';
+        app2.submittedAt = app2.submittedAt || app2Template.submittedAt;
+        app2.submittedBy = app2.submittedBy || app2Template.submittedBy;
+        app2.caseNumber = app2.caseNumber || app2Template.caseNumber;
+      }
+      if (app2.formData?.form1) {
+        app2.formData.form1 = ensureForm1SubmittedRecord(app2.formData.form1, {
+          applicationId: app2.id,
+          screeningDate: app2.formData.form1.screeningDate,
+          officerName: app2.formData.form1.officerName,
+          officerId: app2.formData.form1.officerId,
+          submittedBy: app2.formData.form1.submittedBy || app2.submittedBy,
+        });
+      }
+    }
+
+    if (data.hearings && app2) {
+      const preHearingStatuses = ['Draft', 'Submitted', 'Pending Commander Review', 'Pre-Parole Report Prepared', 'Returned for Correction'];
+      const app2Hearing = findActiveHearingRecord('APP-000002');
+      if (preHearingStatuses.includes(app2.status) && !app2Hearing?.scheduledDate) {
+        data.hearings = data.hearings.filter((h) => h.applicationId !== 'APP-000002');
+      }
+    }
+
     if (app2 && ['Draft', 'Submitted'].includes(app2.status)) {
       const summary = getFormCompletionSummary(app2);
       if (summary.checks.form1 && summary.checks.form2 && summary.checks.form3 && !isCommanderVerified(app2)) {
@@ -672,16 +1173,134 @@ const PMSStorage = (() => {
       }
     }
 
+    const demoForm2AttachmentBundle = getDemoForm2AttachmentBundle();
+
+    const app1 = data.applications.find((a) => a.id === 'APP-000001' && a.prisonerId === 'PR-000001');
+    if (app1) {
+      app1.formData = app1.formData || createEmptyFormData();
+      app1.formData.form1 = ensureForm1SubmittedRecord(app1.formData.form1 || {}, {
+        applicationId: app1.id,
+        screeningDate: '2026-06-15',
+      });
+      app1.formData.form2 = {
+        formId: 'F2-000001',
+        sections: {
+          ddr: {
+            submitted: true,
+            confirmed: true,
+            status: 'submitted',
+            officerName: 'John Dole',
+            darOfficer: 'John Dole',
+            institutionName: 'Bomana Correctional Institution',
+            assessmentSummary: 'Satisfactory conduct and program participation.',
+            submittedAt: '2026-06-18T10:00:00.000Z',
+            attachments: { ...(demoForm2AttachmentBundle.ddr || {}) },
+          },
+          ppr: {
+            submitted: true,
+            confirmed: true,
+            status: 'submitted',
+            officerName: 'Mary Kila',
+            pprOfficer: 'Mary Kila',
+            personalParticulars: 'Family and community review completed.',
+            submittedAt: '2026-06-22T11:00:00.000Z',
+            attachments: { ...(demoForm2AttachmentBundle.ppr || {}) },
+          },
+        },
+      };
+      app1.formData.form3 = {
+        formId: 'F3-000001',
+        status: 'submitted',
+        submitted: true,
+        conductDuringSentence: 'Good institutional conduct throughout sentence.',
+        programParticipation: 'Completed vocational and rehabilitation programs.',
+        institutionalRecommendation: 'Recommended',
+        commanderRecommendation: 'Recommended',
+        officerName: 'John Dole',
+        submittedAt: '2026-06-25T14:00:00.000Z',
+      };
+      app1.commanderReview = buildDemoCommanderReview({
+        prisonerId: 'PR-000001',
+        caseNumber: app1.caseNumber || 'PMS-2026-000001',
+        verifiedAt: '2026-06-28T15:00:00.000Z',
+      });
+      app1.hearingSchedulingAt = app1.hearingSchedulingAt || '2026-06-28T15:00:00.000Z';
+      app1.preParoleReport = app1.preParoleReport || 'Institutional verification complete. Recommended for parole hearing.';
+      if (!POST_HEARING_SCHEDULE_STATUSES.includes(app1.status)) {
+        app1.status = 'Hearing Scheduled';
+      }
+      app1.submittedAt = app1.submittedAt || '2026-06-15';
+      app1.submittedBy = app1.submittedBy || 'USR-000002';
+    }
+
+    data.paroleGrantedArchive = data.paroleGrantedArchive || [];
+    data.applications.forEach((app) => {
+      if (!isForm4Issued(app)) return;
+      if (!app.archived) {
+        app.archived = true;
+        app.archivedAt = app.formData?.form4?.issuedAt || app.updatedAt || new Date().toISOString();
+        app.archiveReason = 'Parole Granted — Form 4 issued';
+        if (app.status !== 'Approved' && app.status !== 'Released') app.status = 'Approved';
+      }
+      recordParoleGrantedArchive(app, { id: 'USR-000001', firstName: 'System', lastName: 'Migration', role: 'System Administrator' });
+    });
+
+    if (app2) {
+      app2.formData.form1 = ensureForm1SubmittedRecord(app2.formData.form1 || app2Template.formData.form1, {
+        applicationId: app2.id,
+        screeningDate: '2026-08-01',
+      });
+      const app2Verified = isCommanderVerified(app2) || isCommanderVerificationLocked(app2);
+      if (!app2Verified) {
+        delete app2.commanderReview;
+        delete app2.hearingSchedulingAt;
+        delete app2.commanderVerificationDraft;
+        app2.status = 'Pending Commander Review';
+        const p2 = data.prisoners?.find((p) => p.id === 'PR-000002');
+        if (p2?.verificationHistory?.length) {
+          p2.verificationHistory = p2.verificationHistory.filter((row) => row.applicationId !== 'APP-000002');
+        }
+      }
+    }
+
     const app4 = data.applications.find((a) => a.id === 'APP-000004' && a.prisonerId === 'PR-000003');
-    if (app4 && app4.status === 'Draft') {
-      app4.status = 'Pre-Parole Report Prepared';
-      app4.submittedAt = app4.submittedAt || '2026-07-15';
-      app4.submittedBy = app4.submittedBy || 'USR-000002';
+    if (app4) {
       app4.formData = app4.formData || createEmptyFormData();
+      app4.formData.form1 = ensureForm1SubmittedRecord(app4.formData.form1 || {}, {
+        applicationId: app4.id,
+        screeningDate: '2026-07-01',
+      });
+      if (!isForm2Complete(app4.formData.form2)) {
+        app4.formData.form2 = {
+          formId: 'F2-000003',
+          sections: {
+            ddr: {
+              submitted: true,
+              confirmed: true,
+              status: 'submitted',
+              officerName: 'John Dole',
+              darOfficer: 'John Dole',
+              submittedAt: '2026-07-10T10:00:00.000Z',
+              attachments: { ...(demoForm2AttachmentBundle.ddr || {}) },
+            },
+            ppr: {
+              submitted: true,
+              confirmed: true,
+              status: 'submitted',
+              officerName: 'Mary Kila',
+              pprOfficer: 'Mary Kila',
+              submittedAt: '2026-07-12T11:00:00.000Z',
+              attachments: { ...(demoForm2AttachmentBundle.ppr || {}) },
+            },
+          },
+        };
+      }
       app4.formData.form3 = {
         formId: 'F3-000002',
-        status: 'approved',
+        status: 'submitted',
         submitted: true,
+        conductDuringSentence: 'Consistent good conduct during current sentence.',
+        programParticipation: 'Active in vocational training and counselling.',
         commanderRecommendation: 'Recommended',
         institutionalRecommendation: 'Recommended',
         officerName: 'Peter Koroma',
@@ -689,8 +1308,63 @@ const PMSStorage = (() => {
       };
       app4.formData.form4 = { ...(app4.formData.form4 || {}), investigationSummary: 'Pre-parole investigation complete — Sarah Tekate' };
       app4.preParoleReport = app4.preParoleReport || 'Institutional verification complete. Recommended for parole hearing.';
-      app4.commanderReview = app4.commanderReview || { verifiedAt: '2026-07-14T15:00:00.000Z', recommendation: 'Recommended', verifiedBy: 'USR-000028' };
+      const app4Hearing = findActiveHearingRecord('APP-000004');
+      const app4Scheduled = POST_HEARING_SCHEDULE_STATUSES.includes(app4.status) || !!app4Hearing?.scheduledDate;
+      if (!app4.commanderReview && !app4Scheduled) {
+        app4.commanderReview = buildDemoCommanderReview({
+          prisonerId: 'PR-000003',
+          caseNumber: app4.caseNumber || 'PMS-2026-000004',
+          verifiedAt: '2026-07-14T15:00:00.000Z',
+        });
+      }
+      app4.hearingSchedulingAt = app4.hearingSchedulingAt || '2026-07-14T15:00:00.000Z';
+      if (!app4Scheduled) {
+        app4.status = 'Pre-Parole Report Prepared';
+      } else if (app4Hearing && app4.status === 'Pre-Parole Report Prepared') {
+        app4.status = 'Hearing Scheduled';
+      }
+      app4.submittedAt = app4.submittedAt || '2026-07-15';
+      app4.submittedBy = app4.submittedBy || 'USR-000002';
     }
+
+    syncHearingApplicationStatuses();
+    preserveScheduledHearings();
+    dedupeActiveHearingsPerApplication();
+
+    if (app1 && !data.hearings.some((h) => h.applicationId === 'APP-000001' && !['Cancelled', 'Completed'].includes(h.status))) {
+      data.hearings.push({
+        id: 'HRG-000001',
+        applicationId: 'APP-000001',
+        prisonerId: 'PR-000001',
+        institutionId: 'INS-000001',
+        scheduledDate: '2026-09-18',
+        scheduledTime: '14:00',
+        location: 'PNG CS HQ Conference Room 3',
+        notes: 'Board hearing — Paul Kaupa',
+        status: 'Scheduled',
+        boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'],
+      });
+    }
+
+    data.applications.forEach((application) => {
+      const review = application.commanderReview;
+      if (review && application.prisonerId && review.prisonerId !== application.prisonerId) {
+        review.prisonerId = application.prisonerId;
+        review.caseNumber = application.caseNumber || application.id;
+      }
+    });
+
+    data.applications?.forEach((application) => {
+      promoteToCommanderReviewIfReady(application);
+      reconcileCommanderVerification(application);
+    });
+
+    data.prisoners?.forEach((prisoner) => {
+      const app = data.applications.find(
+        (a) => a.prisonerId === prisoner.id && !isTerminalApplicationStatus(a.status),
+      );
+      if (app) syncPrisonerParoleStatus(prisoner, app);
+    });
   }
 
   function generateCaseNumber() {
@@ -774,6 +1448,29 @@ const PMSStorage = (() => {
     ];
   }
 
+  function syncApplicationProgress(appId) {
+    const app = getApplicationById(appId);
+    if (!app) return null;
+    const tracker = getCaseTracker(appId);
+    const summary = getFormCompletionSummary(app);
+    const current = tracker.find((s) => s.status === 'current') || tracker.find((s) => !s.done);
+    app.paroleProgress = {
+      stages: tracker,
+      formChecks: { ...summary.checks },
+      completedStages: tracker.filter((s) => s.done).length,
+      totalStages: tracker.length,
+      currentStage: current?.label || (tracker.every((s) => s.done) ? 'Complete' : app.status),
+      applicationStatus: app.status,
+      updatedAt: new Date().toISOString(),
+    };
+    return app.paroleProgress;
+  }
+
+  function syncAllApplicationProgress() {
+    if (!data?.applications) return;
+    data.applications.forEach((app) => syncApplicationProgress(app.id));
+  }
+
   function getCaseTracker(appId) {
     const app = getApplicationById(appId);
     if (!app) return [];
@@ -789,7 +1486,8 @@ const PMSStorage = (() => {
       { id: 'eligibility', label: 'Eligibility', done: prog.eligible || summary.checks.form1 },
       { id: 'form1', label: 'Form 1', done: summary.checks.form1 },
       { id: 'form2', label: 'Form 2', done: summary.checks.form2 },
-      { id: 'commander', label: 'Institutional Verification', done: isCommanderVerified(app) || !!app.commanderReview },
+      { id: 'form3', label: 'Form 3', done: summary.checks.form3 },
+      { id: 'commander', label: 'Institutional Verification', done: isCommanderVerified(app) },
       { id: 'hearing', label: 'Hearing Scheduled', done: getHearingsByApplication(appId).some((h) => !['Cancelled', 'Pending'].includes(h.status)) },
       { id: 'assessment', label: 'Board Assessment', done: requiredBoardAssessmentsComplete(app) },
       { id: 'decision', label: 'Decision', done: score.complete || isForm4Complete(app.formData?.form4) || isForm5Complete(app.formData?.form5) },
@@ -799,13 +1497,20 @@ const PMSStorage = (() => {
 
     let currentIdx = stageDefs.findIndex((s) => !s.done);
     if (currentIdx < 0) currentIdx = stageDefs.length - 1;
-    if (returned) currentIdx = Math.max(0, stageDefs.findIndex((s) => s.id === 'form2'));
+    if (returned) {
+      const returnIdx = stageDefs.findIndex((s) => ['form1', 'form2', 'form3'].includes(s.id) && !s.done);
+      currentIdx = returnIdx >= 0 ? returnIdx : Math.max(0, stageDefs.findIndex((s) => s.id === 'form2'));
+    }
+    if (needsCommanderVerification(app)) {
+      const commanderIdx = stageDefs.findIndex((s) => s.id === 'commander');
+      if (commanderIdx >= 0) currentIdx = commanderIdx;
+    }
 
     return stageDefs.map((s, i) => {
       let status = 'pending';
       if (s.done) status = 'completed';
       else if (i === currentIdx) status = 'current';
-      if (returned && ['form1', 'form2'].includes(s.id) && !s.done) status = 'returned';
+      if (returned && ['form1', 'form2', 'form3'].includes(s.id) && !s.done) status = 'returned';
       if (rejected && s.id === 'decision') status = 'rejected';
       if (deadline?.overdue && s.id === 'hearing' && !s.done) status = 'overdue';
       if (app.status === 'Pending Approval' && s.id === 'approval') status = 'current';
@@ -829,10 +1534,6 @@ const PMSStorage = (() => {
       } else if (deadline?.warning && !deadline.scheduledDate) {
         items.push({ ...base, type: 'hearing_deadline', message: `${deadline.daysRemaining} day(s) to schedule hearing`, severity: 'medium' });
       }
-      if (app.status === 'Pending Commander Review') {
-        const age = now - new Date(app.updatedAt || app.createdAt).getTime();
-        if (age > 7 * 86400000) items.push({ ...base, type: 'verification_stuck', message: 'Awaiting institutional verification > 7 days', severity: 'medium' });
-      }
       if (app.status === 'Pending Approval') {
         items.push({ ...base, type: 'approval_pending', message: 'Pending final approval before release', severity: 'medium' });
       }
@@ -843,6 +1544,15 @@ const PMSStorage = (() => {
           items.push({ ...base, type: 'form2_pending', message: 'Form 2 PPR section awaiting DJAG Parole Clerk', severity: 'low' });
         } else if (f2?.ppr?.submitted && !f2?.ddr?.submitted) {
           items.push({ ...base, type: 'form2_pending', message: 'Form 2 DDR section awaiting CS Parole Clerk', severity: 'low' });
+        }
+      }
+      if (['Draft', 'Submitted', 'Pending Commander Review'].includes(app.status) && s.checks.form2 && !s.checks.form3) {
+        items.push({ ...base, type: 'form3_pending', message: 'Form 3 institutional report awaiting completion before commander verification', severity: 'medium' });
+      }
+      if (needsCommanderVerification(app)) {
+        const age = now - new Date(app.updatedAt || app.submittedAt || app.createdAt).getTime();
+        if (age > 3 * 86400000) {
+          items.push({ ...base, type: 'verification_stuck', message: 'Awaiting Jail Commander verification > 3 days', severity: 'medium' });
         }
       }
       if (app.status === 'Pending Board Review' && !requiredBoardAssessmentsComplete(app)) {
@@ -882,14 +1592,111 @@ const PMSStorage = (() => {
 
   function isForm3Complete(form3) {
     if (!form3) return false;
-    const recommendation = form3.commanderRecommendation || form3.institutionalRecommendation || form3.recommendation;
-    return !!(recommendation && (form3.status === 'approved' || form3.submitted === true || form3.status === 'submitted'));
+    const submitted = form3.submitted === true || form3.status === 'submitted' || form3.status === 'approved';
+    if (!submitted && !form3.checkpointPassed) return false;
+    const recommendation = form3.institutionalRecommendation || form3.commanderRecommendation || form3.recommendation;
+    if (recommendation && form3.conductDuringSentence && form3.programParticipation) return true;
+    if (form3.checkpointPassed && submitted) return true;
+    return !!(recommendation && submitted);
   }
 
   function isForm2Complete(form2) {
     const ddr = form2?.sections?.ddr;
     const ppr = form2?.sections?.ppr;
     return !!(ddr?.submitted && ddr?.confirmed && ppr?.submitted && ppr?.confirmed);
+  }
+
+  const FORM2_ATTACHMENT_LABELS = Object.freeze({
+    pprInmateDocs: 'Inmate record supporting documents',
+    pprSocialCaseDocs: 'Social case study supporting documents',
+    pprCommunityDocs: 'Community interview supporting documents',
+    pprVictimImpactDocs: 'Victim impact supporting documents',
+    pprReintegrationDocs: 'Reintegration plan supporting documents',
+    pprBoardInterviewDocs: 'Board interview supporting documents',
+    pprSignoffDocs: 'Sign-off and restorative justice supporting documents',
+    darConductDocs: 'Conduct and disciplinary supporting documents',
+    darTrainingDocs: 'Training and program supporting documents',
+    darHealthDocs: 'Health assessment supporting documents',
+    darRiskDocs: 'Risk assessment supporting documents',
+  });
+
+  const FORM2_ATTACHMENT_VIEW_ROLES = Object.freeze([
+    'Doctor', 'CS Commissioner', 'DJAG Secretary', 'DJAG Parole Clerk', 'CS Parole Clerk', 'CS Parole Officer',
+    'Jail Commander', 'System Administrator',
+  ]);
+
+  function normalizeForm2AttachmentEntry(entry, fieldKey, sectionKey, sectionMeta = {}) {
+    if (!entry) return null;
+    if (typeof entry === 'string') {
+      return {
+        id: `F2F-${sectionKey}-${fieldKey}-${entry.replace(/\W+/g, '_').slice(0, 24)}`,
+        sectionKey,
+        fieldKey,
+        fieldLabel: FORM2_ATTACHMENT_LABELS[fieldKey] || fieldKey,
+        fileName: entry,
+        fileType: '',
+        fileSize: 0,
+        dataUrl: null,
+        uploadedAt: sectionMeta.submittedAt || null,
+        uploadedByName: sectionMeta.contributorName || sectionMeta.officerName || sectionMeta.clerkName || '',
+      };
+    }
+    return {
+      id: entry.id || `F2F-${sectionKey}-${fieldKey}-${(entry.fileName || 'file').replace(/\W+/g, '_').slice(0, 24)}`,
+      sectionKey,
+      fieldKey,
+      fieldLabel: FORM2_ATTACHMENT_LABELS[fieldKey] || fieldKey,
+      fileName: entry.fileName || 'Document',
+      fileType: entry.fileType || '',
+      fileSize: entry.fileSize || 0,
+      dataUrl: entry.dataUrl || null,
+      uploadedAt: entry.uploadedAt || sectionMeta.submittedAt || null,
+      uploadedByName: entry.uploadedByName || sectionMeta.contributorName || sectionMeta.officerName || sectionMeta.clerkName || '',
+    };
+  }
+
+  function getForm2AttachmentFiles(app) {
+    const sections = app?.formData?.form2?.sections;
+    if (!sections) return [];
+    const files = [];
+    ['ddr', 'ppr'].forEach((sectionKey) => {
+      const section = sections[sectionKey];
+      if (!section?.attachments) return;
+      Object.entries(section.attachments).forEach(([fieldKey, entries]) => {
+        (Array.isArray(entries) ? entries : []).forEach((entry) => {
+          const normalized = normalizeForm2AttachmentEntry(entry, fieldKey, sectionKey, section);
+          if (normalized) files.push(normalized);
+        });
+      });
+    });
+    return files;
+  }
+
+  function getForm2AttachmentFile(appId, fileId) {
+    const app = getApplicationById(appId);
+    if (!app || !fileId) return null;
+    return getForm2AttachmentFiles(app).find((f) => f.id === fileId) || null;
+  }
+
+  function canDownloadForm2Attachments(actor) {
+    if (!actor) return false;
+    const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
+    return FORM2_ATTACHMENT_VIEW_ROLES.includes(role);
+  }
+
+  function downloadForm2Attachment(appId, fileId) {
+    const file = getForm2AttachmentFile(appId, fileId);
+    if (!file) throw new Error('Attachment not found.');
+    if (!file.dataUrl) throw new Error(`${file.fileName} was saved without file content. Ask the parole clerk to re-upload it.`);
+    if (typeof PMSUI !== 'undefined' && PMSUI.downloadDataUrl) {
+      PMSUI.downloadDataUrl(file.dataUrl, file.fileName);
+      return file;
+    }
+    const a = document.createElement('a');
+    a.href = file.dataUrl;
+    a.download = file.fileName || 'document';
+    a.click();
+    return file;
   }
 
   /** DAR/DDR submitted by PNGCS — DJAG Parole Clerk must complete PPR (even if app is still Draft). */
@@ -902,23 +1709,366 @@ const PMSStorage = (() => {
     return getParoleApplications().filter((a) => a.status !== 'Draft' || needsDjagForm2Ppr(a));
   }
 
+  function isForm4Issued(app) {
+    const form4 = app?.formData?.form4;
+    return form4?.issued === true && (form4?.status === 'Parole Granted' || form4?.decision === 'Parole Granted');
+  }
+
   function isForm4Complete(form4) {
+    if (form4?.issued === true) {
+      return form4?.status === 'Parole Granted' || form4?.decision === 'Parole Granted';
+    }
     return form4?.status === 'Parole Granted' || form4?.decision === 'Parole Granted';
+  }
+
+  function getAllParoleApplications(opts = {}) {
+    const list = [...(data?.applications || [])];
+    if (opts.includeArchived) return list;
+    return list.filter((a) => !a.archived);
+  }
+
+  function getGrantedParoleCases(opts = {}) {
+    const { institutionId } = opts;
+    return getAllParoleApplications({ includeArchived: true })
+      .filter((a) => isForm4Issued(a))
+      .filter((a) => !institutionId || a.institutionId === institutionId)
+      .sort((a, b) => new Date(b.formData?.form4?.issuedAt || b.archivedAt || 0) - new Date(a.formData?.form4?.issuedAt || a.archivedAt || 0));
+  }
+
+  function countGrantedParole(scopeInstitutionId = null) {
+    return getGrantedParoleCases({ institutionId: scopeInstitutionId || undefined }).length;
+  }
+
+  function getParoleGrantedArchive(opts = {}) {
+    const { institutionId } = opts;
+    data.paroleGrantedArchive = data.paroleGrantedArchive || [];
+    if (institutionId) {
+      return data.paroleGrantedArchive.filter((e) => e.institutionId === institutionId);
+    }
+    return [...data.paroleGrantedArchive].sort((a, b) => new Date(b.grantedAt || 0) - new Date(a.grantedAt || 0));
+  }
+
+  function recordParoleGrantedArchive(app, actor) {
+    data.paroleGrantedArchive = data.paroleGrantedArchive || [];
+    const prisoner = getPrisonerById(app.prisonerId);
+    const form4 = app.formData?.form4 || {};
+    const existingIdx = data.paroleGrantedArchive.findIndex((e) => e.applicationId === app.id);
+    const entry = {
+      id: existingIdx >= 0 ? data.paroleGrantedArchive[existingIdx].id : generateId('PGA'),
+      applicationId: app.id,
+      caseNumber: app.caseNumber || app.id,
+      prisonerId: app.prisonerId,
+      prisonerNumber: prisoner?.prisonerNumber || prisoner?.id || '',
+      prisonerName: prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : '',
+      institutionId: app.institutionId,
+      institutionName: getInstitutionById(app.institutionId)?.name || '',
+      grantedAt: form4.issuedAt || app.archivedAt || new Date().toISOString(),
+      issuedBy: form4.issuedBy || (actor ? `${actor.firstName} ${actor.lastName}` : ''),
+      paroleOrderNo: form4.paroleOrderNo || '',
+      form4Snapshot: {
+        dateIssued: form4.dateIssued || '',
+        dateCompleted: form4.dateCompleted || '',
+        parolePeriod: form4.parolePeriod || '',
+        supervisingCbc: form4.supervisingCbc || '',
+        paroleOfficer: form4.paroleOfficer || '',
+      },
+      archivedAt: app.archivedAt || new Date().toISOString(),
+    };
+    if (existingIdx >= 0) data.paroleGrantedArchive[existingIdx] = { ...data.paroleGrantedArchive[existingIdx], ...entry };
+    else data.paroleGrantedArchive.push(entry);
+    return entry;
+  }
+
+  function archiveParoleGrantedCase(appId, actor) {
+    const app = getApplicationById(appId);
+    if (!app) throw new Error('Application not found');
+    if (!isForm4Issued(app)) throw new Error('Form 4 must be issued before the case can be archived.');
+    if (app.archived) {
+      recordParoleGrantedArchive(app, actor);
+      persist();
+      return app;
+    }
+    const prisoner = getPrisonerById(app.prisonerId);
+    app.archived = true;
+    app.archivedAt = new Date().toISOString();
+    app.archivedBy = actor?.id || null;
+    app.archiveReason = 'Parole Granted — Form 4 issued';
+    app.updatedAt = app.archivedAt;
+    if (prisoner && !['Released on Parole', 'Released'].includes(prisoner.status)) {
+      prisoner.status = 'Approved';
+    }
+    if (!['Approved', 'Released'].includes(app.status)) {
+      transitionApplication(appId, 'Approved', actor, 'Parole granted — Form 4 issued and case archived');
+    }
+    recordParoleGrantedArchive(app, actor);
+    logAudit(actor, 'ARCHIVE', 'ParoleApplication', appId, `Parole granted archive — ${app.caseNumber || appId}`, {
+      newValues: { archiveReason: app.archiveReason, grantedAt: app.formData?.form4?.issuedAt },
+    });
+    const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : app.caseNumber || appId;
+    notifyRoles(
+      ['CS Parole Clerk', 'DJAG Parole Clerk', 'Jail Commander'],
+      'Parole Granted — Case Archived',
+      `Form 4 issued for ${pName} (${app.caseNumber || appId}). Record moved to parole granted archive.`,
+      { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'approval', linkPanel: 'history' },
+    );
+    persist();
+    return app;
   }
 
   function isForm5Complete(form5) {
     return form5?.status === 'Parole Refused' || form5?.decision === 'Parole Refused';
   }
 
+  function normalizeCommanderDecision(review) {
+    if (!review) return null;
+    const decision = review.decision;
+    if (decision === 'Verified' || decision === 'Approved') return 'Verified';
+    if (decision === 'Rejected') return 'Rejected';
+    if (decision === 'Returned for Correction') return 'Returned for Correction';
+    if (review.verifiedAt && (review.recommendation === 'Recommended' || review.recommendation === 'Verified')) {
+      return 'Verified';
+    }
+    return decision || null;
+  }
+
+  function getPrisonerVerificationEntry(app) {
+    if (!app?.prisonerId) return null;
+    const prisoner = getPrisonerById(app.prisonerId);
+    return prisoner?.verificationHistory?.find((row) => row.applicationId === app.id) || null;
+  }
+
+  function resolveVerificationNotifications(appId) {
+    if (!data?.notifications) return false;
+    let changed = false;
+    data.notifications.forEach((n) => {
+      if (n.applicationId === appId && n.type === 'verification' && !n.resolved) {
+        n.resolved = true;
+        n.resolvedAt = n.resolvedAt || new Date().toISOString();
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function resolveHearingNotifications(appId) {
+    if (!data?.notifications) return false;
+    let changed = false;
+    data.notifications.forEach((n) => {
+      if (n.applicationId === appId && ['hearing', 'escalation', 'deadline'].includes(n.type) && !n.resolved) {
+        n.resolved = true;
+        n.resolvedAt = n.resolvedAt || new Date().toISOString();
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function syncCommanderVerificationState(appId) {
+    const app = getApplicationById(appId);
+    if (!app) return null;
+    const changed = reconcileCommanderVerification(app);
+    if (changed) {
+      const prisoner = getPrisonerById(app.prisonerId);
+      if (prisoner) syncPrisonerParoleStatus(prisoner, app);
+      syncApplicationProgress(appId);
+      persist();
+    }
+    return app;
+  }
+
+  function reconcileCommanderVerification(app) {
+    if (!app) return false;
+    let changed = false;
+    let review = app.commanderReview;
+    const hist = getPrisonerVerificationEntry(app);
+
+    if (!normalizeCommanderDecision(review) && normalizeCommanderDecision(hist)) {
+      app.commanderReview = {
+        commanderId: hist.commanderId,
+        commanderName: hist.commanderName,
+        institutionId: hist.institutionId || app.institutionId,
+        prisonerId: app.prisonerId,
+        prisonerName: hist.prisonerName,
+        caseNumber: app.caseNumber || app.id,
+        decision: normalizeCommanderDecision(hist),
+        comments: hist.comments || '',
+        reviewedAt: hist.reviewedAt,
+        verifiedAt: hist.reviewedAt,
+        finalized: hist.finalized !== false,
+      };
+      review = app.commanderReview;
+      changed = true;
+    }
+
+    const decision = normalizeCommanderDecision(review);
+    if (decision === 'Verified') {
+      if (['Pending Commander Review', 'Submitted'].includes(app.status)) {
+        app.status = 'Pre-Parole Report Prepared';
+        changed = true;
+      }
+      if (!app.hearingSchedulingAt) {
+        app.hearingSchedulingAt = review.reviewedAt || review.verifiedAt || new Date().toISOString();
+        changed = true;
+      }
+      if (resolveVerificationNotifications(app.id)) changed = true;
+    } else if (decision === 'Rejected' && app.status === 'Pending Commander Review') {
+      app.status = 'Refused';
+      changed = true;
+    }
+    return changed;
+  }
+
   function isCommanderVerified(app) {
-    const decision = app?.commanderReview?.decision;
-    return decision === 'Verified' || decision === 'Approved';
+    if (normalizeCommanderDecision(app?.commanderReview) === 'Verified') return true;
+    return normalizeCommanderDecision(getPrisonerVerificationEntry(app)) === 'Verified';
+  }
+
+  function isCommanderVerificationLocked(app) {
+    const decision = normalizeCommanderDecision(app?.commanderReview)
+      || normalizeCommanderDecision(getPrisonerVerificationEntry(app));
+    return decision === 'Verified' || decision === 'Rejected';
+  }
+
+  function getCommanderVerificationRecord(app) {
+    const review = app?.commanderReview;
+    const hist = getPrisonerVerificationEntry(app);
+    const source = (review?.reviewedAt || review?.verifiedAt) ? review : hist;
+    if (!source?.reviewedAt && !source?.verifiedAt) return null;
+    const prisoner = getPrisonerById(app.prisonerId);
+    const decision = normalizeCommanderDecision(source);
+    return {
+      applicationId: app.id,
+      caseNumber: app.caseNumber || app.id,
+      prisonerId: app.prisonerId,
+      prisonerName: prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : (source.prisonerName || ''),
+      prisonerNumber: prisoner?.prisonerNumber || prisoner?.id || '',
+      institutionId: app.institutionId,
+      decision,
+      comments: source.comments || '',
+      commanderId: source.commanderId || source.verifiedBy,
+      commanderName: source.commanderName || '',
+      reviewedAt: source.reviewedAt || source.verifiedAt,
+      finalized: source.finalized !== false,
+    };
+  }
+
+  function getCommanderVerifiedApplications({ commanderId, institutionId } = {}) {
+    return getParoleApplications()
+      .filter((app) => isCommanderVerified(app))
+      .filter((app) => !institutionId || app.institutionId === institutionId)
+      .filter((app) => !commanderId || getCommanderVerificationRecord(app)?.commanderId === commanderId)
+      .sort((a, b) => new Date(getCommanderVerificationRecord(b)?.reviewedAt || 0) - new Date(getCommanderVerificationRecord(a)?.reviewedAt || 0));
+  }
+
+  function syncPrisonerVerificationHistory(app, review, actor) {
+    const prisoner = getPrisonerById(app.prisonerId);
+    if (!prisoner) return;
+    const entry = {
+      applicationId: app.id,
+      caseNumber: app.caseNumber || app.id,
+      prisonerId: app.prisonerId,
+      decision: review.decision,
+      comments: review.comments || '',
+      commanderId: actor.id,
+      commanderName: `${actor.firstName} ${actor.lastName}`,
+      institutionId: app.institutionId,
+      reviewedAt: review.reviewedAt,
+      finalized: true,
+    };
+    prisoner.verificationHistory = prisoner.verificationHistory || [];
+    const idx = prisoner.verificationHistory.findIndex((row) => row.applicationId === app.id);
+    if (idx >= 0) {
+      const prev = prisoner.verificationHistory[idx];
+      if (['Verified', 'Approved'].includes(normalizeCommanderDecision(prev))) {
+        throw new Error('This prisoner has already been verified for this case.');
+      }
+      prisoner.verificationHistory[idx] = entry;
+    } else {
+      prisoner.verificationHistory.push(entry);
+    }
   }
 
   function isVerificationReady(app) {
     if (!app) return false;
     const summary = getFormCompletionSummary(app);
     return summary.checks.form1 && summary.checks.form2 && summary.checks.form3;
+  }
+
+  /** True when Forms 1–3 are complete and commander verification is still required. */
+  function needsCommanderVerification(app) {
+    if (!app) return false;
+    if (isCommanderVerificationLocked(app) || isCommanderVerified(app)) return false;
+    if (POST_COMMANDER_VERIFICATION_STATUSES.includes(app.status)) return false;
+    return isVerificationReady(app);
+  }
+
+  /** Promote cases with Forms 1–3 complete to Pending Commander Review (migration / sync). */
+  function promoteToCommanderReviewIfReady(app, { notify = false } = {}) {
+    if (!needsCommanderVerification(app)) return false;
+    if (app.status === 'Pending Commander Review') return false;
+    if (isTerminalApplicationStatus(app.status)) return false;
+    const fromStatus = app.status;
+    app.status = 'Pending Commander Review';
+    app.updatedAt = new Date().toISOString();
+    app.lastModifiedLabel = 'Status → Pending Commander Review';
+    app.workflowNotes = [
+      ...(app.workflowNotes || []),
+      {
+        status: 'Pending Commander Review',
+        notes: 'Forms 1–3 complete — awaiting Jail Commander verification',
+        at: new Date().toISOString(),
+        by: 'system',
+        actorName: 'System',
+      },
+    ];
+    if (notify) {
+      const prisoner = getPrisonerById(app.prisonerId);
+      const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'prisoner';
+      notifyInstitutionRoles(
+        app.institutionId,
+        ['CS Parole Clerk', 'Jail Commander'],
+        'Institutional Verification Required',
+        `Forms 1–3 complete — verification required for ${pName} (${app.caseNumber || app.id})`,
+        {
+          institutionId: app.institutionId,
+          prisonerId: app.prisonerId,
+          applicationId: app.id,
+          type: 'verification',
+          linkPanel: 'verification',
+        },
+      );
+    }
+    logAudit(
+      { id: 'system', firstName: 'System', lastName: 'Sync', role: 'System Administrator' },
+      'UPDATE',
+      'ParoleApplication',
+      app.id,
+      `Auto-promoted ${fromStatus} → Pending Commander Review (Forms 1–3 complete)`,
+    );
+    return true;
+  }
+
+  function syncApplicationWorkflowState(app) {
+    if (!app) return false;
+    let changed = promoteToCommanderReviewIfReady(app);
+    if (reconcileCommanderVerification(app)) changed = true;
+    syncApplicationProgress(app.id);
+    return changed;
+  }
+
+  function syncAllApplicationWorkflowStates() {
+    if (!data?.applications) return false;
+    let changed = false;
+    data.applications.forEach((app) => {
+      if (syncApplicationWorkflowState(app)) changed = true;
+    });
+    data.prisoners?.forEach((prisoner) => {
+      const app = data.applications.find(
+        (a) => a.prisonerId === prisoner.id && !isTerminalApplicationStatus(a.status),
+      );
+      if (app && syncPrisonerParoleStatus(prisoner, app)) changed = true;
+    });
+    return changed;
   }
 
   function calculateBoardVotes(app) {
@@ -1015,10 +2165,10 @@ const PMSStorage = (() => {
     if (!app) throw new Error('Application not found');
     const normalizedKey = sectionKey === 'dar' ? 'ddr' : sectionKey;
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
-    if (normalizedKey === 'ddr' && !['CS Parole Clerk', 'System Administrator'].includes(role)) {
+    if (normalizedKey === 'ddr' && role !== 'CS Parole Clerk') {
       throw new Error('Only CS Parole Clerk may submit the DAR section.');
     }
-    if (normalizedKey === 'ppr' && !['DJAG Parole Clerk', 'System Administrator'].includes(role)) {
+    if (normalizedKey === 'ppr' && role !== 'DJAG Parole Clerk') {
       throw new Error('Only DJAG Parole Clerk may submit the PPR section.');
     }
     const prisoner = getPrisonerById(app.prisonerId);
@@ -1097,31 +2247,68 @@ const PMSStorage = (() => {
 
   function saveCommanderCaseReview(appId, review, actor) {
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
-    if (!['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(role)) {
+    if (!['Jail Commander', 'CS Parole Clerk'].includes(role)) {
       throw new Error('Only a Jail Commander or CS Parole Clerk may record case verification.');
     }
     const app = getApplicationById(appId);
     if (!app) throw new Error('Application not found');
-    if (actor.institutionId && app.institutionId !== actor.institutionId && role !== 'System Administrator') {
+    if (actor.institutionId && app.institutionId !== actor.institutionId) {
       throw new Error('You may only review prisoners at your assigned institution.');
+    }
+    if (isCommanderVerificationLocked(app)) {
+      const prisoner = getPrisonerById(app.prisonerId);
+      const name = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'This prisoner';
+      throw new Error(`${name} has already been verified for this case. Verification is recorded once and cannot be resubmitted.`);
     }
     const inst = getInstitutionById(app.institutionId);
     const reviewedAt = new Date().toISOString();
-    app.commanderReview = {
+    const prisoner = getPrisonerById(app.prisonerId);
+    const targetStatus = review.decision === 'Verified' || review.decision === 'Approved'
+      ? 'Pre-Parole Report Prepared'
+      : review.decision === 'Returned for Correction'
+        ? 'Returned for Correction'
+        : review.decision === 'Rejected'
+          ? 'Refused'
+          : null;
+    if (targetStatus && typeof PMSWorkflow !== 'undefined') {
+      if (!PMSWorkflow.canTransition(actor, app.status, targetStatus)) {
+        throw new Error(`You are not permitted to change status from ${app.status} to ${targetStatus}.`);
+      }
+      const recordingVerification = review.decision === 'Verified' || review.decision === 'Approved';
+      if (!recordingVerification) {
+        const advance = PMSWorkflow.canAdvanceApplication(app, targetStatus);
+        if (!advance.allowed) {
+          throw new Error(`Cannot record verification: ${advance.blockers.join(' ')}`);
+        }
+      }
+    }
+    if ((review.decision === 'Verified' || review.decision === 'Approved')) {
+      const summary = getFormCompletionSummary(app);
+      if (!summary.checks.form1 || !summary.checks.form2 || !summary.checks.form3) {
+        throw new Error('Forms 1–3 must be completed before institutional verification can be recorded.');
+      }
+    }
+    const reviewRecord = {
       commanderId: actor.id,
       commanderName: `${actor.firstName} ${actor.lastName}`,
       institutionId: app.institutionId,
       institutionName: inst?.name || '',
+      prisonerId: app.prisonerId,
+      prisonerName: prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : '',
+      prisonerNumber: prisoner?.prisonerNumber || prisoner?.id || '',
+      caseNumber: app.caseNumber || app.id,
       decision: review.decision,
       comments: review.comments || '',
       reviewedAt,
-      verifiedAt: reviewedAt,
+      verifiedAt: review.decision === 'Verified' || review.decision === 'Approved' ? reviewedAt : review.verifiedAt || null,
+      finalized: true,
     };
-    logAudit(actor, 'VERIFY', 'ParoleApplication', appId, `Commander ${review.decision}: ${review.comments || ''}`);
+    app.commanderReview = reviewRecord;
+    syncPrisonerVerificationHistory(app, reviewRecord, actor);
+    logAudit(actor, 'VERIFY', 'ParoleApplication', appId, `Commander ${review.decision}: ${review.comments || ''}`, {
+      newValues: { prisonerId: app.prisonerId, decision: review.decision, reviewedAt },
+    });
     if (review.decision === 'Verified' || review.decision === 'Approved') {
-      if (!isForm3Complete(app.formData?.form3)) {
-        throw new Error('Forms 1–3 must be completed before institutional verification can be recorded.');
-      }
       app.hearingSchedulingAt = new Date().toISOString();
       transitionApplication(appId, 'Pre-Parole Report Prepared', actor, `Institutional verification complete — ready for hearing scheduling (${review.comments || ''})`);
       notifyRole('DJAG Secretary', 'Schedule Hearing Required', `Case ${app.caseNumber || app.id} requires hearing within ${HEARING_DEADLINE_DAYS} days`, app.institutionId, app.prisonerId, null, { applicationId: appId, type: 'hearing', linkPanel: 'hearings' });
@@ -1131,8 +2318,34 @@ const PMSStorage = (() => {
     } else if (review.decision === 'Rejected') {
       transitionApplication(appId, 'Refused', actor, review.comments || 'Rejected during institutional verification');
     }
+    app.commanderVerificationDraft = null;
+    resolveVerificationNotifications(appId);
+    reconcileCommanderVerification(app);
+    syncApplicationWorkflowState(app);
     persist();
     return app;
+  }
+
+  function saveCommanderVerificationDraft(appId, draft, actor) {
+    const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
+    if (!['Jail Commander', 'CS Parole Clerk'].includes(role)) {
+      throw new Error('Only a Jail Commander or CS Parole Clerk may save verification drafts.');
+    }
+    const app = getApplicationById(appId);
+    if (!app) throw new Error('Application not found');
+    if (actor.institutionId && app.institutionId !== actor.institutionId) {
+      throw new Error('You may only review prisoners at your assigned institution.');
+    }
+    app.commanderVerificationDraft = {
+      decision: draft.decision || '',
+      comments: draft.comments || '',
+      savedAt: new Date().toISOString(),
+      savedBy: actor.id,
+      savedByName: `${actor.firstName} ${actor.lastName}`,
+    };
+    logAudit(actor, 'SAVE', 'ParoleApplication', appId, 'Commander verification draft saved');
+    persist();
+    return app.commanderVerificationDraft;
   }
 
   function getGuarantors(applicationId) {
@@ -1310,11 +2523,7 @@ const PMSStorage = (() => {
       issuedBy: `${actor.firstName} ${actor.lastName}`,
     };
     saveFormData(appId, 'form4', merged, actor);
-    const updated = getApplicationById(appId);
-    if (['Parole Granted', 'Pending Board Review', 'Hearing Scheduled'].includes(updated.status)) {
-      transitionApplication(appId, 'Pending Approval', actor, 'Form 4 — Parole Granted issued');
-    }
-    persist();
+    archiveParoleGrantedCase(appId, actor);
     return getApplicationById(appId);
   }
 
@@ -1338,7 +2547,7 @@ const PMSStorage = (() => {
     };
     saveFormData(appId, 'form5', merged, actor);
     const updated = getApplicationById(appId);
-    if (['Parole Refused', 'Pending Board Review', 'Hearing Scheduled'].includes(updated.status)) {
+    if (['Parole Refused', 'Pending Board Review', 'Hearing Scheduled', 'Hearing In Progress'].includes(updated.status)) {
       transitionApplication(appId, 'Refused', actor, 'Form 5 — Parole Refused issued');
     }
     persist();
@@ -1406,6 +2615,54 @@ const PMSStorage = (() => {
     persist();
   }
 
+  function formatBoardObservationsText(role, assessment) {
+    const psych = assessment?.psychiatricObservation;
+    const claims = assessment?.claimVerification;
+    const parts = [];
+    if (psych) {
+      if (psych.clinicianName) parts.push(`Clinician: ${psych.clinicianName}`);
+      if (psych.demeanor) parts.push(`Demeanor: ${psych.demeanor}`);
+      if (psych.indicators && typeof psych.indicators === 'object') {
+        parts.push(`Behavioral indicators: ${Object.entries(psych.indicators).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+      }
+      if (psych.clinicalNotes) parts.push(`Clinical notes: ${psych.clinicalNotes}`);
+    }
+    if (claims?.length) {
+      const summary = claims
+        .filter((c) => c.status)
+        .map((c) => `${c.label || c.id}: ${c.status}${c.notes ? ` (${c.notes})` : ''}`)
+        .join('; ');
+      if (summary) parts.push(`Claim verification: ${summary}`);
+    }
+    if (assessment?.observations) parts.push(assessment.observations);
+    if (assessment?.feedback && role === 'Doctor') parts.push(assessment.feedback);
+    return parts.join('\n') || assessment?.feedback || '';
+  }
+
+  function syncHearingInterviewNotes(appId, notes) {
+    if (!notes || !appId) return;
+    const hearing = findActiveHearingRecord(appId);
+    if (!hearing) return;
+    hearing.interviewNotes = notes;
+    hearing.interview_notes = notes;
+  }
+
+  function saveInterviewSessionMeta(appId, meta, actor) {
+    const app = getApplicationById(appId);
+    if (!app) throw new Error('Application not found');
+    app.interviewSession = {
+      ...(app.interviewSession || {}),
+      ...meta,
+      status: meta.status || app.interviewSession?.status || 'in_progress',
+      lastUpdatedAt: new Date().toISOString(),
+      lastUpdatedBy: actor?.id || null,
+      lastUpdatedByName: actor ? `${actor.firstName} ${actor.lastName}` : '',
+    };
+    if (meta.interviewNotes) syncHearingInterviewNotes(appId, meta.interviewNotes);
+    persist();
+    return app.interviewSession;
+  }
+
   function saveBoardAssessment(appId, assessment, actor) {
     const app = getApplicationById(appId);
     if (!app) throw new Error('Application not found');
@@ -1416,8 +2673,8 @@ const PMSStorage = (() => {
       'DJAG Secretary': 'DJAG Secretary',
     };
     if (!allowed[role]) throw new Error('Your role is not authorized to submit board votes.');
-    if (!['Hearing Scheduled', 'Pending Board Review'].includes(app.status)) {
-      throw new Error('Board votes can only be submitted after a hearing has been scheduled.');
+    if (!['Hearing In Progress', 'Pending Board Review'].includes(app.status)) {
+      throw new Error('Board votes can only be submitted after the hearing session has started.');
     }
     const isDraft = assessment?.submissionStatus === 'Draft';
     const vote = assessment?.vote ? normalizeBoardVote(assessment.vote) : null;
@@ -1428,22 +2685,66 @@ const PMSStorage = (() => {
     app.boardAssessments = app.boardAssessments || [];
     const existingForRole = app.boardAssessments.find((a) => a.role === role && a.assessorId !== actor.id && a.submissionStatus === 'Submitted');
     if (existingForRole) throw new Error(`A vote for ${role} has already been submitted by ${existingForRole.assessorName}.`);
+    const idx = app.boardAssessments.findIndex((a) => a.role === role && a.assessorId === actor.id);
+    const prev = idx >= 0 ? app.boardAssessments[idx] : null;
+
+    function mergeField(key) {
+      if (Object.prototype.hasOwnProperty.call(assessment, key)) {
+        const val = assessment[key];
+        if (val !== undefined && val !== null) {
+          if (key === 'claimVerification' && Array.isArray(val) && !val.some((c) => c?.status) && prev?.claimVerificationSavedAt) {
+            return prev.claimVerification;
+          }
+          return val;
+        }
+      }
+      return prev?.[key] ?? null;
+    }
+
+    const mergedVote = vote || (prev?.vote ? normalizeBoardVote(prev.vote) : null);
+    const mergedScore = assessment.score == null || assessment.score === ''
+      ? (prev?.score ?? null)
+      : Number(assessment.score);
+    const observationsText = formatBoardObservationsText(role, {
+      ...prev,
+      ...assessment,
+      psychiatricObservation: mergeField('psychiatricObservation'),
+      claimVerification: mergeField('claimVerification'),
+    });
+
     const entry = {
-      id: assessment.id || `ASM-${String(app.boardAssessments.length + 1).padStart(6, '0')}`,
+      id: assessment.id || prev?.id || `ASM-${String(app.boardAssessments.length + 1).padStart(6, '0')}`,
       role,
-      boardPosition: assessment.boardPosition || actor.boardPosition,
+      boardPosition: assessment.boardPosition || actor.boardPosition || prev?.boardPosition,
       assessorId: actor.id,
       assessorName: `${actor.firstName} ${actor.lastName}`,
-      vote,
-      score: assessment.score == null || assessment.score === '' ? null : Number(assessment.score),
-      feedback: assessment.feedback || '',
-      recommendation: vote === 'Approved' ? 'Recommend parole' : vote === 'Refused' ? 'Do not recommend' : 'Defer decision',
+      vote: mergedVote,
+      score: mergedScore,
+      feedback: assessment.feedback !== undefined ? (assessment.feedback || '') : (prev?.feedback || ''),
+      conditions: assessment.conditions !== undefined ? (assessment.conditions || '') : (prev?.conditions || ''),
+      denialReason: assessment.denialReason !== undefined ? (assessment.denialReason || '') : (prev?.denialReason || ''),
+      recommendation: mergedVote === 'Approved' ? 'Recommend parole' : mergedVote === 'Refused' ? 'Do not recommend' : 'Defer decision',
       submissionStatus: isDraft ? 'Draft' : 'Submitted',
-      submittedAt: isDraft ? null : new Date().toISOString(),
+      submittedAt: isDraft ? (prev?.submittedAt || null) : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      claimVerification: mergeField('claimVerification'),
+      claimVerificationSavedAt: mergeField('claimVerificationSavedAt'),
+      psychiatricObservation: mergeField('psychiatricObservation'),
+      psychiatricObservationSavedAt: mergeField('psychiatricObservationSavedAt'),
+      psychDigitalSignature: mergeField('psychDigitalSignature'),
+      digitalSignature: mergeField('digitalSignature'),
+      observations: assessment.observations || observationsText || prev?.observations || '',
+      doctor_behavioral_observations: role === 'Doctor' ? (observationsText || assessment.doctor_behavioral_observations || prev?.doctor_behavioral_observations || '') : undefined,
+      chairman_observations: role === 'DJAG Secretary' ? (observationsText || assessment.chairman_observations || prev?.chairman_observations || '') : undefined,
+      commissioner_correctional_review: role === 'CS Commissioner' ? (observationsText || assessment.commissioner_correctional_review || prev?.commissioner_correctional_review || '') : undefined,
     };
-    const idx = app.boardAssessments.findIndex((a) => a.role === role && a.assessorId === actor.id);
-    if (idx >= 0) app.boardAssessments[idx] = { ...app.boardAssessments[idx], ...entry };
+    Object.keys(entry).forEach((k) => { if (entry[k] === undefined) delete entry[k]; });
+    const interviewNotes = assessment.interviewNotes || observationsText || prev?.interviewNotes;
+    if (interviewNotes) {
+      syncHearingInterviewNotes(appId, interviewNotes);
+      saveInterviewSessionMeta(appId, { interviewNotes }, actor);
+    }
+    if (idx >= 0) app.boardAssessments[idx] = entry;
     else app.boardAssessments.push(entry);
     if (!isDraft) {
       ensureBoardReviewStarted(app, actor, `${role} submitted board vote (${vote})`);
@@ -1451,14 +2752,15 @@ const PMSStorage = (() => {
     } else {
       logAudit(actor, 'SAVE', 'BoardAssessment', appId, `${role} decision saved as draft`);
     }
-    const assessMeta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'board_review', linkPanel: 'decisions', linkHref: `forms/hearing-portal.html?appId=${encodeURIComponent(appId)}` };
+    syncApplicationProgress(appId);
+    const assessMeta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'board_review', linkPanel: 'decisions', linkHref: `forms/board-decisions.html?appId=${encodeURIComponent(appId)}` };
     const progress = getBoardAssessmentProgress(app);
     app.paroleScore = { ...calculateParoleScore(app), locked: progress.complete };
     if (!isDraft) {
-      notifyRole(actor.role, 'Vote Recorded', `Your ${vote} vote for ${app.caseNumber || appId} has been saved. ${progress.complete ? 'All board votes are now complete.' : `Awaiting ${progress.pendingRoles.join(', ')}.`}`, app.institutionId, app.prisonerId, actor.id, assessMeta);
       if (!progress.complete) {
         progress.pendingRoles.forEach((r) => notifyRole(r, 'Board Vote Required', `Your vote is required for ${app.caseNumber || appId}. Other members may have already voted.`, app.institutionId, app.prisonerId, null, assessMeta));
       } else {
+        maybeCompleteHearingOnVoteTally(appId, actor);
         finalizeBoardVotes(appId, actor);
       }
     }
@@ -1528,9 +2830,15 @@ const PMSStorage = (() => {
         { applicationId: appId, institutionId: updated.institutionId, prisonerId: updated.prisonerId, type: 'release', linkPanel: 'release' },
       );
     }
+    const approvedVotes = (updated.boardAssessments || []).filter((a) => a.vote === 'Approved' && a.submissionStatus === 'Submitted');
+    const refusedVotes = (updated.boardAssessments || []).filter((a) => a.vote === 'Refused' && a.submissionStatus === 'Submitted');
+    const mergedConditions = approvedVotes.map((a) => a.conditions).filter(Boolean).join('\n');
+    const mergedDenial = refusedVotes.map((a) => a.denialReason || a.feedback).filter(Boolean).join('\n');
     updated.boardDecision = {
       outcome: tally.outcome,
       deliberationNotes: tally.calculation,
+      conditions: mergedConditions || updated.boardDecision?.conditions || '',
+      denialReason: mergedDenial || updated.boardDecision?.denialReason || '',
       decidedBy: actor.id,
       decidedByName: `${actor.firstName} ${actor.lastName}`,
       decidedAt: new Date().toISOString(),
@@ -1539,6 +2847,7 @@ const PMSStorage = (() => {
       paroleScore: updated.paroleScore?.percent,
       calculation: tally.calculation,
     };
+    syncApplicationProgress(appId);
     persist();
     notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Board Decision Finalized', `${updated.caseNumber || appId}: ${tally.outcome}`, { applicationId: appId, institutionId: updated.institutionId, prisonerId: updated.prisonerId, type: 'board_review', linkPanel: 'decisions', linkHref: tally.outcome === 'Parole Granted' ? `forms/form4.html?appId=${encodeURIComponent(appId)}` : `forms/form5.html?appId=${encodeURIComponent(appId)}` });
     return updated;
@@ -1550,6 +2859,15 @@ const PMSStorage = (() => {
 
   function getBoardAssessmentForRole(app, role) {
     return (app?.boardAssessments || []).find((a) => a.role === role && a.submissionStatus !== 'Draft' && a.vote) || null;
+  }
+
+  /** Latest board record for a role — includes drafts (interview eval, claim verification, etc.). */
+  function getBoardAssessmentEntryForRole(app, role) {
+    const items = (app?.boardAssessments || []).filter((a) => a.role === role);
+    if (!items.length) return null;
+    const submitted = items.find((a) => a.submissionStatus === 'Submitted' && a.vote);
+    if (submitted) return submitted;
+    return items.slice().sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0];
   }
 
   function getBoardAssessmentForActor(app, actor) {
@@ -1575,19 +2893,48 @@ const PMSStorage = (() => {
   }
 
   function ensureBoardReviewStarted(app, actor, note) {
-    if (!app || app.status === 'Pending Board Review') return;
-    if (app.status !== 'Hearing Scheduled') return;
-    const hasHearing = getHearingsByApplication(app.id).some((h) => !['Cancelled', 'Completed'].includes(h.status));
-    if (!hasHearing) return;
-    app.status = 'Pending Board Review';
+    if (!app || app.status !== 'Hearing In Progress') return;
     app.workflowNotes = [...(app.workflowNotes || []), {
-      status: 'Pending Board Review',
-      notes: note || 'Board review started — panel members may submit assessments independently',
+      status: app.status,
+      notes: note || 'Board vote recorded during hearing session',
       at: new Date().toISOString(),
       by: actor.id,
       actorName: `${actor.firstName} ${actor.lastName}`,
     }];
-    logAudit(actor, 'UPDATE', 'ParoleApplication', app.id, 'Status → Pending Board Review (assessment in progress)');
+  }
+
+  /** When calculateBoardVotes reports a complete tally, close an active hearing session. */
+  function maybeCompleteHearingOnVoteTally(appId, actor) {
+    const app = getApplicationById(appId);
+    if (!app || app.status !== 'Hearing In Progress') return app;
+    const tally = calculateBoardVotes(app);
+    if (!tally.complete) return app;
+    const hearing = findActiveHearingRecord(appId);
+    if (hearing && hearing.status !== 'Completed') {
+      hearing.status = 'Completed';
+      hearing.completedAt = new Date().toISOString();
+    }
+    return transitionApplication(
+      appId,
+      'Pending Board Review',
+      actor,
+      `All board members voted (${tally.calculation}) — hearing complete`,
+    );
+  }
+
+  function startHearing(appId, actor) {
+    const app = getApplicationById(appId);
+    if (!app) throw new Error('Application not found');
+    const hearing = findActiveHearingRecord(appId);
+    if (!hearing) throw new Error('A hearing must be scheduled before the session can start.');
+    const updated = transitionApplication(appId, 'Hearing In Progress', actor, 'Hearing session started');
+    hearing.status = 'In Progress';
+    hearing.startedAt = new Date().toISOString();
+    hearing.startedBy = actor.id;
+    hearing.startedByName = `${actor.firstName} ${actor.lastName}`;
+    persist();
+    notifyDataChange();
+    return updated;
   }
 
   function requiredBoardAssessmentsComplete(app) {
@@ -1597,6 +2944,7 @@ const PMSStorage = (() => {
   function isParoleGrantedForRelease(app) {
     if (!app) return false;
     if (['Refused', 'Parole Refused'].includes(app.status)) return false;
+    if (isForm4Issued(app)) return true;
     if (['Approved', 'Parole Granted', 'Pending Approval'].includes(app.status)) {
       const score = app.paroleScore || calculateParoleScore(app);
       if (app.status === 'Approved' || app.status === 'Parole Granted') return true;
@@ -1610,11 +2958,11 @@ const PMSStorage = (() => {
     const blockers = [];
     if (!app) return ['Application not found.'];
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor?.role) : actor?.role;
-    if (!['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(role)) {
+    if (!['Jail Commander', 'CS Parole Clerk'].includes(role)) {
       return ['You do not have permission to authorize release.'];
     }
     if (app.status === 'Released') return ['Prisoner has already been released.'];
-    if (actor?.institutionId && app.institutionId !== actor.institutionId && role !== 'System Administrator') {
+    if (actor?.institutionId && app.institutionId !== actor.institutionId) {
       blockers.push('This case belongs to another institution.');
     }
     if (!requiredBoardAssessmentsComplete(app)) {
@@ -1623,7 +2971,7 @@ const PMSStorage = (() => {
     if (!isParoleGrantedForRelease(app)) {
       blockers.push('Parole must be granted before release can be authorized.');
     }
-    if (role === 'CS Parole Clerk' && !requiredApprovalsComplete(app) && app.status !== 'Approved' && role !== 'System Administrator') {
+    if (role === 'CS Parole Clerk' && !requiredApprovalsComplete(app) && app.status !== 'Approved') {
       blockers.push('Required approval workflow must be completed before release.');
     }
     return blockers;
@@ -1875,6 +3223,14 @@ const PMSStorage = (() => {
 
   function getSettings() { return { ...data.settings }; }
 
+  /** Gate for optional Act 1991 parole API mirror calls. Server routes remain for future migration. */
+  function isAct1991ParoleSyncEnabled() {
+    if (typeof window !== 'undefined' && typeof window.PMS_ENABLE_ACT1991_SYNC === 'boolean') {
+      return window.PMS_ENABLE_ACT1991_SYNC;
+    }
+    return getSettings().act1991ParoleSyncEnabled === true;
+  }
+
   function saveSettings(settings, actor) {
     data.settings = { ...data.settings, ...settings };
     logAudit(actor, 'UPDATE', 'Settings', 'system', 'Updated system settings');
@@ -1944,6 +3300,7 @@ const PMSStorage = (() => {
         type: 'user', linkPanel: 'profile',
       });
     }
+    ensureUserSigningPin(saved);
     persist();
     return saved;
   }
@@ -2115,24 +3472,87 @@ const PMSStorage = (() => {
   }
 
   function getParoleEligibilityDate(p) {
+    if (!p?.sentenceStartDate) return null;
+    const start = parseDate(p.sentenceStartDate);
+    if (isLifeSentence(p)) {
+      const eligibility = new Date(start);
+      eligibility.setFullYear(eligibility.getFullYear() + LIFE_ELIGIBILITY_YEARS);
+      return eligibility;
+    }
     const total = getSentenceDurationMonths(p);
-    if (total <= 0 || !p.sentenceStartDate) return null;
-    return addMonths(parseDate(p.sentenceStartDate), total * getSettings().paroleEligibilityFraction);
+    if (total <= 0) return null;
+    return addMonths(start, total * getSettings().paroleEligibilityFraction);
+  }
+
+  function hasMetEligibilityThreshold(p) {
+    if (!p?.sentenceStartDate) return false;
+    const eligibilityDate = getParoleEligibilityDate(p);
+    if (!eligibilityDate) return false;
+    const today = parseDate(new Date().toISOString());
+    return today >= parseDate(eligibilityDate);
+  }
+
+  function getApplicationsForPrisoner(prisonerId, apps = data?.applications || []) {
+    return apps.filter((a) => a.prisonerId === prisonerId);
+  }
+
+  function isParoleGrantComplete(prisoner, apps = data?.applications || []) {
+    if (!prisoner) return false;
+    if (['Released on Parole', 'Released', 'Approved'].includes(prisoner.status)) return true;
+    return getApplicationsForPrisoner(prisoner.id, apps).some(
+      (a) => isForm4Issued(a) || ['Parole Granted', 'Approved', 'Released', 'Pending Approval'].includes(a.status),
+    );
+  }
+
+  function isParoleApplicationRefused(prisoner, apps = data?.applications || []) {
+    if (!prisoner) return false;
+    if (prisoner.status === 'Rejected') return true;
+    return getApplicationsForPrisoner(prisoner.id, apps).some(
+      (a) => ['Refused', 'Parole Refused'].includes(a.status) || isForm5Complete(a.formData?.form5),
+    );
+  }
+
+  function isEligibleParoleApplicant(prisoner, apps = null) {
+    if (!prisoner) return false;
+    const allApps = apps || getParoleApplications();
+    if (isParoleGrantComplete(prisoner, allApps)) return false;
+    if (isParoleApplicationRefused(prisoner, allApps)) return false;
+    const hasActiveApplication = allApps.some(
+      (a) => a.prisonerId === prisoner.id && isActiveParoleApplication(a),
+    );
+    return hasMetEligibilityThreshold(prisoner) || hasActiveApplication;
+  }
+
+  function getEligibleParoleApplicants(scopeInstitutionId = null) {
+    let prisoners = getPrisoners();
+    const apps = getParoleApplications();
+    if (scopeInstitutionId) {
+      prisoners = prisoners.filter((p) => p.institutionId === scopeInstitutionId);
+    }
+    return prisoners.filter((p) => isEligibleParoleApplicant(p, apps));
+  }
+
+  function countEligibleParoleApplicants(scopeInstitutionId = null) {
+    return getEligibleParoleApplicants(scopeInstitutionId).length;
   }
 
   function getPrisonerProgress(p) {
-    const totalMonths = getSentenceDurationMonths(p);
-    if (totalMonths <= 0 || !p.sentenceStartDate)
-      return { totalMonths: 0, servedMonths: 0, percent: 0, eligibilityDate: null, eligible: false };
+    if (!p?.sentenceStartDate) {
+      return { totalMonths: 0, servedMonths: 0, percent: 0, eligibilityDate: null, meetsThreshold: false, eligible: false };
+    }
+    const life = isLifeSentence(p);
+    const totalMonths = life ? LIFE_ELIGIBILITY_YEARS * 12 : getSentenceDurationMonths(p);
+    if (!life && totalMonths <= 0) {
+      return { totalMonths: 0, servedMonths: 0, percent: 0, eligibilityDate: null, meetsThreshold: false, eligible: false };
+    }
     const start = parseDate(p.sentenceStartDate);
     const today = parseDate(new Date().toISOString());
     const servedMonths = Math.max(0, diffMonths(start, today));
     const percent = Math.min(100, (servedMonths / totalMonths) * 100);
     const eligibilityDate = getParoleEligibilityDate(p);
-    const normalized = typeof PMSEligibility !== 'undefined' ? PMSEligibility.normalizeStatus(p.status) : p.status;
-    const eligible = eligibilityDate && today >= parseDate(eligibilityDate)
-      && ['Awaiting Eligibility', 'Eligible for Parole Application'].includes(normalized);
-    return { totalMonths, servedMonths, percent, eligibilityDate, eligible };
+    const meetsThreshold = hasMetEligibilityThreshold(p);
+    const eligible = isEligibleParoleApplicant(p);
+    return { totalMonths, servedMonths, percent, eligibilityDate, meetsThreshold, eligible };
   }
 
   function validatePrisonerDates(prisoner) {
@@ -2178,6 +3598,28 @@ const PMSStorage = (() => {
         previousValues: prev,
         newValues: prisonerAuditSnapshot(saved),
       });
+      const pName = `${saved.firstName} ${saved.lastName}`;
+      const actorName = actor ? `${actor.firstName} ${actor.lastName}` : 'System';
+      const changeMeta = {
+        type: 'prisoner_change',
+        prisonerId: saved.id,
+        institutionId: saved.institutionId,
+        linkPanel: 'prisoners',
+        linkHref: `prisoner-profile.html?id=${encodeURIComponent(saved.id)}`,
+      };
+      notifyInstitutionRoles(
+        saved.institutionId,
+        ['CS Parole Clerk', 'CS Parole Officer', 'Jail Commander'],
+        'Parolee Record Updated',
+        `${pName} (${saved.prisonerNumber}) — record updated by ${actorName}`,
+        changeMeta,
+      );
+      notifyRoles(
+        ['DJAG Parole Clerk', 'DJAG Secretary', 'Doctor', 'CS Commissioner'],
+        'Parolee Record Updated',
+        `${pName} (${saved.prisonerNumber}) — record updated by ${actorName}`,
+        changeMeta,
+      );
       syncParoleNotifications(actor);
       persist();
       return saved;
@@ -2230,12 +3672,6 @@ const PMSStorage = (() => {
     logAudit(actor, 'CREATE', 'Document', entry.id, `Attached ${entry.name} to ${p.prisonerNumber}`, {
       newValues: { prisonerId, documentId: entry.id, name: entry.name, type: entry.type },
     });
-    notifyRole('DJAG Parole Clerk', 'Document Uploaded', `${entry.name} attached to ${p.firstName} ${p.lastName}`, p.institutionId, prisonerId, null, {
-      type: 'document', prisonerId, linkHref: `prisoner-profile.html?id=${encodeURIComponent(prisonerId)}`,
-    });
-    notifyRole('CS Parole Clerk', 'Document Uploaded', `${entry.name} attached to ${p.firstName} ${p.lastName}`, p.institutionId, prisonerId, null, {
-      type: 'document', prisonerId, linkHref: `prisoner-profile.html?id=${encodeURIComponent(prisonerId)}`,
-    });
     persist();
     return entry;
   }
@@ -2282,8 +3718,181 @@ const PMSStorage = (() => {
     persist();
   }
 
-  function getParoleApplications() { return [...(data?.applications || [])]; }
+  function getParoleApplications(opts = {}) {
+    const list = [...(data?.applications || [])];
+    if (opts.includeArchived) return list;
+    return list.filter((a) => !a.archived);
+  }
   function getApplicationById(id) { return data.applications.find((a) => a.id === id); }
+  function isArchivedApplication(app) { return !!app?.archived; }
+
+  function canAccessApplicationInstitution(app, actor) {
+    if (!app || !actor) return false;
+    if (typeof PMSRBAC !== 'undefined') {
+      if (PMSRBAC.can(actor, 'applications', 'delete')) return true;
+      const perms = PMSRBAC.getPermissions?.(actor);
+      const scope = perms?.applications?.scope;
+      if (scope === 'all') return true;
+      if (scope === 'institution' && actor.institutionId) {
+        return app.institutionId === actor.institutionId;
+      }
+    }
+    return !actor.institutionId || app.institutionId === actor.institutionId;
+  }
+
+  function getApplicationModificationPoints(app) {
+    if (!app) return [];
+    const points = [];
+    if (app.createdAt) {
+      points.push({ at: app.createdAt, kind: 'form', formN: 1, label: 'Form 1 — Parole Application' });
+    }
+    ['form1', 'form2', 'form3', 'form4', 'form5'].forEach((key, i) => {
+      const fd = app.formData?.[key];
+      if (!fd || !Object.keys(fd).length) return;
+      const at = fd.submittedAt || fd.approvedAt || fd.issuedAt || fd.recordedAt || fd.updatedAt;
+      if (at) {
+        points.push({ at, kind: 'form', formN: i + 1, label: PAROLE_FORMS[i]?.name || `Form ${i + 1}` });
+      }
+    });
+    (app.workflowNotes || []).forEach((n) => {
+      if (n.at) points.push({ at: n.at, kind: 'status', status: n.status, label: n.status || 'Status update' });
+    });
+    if (app.commanderReview?.verifiedAt) {
+      points.push({ at: app.commanderReview.verifiedAt, kind: 'verification', label: 'Institutional Verification' });
+    }
+    getHearingsByApplication(app.id).forEach((h) => {
+      const at = h.updatedAt || h.scheduledDate;
+      if (at) points.push({ at, kind: 'hearing', label: 'Parole Hearing' });
+    });
+    if (app.boardDecision?.decidedAt) {
+      points.push({ at: app.boardDecision.decidedAt, kind: 'board', label: 'Board Decision' });
+    }
+    if (app.updatedAt) {
+      points.push({
+        at: app.updatedAt,
+        kind: app.lastModifiedForm ? 'form' : 'update',
+        formN: app.lastModifiedForm ? Number(String(app.lastModifiedForm).replace('form', '')) || null : null,
+        label: app.lastModifiedLabel || 'Application updated',
+      });
+    }
+    return points.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+  }
+
+  function resolveApplicationEditTarget(app, actor) {
+    if (!app) return null;
+    const appId = encodeURIComponent(app.id);
+    const summary = getFormCompletionSummary(app);
+    const status = app.status;
+
+    if (['Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review'].includes(status)) {
+      return { href: `forms/board-decisions.html?appId=${appId}`, label: 'Board Vote', kind: 'hearing' };
+    }
+    if (needsCommanderVerification(app) && typeof PMSRBAC !== 'undefined' && PMSRBAC.normalizeRole(actor?.role) === 'Jail Commander') {
+      return { href: `dashboard-commander.html?panel=verification&app=${app.id}`, label: 'Record Verification', kind: 'verification' };
+    }
+    if (needsDjagForm2Ppr(app) && typeof PMSRBAC !== 'undefined' && PMSRBAC.canAccessForm(actor, 2, 'edit')) {
+      return { href: `forms/form2.html?appId=${appId}`, label: 'Form 2 — PPR section', kind: 'form', formN: 2 };
+    }
+    if (['Pre-Parole Report Prepared'].includes(status) && actor?.role === 'DJAG Secretary') {
+      return { href: `forms/hearing-schedule.html?appId=${appId}`, label: 'Schedule Hearing', kind: 'hearing' };
+    }
+    if (isBoardDecisionFinalized(app)) {
+      const outcome = getBoardDecisionOutcome(app);
+      const formN = outcome === 'Parole Refused' ? 5 : 4;
+      if (typeof PMSRBAC !== 'undefined' && PMSRBAC.canAccessForm(actor, formN, 'view')) {
+        return { href: `forms/form${formN}.html?appId=${appId}`, label: `Form ${formN}`, kind: 'form', formN };
+      }
+    }
+
+    const latest = getApplicationModificationPoints(app)[0];
+    if (latest?.kind === 'form' && latest.formN) {
+      const canView = typeof PMSRBAC === 'undefined' || PMSRBAC.canAccessForm(actor, latest.formN, 'view');
+      const canEdit = typeof PMSRBAC === 'undefined' || PMSRBAC.canAccessForm(actor, latest.formN, 'edit');
+      if (canView || canEdit) {
+        return { href: `forms/form${latest.formN}.html?appId=${appId}`, label: latest.label, kind: 'form', formN: latest.formN };
+      }
+    }
+    if (latest && ['hearing', 'board', 'status'].includes(latest.kind)) {
+      if (typeof PMSRBAC === 'undefined' || ['DJAG Secretary', 'DJAG Parole Clerk', 'Doctor', 'CS Commissioner'].includes(actor?.role)) {
+        return { href: `forms/board-decisions.html?appId=${appId}`, label: 'Board Vote', kind: 'hearing' };
+      }
+    }
+    if (latest?.kind === 'verification' && actor?.role === 'Jail Commander') {
+      return { href: `dashboard-commander.html?panel=verification&app=${app.id}`, label: 'Verification', kind: 'verification' };
+    }
+
+    for (let n = 1; n <= 5; n += 1) {
+      const key = `form${n}`;
+      if (summary.checks[key]) continue;
+      if (typeof PMSRBAC !== 'undefined' && !PMSRBAC.canAccessForm(actor, n, 'edit')) continue;
+      if (typeof PMSFormWorkflow !== 'undefined' && !PMSFormWorkflow.canAccess(app.id, n)) continue;
+      return { href: `forms/form${n}.html?appId=${appId}`, label: PAROLE_FORMS[n - 1]?.name || `Form ${n}`, kind: 'form', formN: n };
+    }
+
+    for (let n = 5; n >= 1; n -= 1) {
+      if (!summary.checks[`form${n}`]) continue;
+      if (typeof PMSRBAC !== 'undefined' && !PMSRBAC.canAccessForm(actor, n, 'view')) continue;
+      return { href: `forms/form${n}.html?appId=${appId}`, label: PAROLE_FORMS[n - 1]?.name || `Form ${n}`, kind: 'form', formN: n };
+    }
+
+    return { href: `forms/board-decisions.html?appId=${appId}`, label: 'Case overview', kind: 'hearing' };
+  }
+
+  function canDeleteApplication(app, actor) {
+    if (!app || app.archived || !actor) return false;
+    if (!['Draft', 'Returned for Correction'].includes(app.status)) return false;
+    if (getHearingsByApplication(app.id).length) return false;
+    if (app.boardDecision?.outcome) return false;
+    if (typeof PMSRBAC !== 'undefined') {
+      if (PMSRBAC.can(actor, 'applications', 'delete')) return canAccessApplicationInstitution(app, actor);
+      if (actor.role === 'CS Parole Clerk' && canAccessApplicationInstitution(app, actor)) return true;
+    }
+    return actor.role === 'System Administrator';
+  }
+
+  function canArchiveApplication(app, actor) {
+    if (!app || app.archived || !actor) return false;
+    if (!isTerminalApplicationStatus(app.status) && !['Draft'].includes(app.status)) return false;
+    if (app.status === 'Draft') return false;
+    if (typeof PMSRBAC !== 'undefined') {
+      return (PMSRBAC.can(actor, 'applications', 'update') || PMSRBAC.can(actor, 'applications', 'delete'))
+        && canAccessApplicationInstitution(app, actor);
+    }
+    return ['System Administrator', 'CS Parole Clerk'].includes(actor.role);
+  }
+
+  function deleteApplication(appId, actor) {
+    const app = getApplicationById(appId);
+    if (!app) throw new Error('Application not found');
+    if (!canDeleteApplication(app, actor)) {
+      throw new Error('You may only delete draft or returned applications with no hearings.');
+    }
+    const prisoner = getPrisonerById(app.prisonerId);
+    data.applications = data.applications.filter((a) => a.id !== appId);
+    data.hearings = (data.hearings || []).filter((h) => h.applicationId !== appId);
+    if (data.notifications) {
+      data.notifications.forEach((n) => {
+        if (n.applicationId === appId && !n.resolved) n.resolved = true;
+      });
+    }
+    logAudit(actor, 'DELETE', 'ParoleApplication', appId, prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : app.caseNumber || appId);
+    persist();
+  }
+
+  function archiveApplication(appId, actor) {
+    const app = getApplicationById(appId);
+    if (!app) throw new Error('Application not found');
+    if (!canArchiveApplication(app, actor)) {
+      throw new Error('You may only archive completed or closed parole cases.');
+    }
+    app.archived = true;
+    app.archivedAt = new Date().toISOString();
+    app.archivedBy = actor.id;
+    app.updatedAt = app.archivedAt;
+    logAudit(actor, 'ARCHIVE', 'ParoleApplication', appId, app.caseNumber || appId);
+    persist();
+    return app;
+  }
 
   function createEmptyForms() {
     return PAROLE_FORMS.map((f) => ({
@@ -2295,9 +3904,9 @@ const PMSStorage = (() => {
 
   function isForm1Complete(form1) {
     if (!form1) return false;
+    if (typeof PMSForm1Validation !== 'undefined') return PMSForm1Validation.isForm1Complete(form1);
     if (form1.status === 'submitted' || form1.status === 'verified') return true;
     if (form1.sections?.E?.prisoner_consent && (form1.submittedAt || form1.status === 'submitted')) return true;
-    if (typeof PMSForm1Validation !== 'undefined') return PMSForm1Validation.isForm1Complete(form1);
     const secE = form1.sectionE || form1.sections?.E;
     return !!(form1.status === 'submitted' && (form1.eligibilityOutcome || secE?.prisoner_consent || secE?.prisonerConsent));
   }
@@ -2338,7 +3947,9 @@ const PMSStorage = (() => {
     const settings = getSettings();
     const existing = app.formData?.form1 || {};
 
-    if (existing.status === 'submitted' && !supervisorReview) {
+    const existingSecE = existing.sections?.E || existing.sectionE;
+    const paroleAppComplete = !!(existingSecE?.prisoner_consent && (existingSecE?.consent_date || existingSecE?.consentDate));
+    if (existing.status === 'submitted' && !supervisorReview && paroleAppComplete) {
       throw new Error('Submitted Form 1 cannot be modified.');
     }
 
@@ -2346,8 +3957,8 @@ const PMSStorage = (() => {
 
     if (supervisorReview) {
       const role = PMSRBAC.normalizeRole(actor.role);
-      if (!['CS Parole Clerk', 'System Administrator'].includes(role)) {
-        throw new Error('Only a CS Parole Clerk or System Administrator may record supervisory review.');
+      if (role !== 'CS Parole Clerk') {
+        throw new Error('Only a CS Parole Clerk may record supervisory review.');
       }
       if (existing.status !== 'submitted') {
         throw new Error('Supervisory review requires a submitted Form 1.');
@@ -2445,7 +4056,11 @@ const PMSStorage = (() => {
     if (app.id) {
       const idx = data.applications.findIndex((a) => a.id === app.id);
       if (idx < 0) throw new Error('Application not found');
-      data.applications[idx] = { ...data.applications[idx], ...payload };
+      data.applications[idx] = {
+        ...data.applications[idx],
+        ...payload,
+        updatedAt: new Date().toISOString(),
+      };
     } else {
       const id = generateId('application');
       const caseNumber = generateCaseNumber();
@@ -2479,24 +4094,26 @@ const PMSStorage = (() => {
         throw new Error('Only DJAG Parole Clerk may edit the PPR section.');
       }
     }
+    if (!data) throw new Error('Storage is not ready. Refresh the page and try again.');
     app.formData = app.formData || createEmptyFormData();
     const merged = PMSIdGenerator.assignFormId(data, formKey, { ...app.formData[formKey], ...formData });
+    merged.savedAt = formData.savedAt || merged.savedAt || new Date().toISOString();
+    if (formData.saveSource === 'autosave') merged.lastAutoSavedAt = new Date().toISOString();
     app.formData[formKey] = merged;
+    app.updatedAt = new Date().toISOString();
+    app.lastModifiedForm = formKey;
+    app.lastModifiedLabel = PAROLE_FORMS.find((f) => `form${f.number}` === formKey)?.name || formKey;
     logAudit(actor, 'SAVE', 'Form', merged.formId || `${appId}-${formKey}`, PAROLE_FORMS.find((f) => `form${f.number}` === formKey)?.name || formKey);
-    if (formKey === 'form3' && isForm3Complete(app.formData.form3) && !isCommanderVerified(app)) {
-      const prisoner = getPrisonerById(app.prisonerId);
-      const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'prisoner';
-      if (!['Pending Commander Review', 'Pre-Parole Report Prepared', 'Hearing Scheduled', 'Pending Board Review', 'Approved', 'Refused', 'Released', 'Parole Granted', 'Parole Refused'].includes(app.status)) {
-        transitionApplication(appId, 'Pending Commander Review', actor, 'Form 3 completed — awaiting Jail Commander verification');
+    if (formKey === 'form3' && isForm3Complete(app.formData.form3) && needsCommanderVerification(app)) {
+      if (app.status !== 'Pending Commander Review') {
+        try {
+          transitionApplication(appId, 'Pending Commander Review', actor, 'Form 3 submitted — awaiting Jail Commander verification');
+        } catch (err) {
+          promoteToCommanderReviewIfReady(app, { notify: true });
+        }
       }
-      notifyInstitutionRoles(
-        app.institutionId,
-        ['Jail Commander', 'CS Parole Clerk'],
-        'Verification Required',
-        `Form 3 complete — institutional verification pending for ${pName}`,
-        { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'verification', linkPanel: 'verification' }
-      );
     }
+    syncApplicationWorkflowState(app);
     persist();
     return app;
   }
@@ -2505,7 +4122,7 @@ const PMSStorage = (() => {
     const app = getApplicationById(appId);
     if (!app) throw new Error('Application not found');
     const fromStatus = app.status;
-    if (typeof PMSWorkflow !== 'undefined' && actor?.role !== 'System Administrator') {
+    if (typeof PMSWorkflow !== 'undefined') {
       if (!PMSWorkflow.canTransition(actor, fromStatus, toStatus)) {
         logAudit(actor, 'ACCESS_DENIED', 'ParoleApplication', appId, `Blocked transition ${fromStatus} → ${toStatus}`, { denied: true });
         throw new Error(`You are not permitted to change status from ${fromStatus} to ${toStatus}.`);
@@ -2520,6 +4137,8 @@ const PMSStorage = (() => {
       app.returnTarget = PMSWorkflow.getReturnTarget(fromStatus);
     }
     app.status = toStatus;
+    app.updatedAt = new Date().toISOString();
+    app.lastModifiedLabel = `Status → ${toStatus}`;
     if (toStatus === 'Submitted') {
       app.submittedAt = new Date().toISOString().split('T')[0];
       app.submittedBy = actor.id;
@@ -2560,6 +4179,10 @@ const PMSStorage = (() => {
       notifyRoles(['Doctor', 'CS Commissioner', 'DJAG Secretary', 'CS Parole Clerk', 'DJAG Parole Clerk'], 'Hearing Scheduled',
         `Parole hearing scheduled for ${pName}`, { ...appMeta, type: 'hearing', linkPanel: 'hearings' });
     }
+    if (toStatus === 'Hearing In Progress') {
+      notifyRoles(['Doctor', 'CS Commissioner', 'DJAG Secretary'], 'Hearing In Progress',
+        `Parole hearing session started for ${pName}`, { ...appMeta, type: 'hearing', linkPanel: 'hearings' });
+    }
     if (toStatus === 'Pending Board Review') {
       notifyRoles(['Doctor', 'CS Commissioner', 'DJAG Secretary'], 'Application Ready for Board', `Application ready for board review: ${pName}`, appMeta);
     }
@@ -2589,6 +4212,7 @@ const PMSStorage = (() => {
       notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Decision Deferred', notes || `Parole decision deferred for ${pName}`, appMeta);
     }
     if (prisoner) applyPrisonerEligibility(prisoner, actor);
+    syncApplicationProgress(appId);
     persist();
     return app;
   }
@@ -2609,8 +4233,8 @@ const PMSStorage = (() => {
   function recordBoardDecision(appId, decision, actor) {
     const app = getApplicationById(appId);
     if (!app) throw new Error('Application not found');
-    if (!['Hearing Scheduled', 'Pending Board Review', 'Parole Granted', 'Parole Refused'].includes(app.status)) {
-      throw new Error('Application must be in Hearing Scheduled or Pending Board Review status.');
+    if (!['Hearing In Progress', 'Hearing Scheduled', 'Pending Board Review', 'Parole Granted', 'Parole Refused'].includes(app.status)) {
+      throw new Error('Application must be in an active hearing or board review status.');
     }
     if (!requiredBoardAssessmentsComplete(app)) {
       const pending = getBoardAssessmentProgress(app).pendingRoles;
@@ -2658,63 +4282,82 @@ const PMSStorage = (() => {
   }
 
   function saveHearing(hearing, actor) {
-    const isUpdate = !!hearing.id;
+    const payload = { ...hearing };
+    if (!payload.id && payload.applicationId) {
+      const existing = findActiveHearingRecord(payload.applicationId);
+      if (existing) payload.id = existing.id;
+    }
+    const isUpdate = !!payload.id;
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
-    const prev = isUpdate ? getHearingById(hearing.id) : null;
+    const prev = isUpdate ? getHearingById(payload.id) : null;
     const schedulingAction = !isUpdate
-      || hearing.status === 'Cancelled'
-      || (hearing.scheduledDate !== undefined && hearing.scheduledDate !== prev?.scheduledDate)
-      || (hearing.scheduledTime !== undefined && hearing.scheduledTime !== prev?.scheduledTime)
-      || (hearing.location !== undefined && hearing.location !== prev?.location);
+      || payload.status === 'Cancelled'
+      || (payload.scheduledDate !== undefined && payload.scheduledDate !== prev?.scheduledDate)
+      || (payload.scheduledTime !== undefined && payload.scheduledTime !== prev?.scheduledTime)
+      || (payload.location !== undefined && payload.location !== prev?.location);
     const canSchedule = typeof PMSRBAC !== 'undefined'
       ? PMSRBAC.canScheduleHearing(actor)
-      : ['DJAG Secretary', 'System Administrator'].includes(role);
+      : role === 'DJAG Secretary';
     if (schedulingAction && !canSchedule) {
       throw new Error('Only the DJAG Secretary may set or change hearing dates.');
     }
-    if (hearing.applicationId && hearing.scheduledDate && !hearing.deadlineException) {
-      const app = getApplicationById(hearing.applicationId);
+    if (payload.applicationId && payload.scheduledDate && !payload.deadlineException) {
+      const app = getApplicationById(payload.applicationId);
       if (app && typeof PMSWorkflow !== 'undefined') {
         const blockers = PMSWorkflow.getAdvanceBlockers(app, 'Hearing Scheduled');
         if (blockers.length) throw new Error(`Cannot schedule hearing: ${blockers.join(' ')}`);
       }
       const info = app ? getHearingDeadlineInfo(app) : null;
-      if (info?.deadlineAt && new Date(hearing.scheduledDate) > new Date(info.deadlineAt)) {
+      if (info?.deadlineAt && new Date(payload.scheduledDate) > new Date(info.deadlineAt)) {
         throw new Error(`Hearing date exceeds the ${HEARING_DEADLINE_DAYS}-day deadline (${info.deadlineAt}). Record an authorized exception to proceed.`);
       }
     }
-    if (hearing.id) {
-      const idx = data.hearings.findIndex((h) => h.id === hearing.id);
+    if (payload.id) {
+      const idx = data.hearings.findIndex((h) => h.id === payload.id);
       if (idx < 0) throw new Error('Hearing not found');
-      const prev = data.hearings[idx];
+      const prevRecord = data.hearings[idx];
+      const sched = payload.scheduledDate ? new Date(payload.scheduledDate) : null;
+      let status = payload.status || prevRecord.status || 'Scheduled';
+      if (sched && sched > new Date() && status !== 'Cancelled') status = 'Upcoming';
       data.hearings[idx] = {
-        ...prev,
-        ...hearing,
-        caseNumber: hearing.caseNumber || prev.caseNumber || getApplicationById(prev.applicationId)?.caseNumber,
-        status: hearing.status || prev.status,
+        ...prevRecord,
+        ...payload,
+        caseNumber: payload.caseNumber || prevRecord.caseNumber || getApplicationById(prevRecord.applicationId)?.caseNumber,
+        status,
         updatedAt: new Date().toISOString(),
       };
     } else {
-      const app = hearing.applicationId ? getApplicationById(hearing.applicationId) : null;
+      const app = payload.applicationId ? getApplicationById(payload.applicationId) : null;
       const id = generateId('hearing');
-      const sched = new Date(hearing.scheduledDate);
+      const sched = new Date(payload.scheduledDate);
       const now = new Date();
-      let status = hearing.status || 'Scheduled';
+      let status = payload.status || 'Scheduled';
       if (sched > now) status = 'Upcoming';
       data.hearings.push({
-        ...hearing,
+        ...payload,
         id,
-        caseNumber: app?.caseNumber || hearing.caseNumber,
+        caseNumber: app?.caseNumber || payload.caseNumber,
         status,
-        boardMembers: hearing.boardMembers || [],
-        meetingNotes: hearing.meetingNotes || '',
-        attendance: hearing.attendance || [],
-        outcome: hearing.outcome || null,
+        boardMembers: payload.boardMembers || [],
+        meetingNotes: payload.meetingNotes || '',
+        attendance: payload.attendance || [],
+        outcome: payload.outcome || null,
         createdAt: new Date().toISOString(),
       });
     }
-    const saved = isUpdate ? getHearingById(hearing.id) : data.hearings.at(-1);
-    logAudit(actor, isUpdate ? 'UPDATE' : 'CREATE', 'Hearing', saved.id, hearing.location || '');
+    const saved = payload.id ? getHearingById(payload.id) : data.hearings.at(-1);
+    if (saved?.applicationId) {
+      data.hearings.forEach((h) => {
+        if (h.id === saved.id) return;
+        if (h.applicationId === saved.applicationId && !['Cancelled', 'Completed'].includes(h.status)) {
+          h.status = 'Cancelled';
+          h.supersededAt = new Date().toISOString();
+          h.supersededReason = 'Superseded by rescheduled hearing';
+        }
+      });
+    }
+    dedupeActiveHearingsPerApplication();
+    logAudit(actor, isUpdate ? 'UPDATE' : 'CREATE', 'Hearing', saved.id, payload.location || '');
     const p = getPrisonerById(saved.prisonerId);
     const pName = p ? `${p.firstName} ${p.lastName}` : 'prisoner';
     const title = isUpdate ? 'Hearing Date Updated' : 'Hearing Scheduled';
@@ -2723,7 +4366,7 @@ const PMSStorage = (() => {
     const venueLabel = saved.location || 'TBD';
     const msg = `Parole hearing for ${pName} on ${dateLabel}${timeLabel} · ${venueLabel}. Panel members (Doctor, CS Commissioner, DJAG Secretary) may submit assessments independently when ready.`;
     const portalLink = saved.applicationId
-      ? `forms/hearing-portal.html?appId=${encodeURIComponent(saved.applicationId)}`
+      ? `forms/board-decisions.html?appId=${encodeURIComponent(saved.applicationId)}`
       : null;
     const hearingMeta = {
       institutionId: p?.institutionId,
@@ -2767,9 +4410,9 @@ const PMSStorage = (() => {
         );
       }
     }
-    if (!isUpdate && saved.applicationId && saved.status !== 'Cancelled') {
+    if (saved.applicationId && saved.status !== 'Cancelled') {
       const app = getApplicationById(saved.applicationId);
-      if (app) {
+      if (app && !isUpdate) {
         const eligibleFrom = new Date(app.submittedAt || app.createdAt);
         const deadline = new Date(eligibleFrom);
         deadline.setDate(deadline.getDate() + HEARING_DEADLINE_DAYS);
@@ -2778,9 +4421,25 @@ const PMSStorage = (() => {
           notifyRole('DJAG Secretary', 'Hearing Deadline Warning', `Hearing for ${app.caseNumber || app.id} is scheduled beyond the ${HEARING_DEADLINE_DAYS}-day requirement`, app.institutionId, app.prisonerId, null, { applicationId: app.id, type: 'deadline' });
         }
       }
-      if (app && !['Hearing Scheduled', 'Pending Board Review', 'Approved', 'Refused', 'Deferred'].includes(app.status)) {
-        transitionApplication(saved.applicationId, 'Hearing Scheduled', actor, `Hearing scheduled for ${saved.scheduledDate || 'TBD'}`);
+      if (app && !POST_HEARING_SCHEDULE_STATUSES.includes(app.status)) {
+        try {
+          transitionApplication(saved.applicationId, 'Hearing Scheduled', actor, `${isUpdate ? 'Hearing updated' : 'Hearing scheduled'} for ${saved.scheduledDate || 'TBD'}`);
+        } catch (err) {
+          app.status = 'Hearing Scheduled';
+          app.updatedAt = new Date().toISOString();
+          app.workflowNotes = [...(app.workflowNotes || []), {
+            status: 'Hearing Scheduled',
+            notes: err.message || 'Hearing recorded — status synced locally',
+            at: new Date().toISOString(),
+            by: actor.id,
+            actorName: `${actor.firstName} ${actor.lastName}`,
+          }];
+        }
       }
+    }
+    if (saved.applicationId) {
+      resolveHearingNotifications(saved.applicationId);
+      syncApplicationProgress(saved.applicationId);
     }
     persist();
     return saved;
@@ -2796,10 +4455,33 @@ const PMSStorage = (() => {
     return data.notifications.some((n) => n.dedupeKey === dedupeKey && !n.resolved);
   }
 
+  const ALLOWED_NOTIFICATION_TYPES = new Set([
+    'eligibility',
+    'parole_eligibility',
+    'deadline',
+    'escalation',
+    'board_review',
+    'prisoner_change',
+    'verification',
+    'hearing',
+    'application',
+    'returned',
+    'release',
+    'approval',
+    'system',
+    'form1',
+    'form2',
+    'form3',
+  ]);
+
+  function isAllowedNotificationType(type) {
+    return ALLOWED_NOTIFICATION_TYPES.has(type);
+  }
+
   function migrateNotifications() {
     if (!data.notifications) data.notifications = [];
     const secretaryNotifs = [
-      { id: 'NOT-000005', type: 'hearing', title: 'Schedule Hearing Required', message: 'Case PMS-2026-000004 (Sarah Tekate) requires a parole hearing within 14 days of Form 3 verification.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'hearings', read: false, resolved: false, createdAt: '2026-07-15T08:00:00.000Z', dedupeKey: 'hearing:APP-000004:DJAG Secretary:Schedule Hearing Required' },
+      { id: 'NOT-000005', type: 'escalation', title: 'Hearing Overdue', message: 'Case PMS-2026-000004 (Sarah Tekate) is overdue for hearing scheduling.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000003', applicationId: 'APP-000004', linkPanel: 'hearings', read: false, resolved: false, createdAt: '2026-07-15T08:00:00.000Z', dedupeKey: 'escalation:APP-000004:DJAG Secretary:Hearing Overdue' },
       { id: 'NOT-000006', type: 'board_review', title: 'Submit Board Assessment', message: 'Parole hearing scheduled for Paul Kaupa (PMS-2026-000001) — submit your Approve, Deny, or Defer vote when ready.', recipientRole: 'DJAG Secretary', recipientUserId: 'USR-000025', institutionId: 'INS-000001', prisonerId: 'PR-000001', applicationId: 'APP-000001', linkPanel: 'decisions', read: false, resolved: false, createdAt: '2026-06-20T09:00:00.000Z', dedupeKey: 'board_review:APP-000001:DJAG Secretary:Submit Board Assessment' },
       { id: 'NOT-000007', type: 'verification', title: 'Institutional Verification Required', message: 'Peter Wama (PMS-2026-000002) — Forms 1–3 complete. Review and verify the case package.', recipientRole: 'Jail Commander', recipientUserId: 'USR-000028', institutionId: 'INS-000001', prisonerId: 'PR-000002', applicationId: 'APP-000002', linkPanel: 'verification', read: false, resolved: false, createdAt: '2026-08-10T15:00:00.000Z', dedupeKey: 'verification:APP-000002:Jail Commander:Institutional Verification Required' },
     ];
@@ -2810,6 +4492,10 @@ const PMSStorage = (() => {
     });
     const seen = new Set();
     data.notifications = data.notifications.filter((n) => {
+      if (!isAllowedNotificationType(n.type)) {
+        if (n.type === 'parole_eligibility') n.type = 'eligibility';
+        else return n.resolved === true;
+      }
       if (!n.dedupeKey) {
         n.dedupeKey = buildNotificationDedupeKey({
           type: n.type,
@@ -2847,6 +4533,7 @@ const PMSStorage = (() => {
       institutionId = null, prisonerId = null, applicationId = null, hearingId = null,
       userId = null, linkPanel = null, linkHref = null, eligibleDate = null, dedupeKey = null,
     } = opts;
+    if (!isAllowedNotificationType(type)) return null;
     const key = dedupeKey || buildNotificationDedupeKey({
       type, title, role, recipientUserId: userId, applicationId, hearingId, prisonerId,
     });
@@ -2933,7 +4620,7 @@ const PMSStorage = (() => {
     }
 
     function hearingLink(h) {
-      if (h.applicationId) return `forms/hearing-portal.html?appId=${encodeURIComponent(h.applicationId)}`;
+      if (h.applicationId) return `forms/board-decisions.html?appId=${encodeURIComponent(h.applicationId)}`;
       return `?panel=hearings&hearing=${encodeURIComponent(h.id)}`;
     }
 
@@ -3028,6 +4715,7 @@ const PMSStorage = (() => {
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(user.role) : user.role;
     const INSTITUTION_SCOPED = ['CS Parole Clerk', 'CS Parole Officer', 'Jail Commander'];
     return data.notifications.filter((n) => {
+      if (!isAllowedNotificationType(n.type)) return false;
       const nRole = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(n.recipientRole) : n.recipientRole;
       if (nRole !== role) return false;
       if (n.recipientUserId && n.recipientUserId !== user.id) return false;
@@ -3117,8 +4805,8 @@ const PMSStorage = (() => {
     return !isTerminalApplicationStatus(app.status);
   }
 
-  function countUpcomingHearings(hearings = getHearings()) {
-    return hearings.filter((h) => ['Scheduled', 'Upcoming'].includes(h.status)).length;
+  function countUpcomingHearings() {
+    return getScheduledHearings().length;
   }
 
   function countOverdueCaseEscalations(scopeInstitutionId = null) {
@@ -3143,10 +4831,13 @@ const PMSStorage = (() => {
       apps = apps.filter((a) => a.institutionId === scopeInstitutionId);
     }
     const pendingNotifications = data.notifications.filter((n) => !n.read && !n.resolved).length;
-    const hearings = getHearings();
     const users = data.users || [];
     const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
-    const granted = apps.filter((a) => a.status === 'Approved' || a.status === 'Parole Granted' || a.formData?.form4?.status === 'Parole Granted').length;
+    const allApps = getAllParoleApplications({ includeArchived: true });
+    const scopedAll = scopeInstitutionId
+      ? allApps.filter((a) => a.institutionId === scopeInstitutionId)
+      : allApps;
+    const granted = scopedAll.filter((a) => isForm4Issued(a)).length;
     const refused = apps.filter((a) => ['Refused', 'Parole Refused'].includes(a.status) || a.formData?.form5?.status === 'Parole Refused').length;
     return {
       totalUsers: data.users.length,
@@ -3157,9 +4848,9 @@ const PMSStorage = (() => {
       totalParoleCases: apps.length,
       activeParoleApplications: apps.filter((a) => isActiveParoleApplication(a)).length,
       completedCases: apps.filter((a) => isTerminalApplicationStatus(a.status)).length,
-      eligiblePrisoners: prisoners.filter((p) => getPrisonerProgress(p).eligible).length,
+      eligiblePrisoners: countEligibleParoleApplicants(scopeInstitutionId),
       pendingAssessments: apps.filter((a) => a.status === 'Pending Board Review' && !requiredBoardAssessmentsComplete(a)).length,
-      upcomingHearings: countUpcomingHearings(hearings),
+      upcomingHearings: countUpcomingHearings(),
       overdueCases: countOverdueCaseEscalations(scopeInstitutionId),
       grantedParole: granted,
       refusedParole: refused,
@@ -3184,32 +4875,45 @@ const PMSStorage = (() => {
   return {
     USER_ROLES, OFFICER_ROLES, BOARD_POSITIONS, PAROLE_FORMS, APPLICATION_STATUSES, PRISONER_STATUSES,
     DEFAULT_SETTINGS, DEMO_PASSWORDS, ensureLoaded, reloadAll, flushSyncToDatabase, isDatabaseSyncEnabled: () => dbSyncEnabled,
-    getSettings, saveSettings, getAuditLogs, logAudit, validatePrisonerDates, applyPrisonerEligibility,
+    getSettings, saveSettings, isAct1991ParoleSyncEnabled, getAuditLogs, logAudit, validatePrisonerDates, applyPrisonerEligibility,
     getUsers, getUserById, getUserByUsername, saveUser, deleteUser, resetPassword, authenticate,
+    verifySigningPin, getSigningPinForUser, ensureSigningPins, DEMO_SIGNING_PINS,
     getInstitutions, getInstitutionById, getActiveInstitutions: () => getInstitutions(true),
     getJailCommanderForInstitution, getJailCommanders, getCommanderProfile, saveCommanderProfile, getCommanderDetailBundle,
     getPrisonersByInstitution, getInstitutionStats,
     assignJailCommander, saveInstitution, deleteInstitution, getOfficersByInstitution,
     getPrisoners, getPrisonerById, getSentenceDurationMonths, getParoleEligibilityDate, getPrisonerProgress,
+    hasMetEligibilityThreshold, isEligibleParoleApplicant, getEligibleParoleApplicants, countEligibleParoleApplicants,
+    isParoleGrantComplete, isParoleApplicationRefused, notifyDataChange,
     savePrisoner, deletePrisoner, addPrisonerDocument, removePrisonerDocument, addCaseDocument, getCaseDocuments,
     formatAgencyUsername, agencyDomainForRole, applyBoardMemberContract, BOARD_CONTRACT_YEARS,
-    getParoleApplications, getApplicationById, saveParoleApplication, uploadApplicationForm,
+    getParoleApplications, getApplicationById, isArchivedApplication,
+    getApplicationModificationPoints, resolveApplicationEditTarget,
+    canDeleteApplication, canArchiveApplication, deleteApplication, archiveApplication,
+    saveParoleApplication, uploadApplicationForm,
     verifyApplicationForm, submitApplicationToDJAG, createEmptyForms, createEmptyFormData,
-    saveFormData, saveForm1Screening, saveForm2Section, getOrCreateDraftApplication, isForm1Complete, isForm2Complete, needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm4Complete, isForm5Complete,
+    saveFormData, saveForm1Screening, saveForm2Section, getOrCreateDraftApplication, isForm1Complete, isForm2Complete,
+    FORM2_ATTACHMENT_LABELS, getForm2AttachmentFiles, getForm2AttachmentFile, canDownloadForm2Attachments, downloadForm2Attachment,
+    isForm4Issued, getAllParoleApplications, getGrantedParoleCases, countGrantedParole, getParoleGrantedArchive, archiveParoleGrantedCase,
+    needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm4Complete, isForm5Complete,
     transitionApplication, recordBoardDecision, routeParoleOutcome, issueForm4Grant, issueForm5Refusal,
     getBoardDecisionOutcome, isBoardDecisionFinalized, canProceedToForm4, canProceedToForm5,
     getFormCompletionSummary, calculateParoleScore, getHearingDeadlineInfo,
-    getCaseTimeline, getCaseTracker, getReleaseRequirements, getEscalations, runEscalationChecks,
+    getCaseTimeline, getCaseTracker, syncApplicationProgress, syncAllApplicationProgress, getReleaseRequirements, getEscalations, runEscalationChecks,
     getOffenses, saveOffense, deleteOffense,
-    saveBoardAssessment, getBoardAssessments, getBoardAssessmentProgress, getBoardAssessmentForActor,
+    startHearing, maybeCompleteHearingOnVoteTally, saveBoardAssessment, saveInterviewSessionMeta, getBoardAssessments, getBoardAssessmentProgress, getBoardAssessmentForActor,
+    getBoardAssessmentEntryForRole,
     hasSubmittedBoardAssessment, requiredBoardAssessmentsComplete, calculateBoardVotes, finalizeBoardVotes,
-    saveMedicalEvaluation, getMedicalEvaluations, isVerificationReady,
+    saveMedicalEvaluation, getMedicalEvaluations, isVerificationReady, needsCommanderVerification,
+    promoteToCommanderReviewIfReady, syncApplicationWorkflowState, syncAllApplicationWorkflowStates,
     isParoleGrantedForRelease,
     BOARD_ASSESSOR_ROLES, BOARD_VOTING_ROLES,
-    getReleaseBlockers, canAuthorizeRelease, authorizeRelease, overrideEligibility, saveCommanderCaseReview,
+    getReleaseBlockers, canAuthorizeRelease, authorizeRelease, overrideEligibility, saveCommanderCaseReview, saveCommanderVerificationDraft,
+    reconcileCommanderVerification, syncCommanderVerificationState, resolveVerificationNotifications, resolveHearingNotifications,
     saveApprovalStep, getGuarantors, saveGuarantor, deleteGuarantor, requiredApprovalsComplete,
-    generateCaseNumber, syncBoardContracts, isCommanderVerified, isForm1Verified, isVerificationReady,
-    getHearings, getHearingById, getHearingsByPrisoner, getHearingsByApplication, saveHearing, HEARING_STATUSES, PAROLE_APPROVAL_THRESHOLD,
+    generateCaseNumber, syncBoardContracts, isCommanderVerified, isCommanderVerificationLocked,
+    getCommanderVerificationRecord, getCommanderVerifiedApplications, isForm1Verified, isVerificationReady,
+    getHearings, getHearingById, getHearingsByPrisoner, getHearingsByApplication, getScheduledHearings, saveHearing, HEARING_STATUSES,
     getReports, createReport, previewNextId,
     getNotifications, getNotificationsForUser, getCalendarEventsForUser, syncParoleNotifications,
     markNotificationRead, resolveNotification, markAllNotificationsRead,

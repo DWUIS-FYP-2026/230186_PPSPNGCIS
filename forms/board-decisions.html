@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
+  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
+  <script src="../js/auth-guard.js"></script>
+  <script src="../js/page-zoom.js"></script>
+  <title>Board Vote | PNG Parole System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/forms.css">
+  <link rel="stylesheet" href="../css/hearing-portal.css">
+  <link rel="stylesheet" href="../css/page-chrome.css">
+  <link rel="stylesheet" href="../css/mobile.css">
+</head>
+<body class="pms-portal-page portal--decisions">
+  <div class="pms-page-header pms-page-header--portal no-print">
+    <header class="form-top-nav" role="banner">
+      <div data-pms-dashboard-btn data-pms-dashboard-variant="structured"></div>
+      <span class="form-badge" id="portal-form-badge">Board Vote</span>
+    </header>
+    <section class="form-letterhead" aria-labelledby="portal-page-title">
+      <div class="form-letterhead__logo">
+        <img class="form-letterhead__emblem" src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service emblem" data-pms-logo-fallback="../images/NationalEmblem.jpg">
+      </div>
+      <div class="form-letterhead__center">
+        <h1 class="form-letterhead__title" id="portal-page-title">Board Vote</h1>
+        <p class="form-letterhead__subtitle" id="portal-page-sub">Choose Approve, Deny, or Defer for each prisoner on the docket</p>
+        <p class="form-letterhead__meta-pill" id="session-badge">Board Session · Active</p>
+        <p class="form-letterhead__meta-extra">
+          <span class="board-vote-role-badge" id="portal-role-badge" hidden></span>
+          <span id="user-label">Board Member</span>
+        </p>
+      </div>
+      <div class="form-letterhead__logo form-letterhead__logo--right">
+        <img class="form-letterhead__emblem" src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General emblem">
+      </div>
+    </section>
+  </div>
+
+  <div class="portal">
+    <div class="session-bar">
+      <div class="session-info">
+        <span><span class="label">Hearing Date:</span> <span class="value" id="session-date">—</span></span>
+        <span><span class="label">Docket:</span> <span class="value" id="session-docket">0 cases</span></span>
+        <span><span class="label">Current:</span> <span class="value" id="session-current">—</span></span>
+      </div>
+      <div class="session-controls">
+        <button type="button" class="btn btn-warning btn-sm" id="btn-start-hearing" hidden>Start Hearing</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-prev">Previous</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-next">Next</button>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-print">Print</button>
+      </div>
+    </div>
+
+    <div class="schedule-readonly" id="schedule-readonly" hidden></div>
+
+    <div class="hearing-grid">
+      <div class="queue-panel">
+        <h4>Decision Docket <span class="count" id="queue-count">0</span></h4>
+        <div id="queue-list"></div>
+        <div class="queue-footer" id="queue-footer"><span id="queue-remaining">0 remaining</span></div>
+      </div>
+
+      <div class="hearing-panel">
+        <div class="offender-header">
+          <div class="main-info">
+            <h2 id="offender-name">Select a case</h2>
+            <div class="sub" id="offender-sub">
+              <span>ID: <span id="offender-id">—</span></span>
+              <span>Offense: <span id="offender-offense">—</span></span>
+              <span>Facility: <span id="offender-facility">—</span></span>
+            </div>
+          </div>
+          <div class="eligibility-badge" id="eligibility-badge">Awaiting selection</div>
+        </div>
+
+        <div class="board-interview-sections" id="board-interview-sections">
+          <details class="dossier-viewer dossier-viewer--collapsible board-interview-details" id="claim-verification-section">
+            <summary class="dossier-head">
+              <strong>Verification of Assessment (Form 2)</strong>
+              <span class="dossier-status" id="claim-verification-status">Not started</span>
+            </summary>
+            <p class="board-interview-note">Cross-check each Form 2 claim against the live interview. Mark Consistent, Partial, or Inconsistent, then sign with your PIN to save.</p>
+            <div class="claims-list" id="claims-list"></div>
+            <div class="claim-verification-actions" id="claim-verification-actions">
+              <h3 class="psych-signature-block__title">Verification &amp; Digital Signature</h3>
+              <p class="board-interview-note psych-signature-block__note">Enter your 6-digit PIN and click Verify &amp; Sign to save Form 2 verification.</p>
+              <div id="claim-verification-auth-mount"></div>
+              <div class="action-buttons claim-verification-actions__buttons">
+                <button type="button" class="btn btn-secondary" id="btn-save-claim-verification">Save Verification</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="dossier-viewer dossier-viewer--collapsible board-interview-details" id="psych-observation-section" open>
+            <summary class="dossier-head">
+              <strong>Interview Evaluation (1–5)</strong>
+              <span class="dossier-status" id="psych-observation-status">Not rated</span>
+            </summary>
+            <div class="psych-panel-body" id="psych-panel-body">
+              <p class="board-interview-note psych-panel-note" id="psych-panel-note" hidden>Read-only — psychiatrist's signed interview evaluation for this case.</p>
+              <p class="board-interview-note" id="psych-panel-edit-note">Rate each behavioral indicator from 1 (very low) to 5 (very high) based on the live interview, then sign with your PIN to save.</p>
+              <div class="interview-eval-list" id="psych-indicators"></div>
+              <div class="psych-field">
+                <span class="psych-field__label">Overall demeanor <span class="label-required">*</span></span>
+                <div class="demeanor-chips" id="demeanor-chips" role="group" aria-label="Overall demeanor"></div>
+              </div>
+              <label for="psych-clinical-notes">Clinical notes <span class="label-required">*</span></label>
+              <div class="psych-clinical-notes-readonly" id="psych-clinical-notes-readonly" hidden></div>
+              <textarea id="psych-clinical-notes" rows="4" placeholder="Psychiatric observation notes for the interview record…"></textarea>
+              <div class="attachment-control" id="psych-attachment-control">
+                <input type="file" id="psych-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" hidden>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-attach-eval">Attach evaluation document</button>
+                <span class="attachment-chip" id="psych-file-chip" hidden>
+                  <span id="psych-file-name"></span>
+                  <button type="button" class="attachment-chip__remove" id="btn-remove-psych-file" aria-label="Remove attachment">&times;</button>
+                </span>
+              </div>
+              <ul class="psych-eval-list" id="psych-eval-list"></ul>
+              <div class="psych-observation-actions" id="psych-observation-actions">
+                <div class="psych-signature-block" id="psych-signature-block">
+                  <h3 class="psych-signature-block__title">Verification &amp; Digital Signature</h3>
+                  <p class="board-interview-note psych-signature-block__note" id="psych-signature-note">Enter your 6-digit PIN and click Verify &amp; Sign to digitally sign this interview evaluation before saving.</p>
+                  <div id="psych-observation-auth-mount"></div>
+                </div>
+                <div class="action-buttons psych-observation-actions__buttons">
+                  <button type="button" class="btn btn-secondary" id="btn-save-psych-observation" disabled title="Enter your 6-digit PIN and Verify &amp; Sign before saving evaluation">Save Interview Evaluation</button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="decision-area decision-area--primary" id="decision-area">
+          <p class="decision-area-note" id="decision-area-note" hidden></p>
+          <div id="assessor-form" class="assessor-form board-vote-form board-vote-form--simple" hidden>
+            <label class="section-title" id="assessor-form-title">Your decision for this prisoner</label>
+            <p class="assessor-form-note" id="assessor-form-note">Tap one option below, add any required details, then submit your vote.</p>
+
+            <fieldset class="vote-choice-fieldset" id="vote-choice-fieldset">
+              <legend class="vote-choice-legend">Your decision <span class="required">*</span></legend>
+              <div class="vote-choice-grid" id="vote-choice-grid" role="group" aria-labelledby="vote-choice-legend">
+                <button type="button" class="vote-choice-btn vote-choice-btn--approve" data-vote="Approved" aria-pressed="false">
+                  <span class="vote-choice-btn__title">Approve Parole</span>
+                  <span class="vote-choice-btn__hint">Grant release with conditions</span>
+                </button>
+                <button type="button" class="vote-choice-btn vote-choice-btn--deny" data-vote="Refused" aria-pressed="false">
+                  <span class="vote-choice-btn__title">Deny Parole</span>
+                  <span class="vote-choice-btn__hint">Do not grant parole at this time</span>
+                </button>
+                <button type="button" class="vote-choice-btn vote-choice-btn--defer" data-vote="Deferred" aria-pressed="false">
+                  <span class="vote-choice-btn__title">Defer / Continue</span>
+                  <span class="vote-choice-btn__hint">Need more information or time</span>
+                </button>
+              </div>
+              <select id="assessment-vote" class="vote-choice-select-sr" tabindex="-1" aria-hidden="true">
+                <option value="">No decision selected</option>
+                <option value="Approved">Approve Parole</option>
+                <option value="Refused">Deny Parole</option>
+                <option value="Deferred">Defer / Continue</option>
+              </select>
+            </fieldset>
+            <div id="medical-score-row" class="board-vote-score-row">
+              <label for="assessment-score">Medical score (0–100) <span class="required">*</span></label>
+              <input type="number" id="assessment-score" min="0" max="100" step="1" placeholder="Clinical assessment score">
+            </div>
+            <div id="vote-denial-row" class="board-vote-conditional" hidden>
+              <label for="assessment-denial-reason">Reasons for Denial <span class="required">*</span></label>
+              <textarea id="assessment-denial-reason" rows="3" placeholder="Enter reasons for denying parole…"></textarea>
+            </div>
+            <div id="vote-conditions-row" class="board-vote-conditional" hidden>
+              <label for="assessment-conditions">Parole Conditions <span class="required">*</span></label>
+              <textarea id="assessment-conditions" rows="3" placeholder="Conditions of parole if approved…"></textarea>
+            </div>
+            <label for="assessment-feedback" id="assessment-feedback-label">Comments / feedback</label>
+            <textarea id="assessment-feedback" rows="3" placeholder="Notes supporting your decision…"></textarea>
+            <div class="assessor-form-status" id="assessor-form-status" hidden></div>
+            <div class="assessor-vote-auth" id="assessor-vote-auth">
+              <p class="board-interview-note assessor-vote-auth__note">Verify with your PIN here to save your vote draft at any time. Submit requires all steps complete (Form 2 verification and interview evaluation for the psychiatrist).</p>
+              <div id="vote-officer-auth-mount"></div>
+            </div>
+            <div class="action-buttons assessor-form-actions">
+              <button type="button" class="btn btn-secondary" id="btn-save-assessment" disabled title="Verify PIN to save your vote draft">Save Decision</button>
+              <button type="button" class="btn btn-success" id="btn-record-decision" disabled title="Complete all required steps and verify PIN to submit">Submit My Vote</button>
+            </div>
+          </div>
+          <div id="chair-decision-form" hidden>
+            <label class="section-title" id="decision-form-title">Record Final Decision</label>
+            <select id="hearing-decision">
+              <option value="">Select decision…</option>
+              <option value="Approved">Approve Parole</option>
+              <option value="Refused">Deny Parole</option>
+              <option value="Deferred">Defer / Continue</option>
+            </select>
+            <div id="chair-denial-row" class="board-vote-conditional" hidden>
+              <label for="hearing-denial-reason">Reasons for Denial <span class="hint">(mandatory if deny)</span></label>
+              <textarea id="hearing-denial-reason" placeholder="Enter reasons for denial…"></textarea>
+            </div>
+            <div id="chair-conditions-row" class="board-vote-conditional" hidden>
+              <label for="hearing-conditions">Parole Conditions <span class="hint">(if approved)</span></label>
+              <textarea id="hearing-conditions" placeholder="Conditions of parole if approved…"></textarea>
+            </div>
+            <div class="action-buttons">
+              <button type="button" class="btn btn-success" id="btn-record-final-decision">Record Final Decision</button>
+              <button type="button" class="btn btn-secondary" id="btn-open-form">Open Outcome Form</button>
+              <button type="button" class="btn btn-outline" id="btn-reset-decision">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="vote-tracker vote-tracker--compact" id="vote-tracker">
+          <div class="assessment-progress" id="assessment-progress" hidden></div>
+          <div class="vote-item approve"><span class="count" id="vote-approve">0</span><span>Approve</span></div>
+          <div class="vote-item deny"><span class="count" id="vote-deny">0</span><span>Deny</span></div>
+          <div class="vote-item abstain"><span class="count" id="vote-abstain">0</span><span>Defer</span></div>
+          <div class="vote-meta" id="vote-meta">0 of 0 recorded</div>
+        </div>
+
+        <details class="dossier-viewer dossier-viewer--collapsible">
+          <summary class="dossier-head">
+            <strong>Case documents</strong>
+            <span class="dossier-status" id="dossier-status">Pending</span>
+          </summary>
+          <div class="doc-list" id="doc-list"></div>
+          <div class="form2-attachments" id="form2-attachments" hidden>
+            <div class="form2-attachments__head"><strong>Form 2 assessments &amp; supporting documents</strong></div>
+            <ul class="form2-attachment-list" id="form2-attachment-list"></ul>
+          </div>
+          <div class="dossier-note">Read-only · open to review before you vote</div>
+        </details>
+
+        <div class="history-log">
+          <div class="history-title">Audit Trail</div>
+          <div id="audit-trail"><div class="log-item empty">Select a case to view audit trail.</div></div>
+        </div>
+      </div>
+
+      <div class="panel-panel">
+        <h4>Board Panel</h4>
+        <div id="panel-members"></div>
+        <div class="panel-footer">Individual assessments &amp; final decision</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="../js/pms-core.js"></script>
+  <script>
+    PMSCore.bootForm(['form-officer-auth.js', 'workflow.js', 'hearing-portal.js']).then(function () { PMSHearingPortal.init(); });
+  </script>
+</body>
+</html>

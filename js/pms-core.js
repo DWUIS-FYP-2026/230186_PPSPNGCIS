@@ -20,6 +20,7 @@ const PMSCore = (() => {
     'page-chrome.js',
     'reports-engine.js',
     'dashboard-calendar.js',
+    'board-vote.js',
   ];
 
   const FORM_CHAIN = [
@@ -32,8 +33,11 @@ const PMSCore = (() => {
     'pms-validation.js',
     'form1-validation.js',
     'form-workflow.js',
+    'form-autosave.js',
+    'form-officer-auth.js',
     'forms-engine.js',
     'pms-brand.js',
+    'board-vote.js',
   ];
 
   function loadScript(src) {

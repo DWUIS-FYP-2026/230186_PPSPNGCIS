@@ -14,24 +14,28 @@
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body class="pms-portal-page">
-  <div class="portal">
-    <header class="portal-header">
-      <div class="brand">
-        <div class="command-bar__badges" data-pms-brand-badges aria-hidden="true"></div>
-        <div class="brand-text">
-          <span class="portal-gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
-          <span class="brand-title">Parole Hearing Portal</span>
-          <span class="brand-sub">Board review &amp; scheduling</span>
-        </div>
-      </div>
-      <div class="hearing-badge" id="session-badge">Session · Active</div>
-      <div class="user-info">
-        <a href="#" class="back-dash" id="back-link" data-pms-dashboard-btn><span>Dashboard</span></a>
-        <span id="user-label">Board Member</span>
-        <div class="avatar" id="user-avatar" aria-hidden="true">?</div>
-      </div>
+  <div class="pms-page-header pms-page-header--portal no-print">
+    <header class="form-top-nav" role="banner">
+      <div data-pms-dashboard-btn data-pms-dashboard-variant="structured"></div>
+      <span class="form-badge" id="portal-form-badge">Hearing Portal</span>
     </header>
+    <section class="form-letterhead" aria-labelledby="portal-page-title">
+      <div class="form-letterhead__logo">
+        <img class="form-letterhead__emblem" src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service emblem" data-pms-logo-fallback="../images/NationalEmblem.jpg">
+      </div>
+      <div class="form-letterhead__center">
+        <h1 class="form-letterhead__title" id="portal-page-title">Parole Hearing Portal</h1>
+        <p class="form-letterhead__subtitle" id="portal-page-sub">Board review &amp; scheduling</p>
+        <p class="form-letterhead__meta-pill" id="session-badge">Session · Active</p>
+        <p class="form-letterhead__meta-extra"><span id="user-label">Board Member</span></p>
+      </div>
+      <div class="form-letterhead__logo form-letterhead__logo--right">
+        <img class="form-letterhead__emblem" src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General emblem">
+      </div>
+    </section>
+  </div>
 
+  <div class="portal">
     <div class="session-bar">
       <div class="session-info">
         <span><span class="label">Hearing Date:</span> <span class="value" id="session-date">—</span></span>
@@ -39,6 +43,7 @@
         <span><span class="label">Current:</span> <span class="value" id="session-current">—</span></span>
       </div>
       <div class="session-controls">
+        <button type="button" class="btn btn-warning btn-sm" id="btn-start-hearing" hidden>Start Hearing</button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-prev">Previous</button>
         <button type="button" class="btn btn-primary btn-sm" id="btn-next">Next</button>
         <button type="button" class="btn btn-outline btn-sm" id="btn-print">Print</button>
@@ -78,6 +83,10 @@
             <span class="dossier-status" id="dossier-status">Pending</span>
           </div>
           <div class="doc-list" id="doc-list"></div>
+          <div class="form2-attachments" id="form2-attachments" hidden>
+            <div class="form2-attachments__head"><strong>Form 2 assessments &amp; supporting documents</strong></div>
+            <ul class="form2-attachment-list" id="form2-attachment-list"></ul>
+          </div>
           <div class="dossier-note">Board view · read-only case documentation</div>
         </div>
 
@@ -143,8 +152,18 @@
               <option value="Refused">Deny Parole</option>
               <option value="Deferred">Defer / Continue</option>
             </select>
-            <label for="assessment-score">Medical score (optional, 0–100)</label>
-            <input type="number" id="assessment-score" min="0" max="100" step="1" placeholder="Optional clinical score">
+            <div id="medical-score-row" class="board-vote-score-row">
+              <label for="assessment-score">Medical score (0–100) <span class="required">*</span></label>
+              <input type="number" id="assessment-score" min="0" max="100" step="1" placeholder="Clinical assessment score">
+            </div>
+            <div id="vote-denial-row" class="board-vote-conditional" hidden>
+              <label for="assessment-denial-reason">Reasons for Denial <span class="required">*</span></label>
+              <textarea id="assessment-denial-reason" rows="3" placeholder="Enter reasons for denying parole…"></textarea>
+            </div>
+            <div id="vote-conditions-row" class="board-vote-conditional" hidden>
+              <label for="assessment-conditions">Parole Conditions <span class="required">*</span></label>
+              <textarea id="assessment-conditions" rows="3" placeholder="Conditions of parole if approved…"></textarea>
+            </div>
             <label for="assessment-feedback">Comments / feedback</label>
             <textarea id="assessment-feedback" rows="3" placeholder="Optional notes supporting your score…"></textarea>
             <div class="assessor-form-status" id="assessor-form-status" hidden></div>
@@ -153,7 +172,7 @@
               <button type="button" class="btn btn-success" id="btn-record-decision">Submit My Vote</button>
             </div>
           </div>
-          <div id="chair-decision-form">
+          <div id="chair-decision-form" hidden>
           <label class="section-title" id="decision-form-title">Record Decision</label>
           <select id="hearing-decision">
             <option value="">Select decision…</option>
@@ -161,10 +180,14 @@
             <option value="Refused">Deny Parole</option>
             <option value="Deferred">Defer / Continue</option>
           </select>
-          <label>Reasons for Denial <span class="hint">(mandatory if deny)</span></label>
-          <textarea id="hearing-denial-reason" placeholder="Enter reasons for denial…"></textarea>
-          <label>Parole Conditions <span class="hint">(if approved)</span></label>
-          <textarea id="hearing-conditions" placeholder="Conditions of parole if approved…"></textarea>
+          <div id="chair-denial-row" class="board-vote-conditional" hidden>
+            <label for="hearing-denial-reason">Reasons for Denial <span class="hint">(mandatory if deny)</span></label>
+            <textarea id="hearing-denial-reason" placeholder="Enter reasons for denial…"></textarea>
+          </div>
+          <div id="chair-conditions-row" class="board-vote-conditional" hidden>
+            <label for="hearing-conditions">Parole Conditions <span class="hint">(if approved)</span></label>
+            <textarea id="hearing-conditions" placeholder="Conditions of parole if approved…"></textarea>
+          </div>
           <div class="action-buttons">
             <button type="button" class="btn btn-success" id="btn-record-final-decision">Record Final Decision</button>
             <button type="button" class="btn btn-secondary" id="btn-open-form">Generate Form 4/5</button>
