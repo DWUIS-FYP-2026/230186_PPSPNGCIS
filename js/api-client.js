@@ -165,6 +165,14 @@ const PMSApi = (() => {
     return request('GET', '/api/calendar/events');
   }
 
+  async function recordBoardVote(applicationId, body) {
+    return request('POST', `/api/parole/applications/${encodeURIComponent(applicationId)}/record-vote`, body);
+  }
+
+  async function finalizeBoardDecision(applicationId, body = {}) {
+    return request('POST', `/api/parole/applications/${encodeURIComponent(applicationId)}/finalize-decision`, body);
+  }
+
   return {
     getBaseUrl,
     getToken,
@@ -191,5 +199,7 @@ const PMSApi = (() => {
     uploadPrisonerDocument,
     deletePrisonerDocument,
     getCalendarEvents,
+    recordBoardVote,
+    finalizeBoardDecision,
   };
 })();

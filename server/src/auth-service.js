@@ -22,8 +22,10 @@ function createToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+// expires_at is written as a UTC datetime (see toMysqlDatetime), so compare against
+// UTC_TIMESTAMP() — NOW() is server-local and would expire sessions instantly east of UTC.
 async function cleanupExpiredSessions() {
-  await query('DELETE FROM api_sessions WHERE expires_at < NOW()');
+  await query('DELETE FROM api_sessions WHERE expires_at < UTC_TIMESTAMP()');
 }
 
 function hashPassword(password) {
@@ -85,7 +87,7 @@ async function getSession(token) {
     `SELECT s.token, s.user_id, s.role, s.expires_at, u.*
      FROM api_sessions s
      INNER JOIN users u ON u.id = s.user_id
-     WHERE s.token = ? AND s.expires_at >= NOW() AND u.status = 'Active'
+     WHERE s.token = ? AND s.expires_at >= UTC_TIMESTAMP() AND u.status = 'Active'
      LIMIT 1`,
     [token]
   );

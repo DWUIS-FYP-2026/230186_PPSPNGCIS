@@ -6,215 +6,202 @@
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
-  <title>Form 4 – Parole Granted | PNG Parole System</title>
+  <title>Form 4 — Discharge of Parole Order | PNG Parole System</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/forms.css">
+  <link rel="stylesheet" href="../css/official-forms.css">
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
-<body class="pms-form-page pms-form-page--form4 pms-form-page--grant">
-  <header class="page-header no-print">
-    <div class="header-top">
-      <div data-pms-dashboard-btn></div>
+<body class="pms-form-page pms-form-page--form4 pms-form-page--grant pms-form-page--official">
+  <div class="pms-page-header no-print">
+    <header class="form-top-nav" role="banner">
+      <div data-pms-dashboard-btn data-pms-dashboard-variant="structured"></div>
+      <span class="form-badge" aria-label="Current form">Form 4</span>
+    </header>
+
+    <section class="form-letterhead" aria-labelledby="form-title">
+    <div class="form-letterhead__logo">
+      <img class="form-letterhead__emblem" src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service emblem" data-pms-logo-fallback="../images/NationalEmblem.jpg">
     </div>
-    <div class="header-main">
-      <div class="header-brand pms-brand-logos" aria-hidden="true">
-        <span class="pms-logo-badge pms-logo-badge--pngcs">
-          <img src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service" data-pms-logo-fallback="../images/NationalEmblem.jpg">
-        </span>
-        <span class="pms-logo-divider" aria-hidden="true"></span>
-        <span class="pms-logo-badge pms-logo-badge--djag">
-          <img src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General">
-        </span>
-      </div>
-      <div class="header-title-block">
-        <div class="header-title">
-          <span class="gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
-          <h1>Form 4 — Parole Granted</h1>
-          <p>Official parole grant record following board approval</p>
-          <p class="form-meta">
-            <strong>Application ID:</strong> <span id="applicationId">—</span>
-            &nbsp;·&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
-          </p>
-        </div>
-      </div>
-      <span class="role-badge">Form 4</span>
+    <div class="form-letterhead__center">
+      <h1 class="form-letterhead__title" id="form-title">Form 4 — Discharge of Parole Order</h1>
+      <p class="form-letterhead__subtitle">Official notification of successful completion of parole supervision</p>
+      <p class="form-letterhead__meta-pill">Application ID: <span id="applicationId">—</span></p>
     </div>
-  </header>
+    <div class="form-letterhead__logo form-letterhead__logo--right">
+      <img class="form-letterhead__emblem" src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General emblem">
+    </div>
+    </section>
+  </div>
 
   <main class="page-main">
     <div id="form-workflow-nav" class="no-print"></div>
+
+    <div class="status-banner no-print" id="applicantSummary">
+      <div class="status-item"><span class="label">Parolee:</span> <span class="value" id="detaineeName">—</span></div>
+      <div class="status-item"><span class="label">Parolee ID:</span> <span class="value" id="ciNumber">—</span></div>
+      <div class="status-item"><span class="label">Facility:</span> <span class="value" id="facilityName">—</span></div>
+      <div class="status-item"><span class="label">Parole Order:</span> <span class="value" id="paroleOrderDisplay">—</span></div>
+      <div class="status-item"><span class="label">Decision:</span> <span class="value" id="decisionDisplay">Discharge</span></div>
+      <div class="status-item"><span class="label">Status:</span> <span class="status-badge pending" id="formStatus">DRAFT</span></div>
+    </div>
+
+    <div class="issued-banner hidden" id="issued-banner" role="status">
+      Form 4 — Discharge of Parole Order has been issued and recorded.
+    </div>
+
     <form id="form4-grant" novalidate>
-      <div class="issued-banner" id="issued-banner" role="status">
-        ✅ Parole Granted — Form 4 has been issued and recorded.
-      </div>
+      <article class="gov-doc gov-doc--form4" aria-label="Form 4 — Discharge of Parole Order">
+        <div class="gov-doc__card">
+          <header class="gov-doc__masthead">
+            <div class="gov-doc__crest gov-doc__crest--left">
+              <img src="../images/NationalEmblem.jpg" alt="National Emblem">
+            </div>
+            <div class="gov-doc__title-block">
+              <span class="gov-doc__badge">FORM 4</span>
+              <h1 class="gov-doc__title">Discharge of Parole Order</h1>
+              <p class="gov-doc__subtitle">PAROLE BOARD – DEPARTMENT OF JUSTICE &amp; ATTORNEY GENERAL</p>
+            </div>
+            <div class="gov-doc__crest gov-doc__crest--right">
+              <img src="../images/djag_logo.jpg" alt="DJAG Seal">
+            </div>
+          </header>
 
-      <!-- Detainee Information -->
-      <section class="section" aria-labelledby="sec-detainee">
-        <h2 class="section-header" id="sec-detainee">Detainee Information</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="cs-number">CS Number</label>
-              <input type="text" id="cs-number" class="readonly-field" value="CS-2024-0847" readonly>
+          <div class="gov-doc__body">
+            <section class="gov-doc__section" aria-labelledby="f4-sec-parolee">
+              <h2 class="gov-doc__section-head" id="f4-sec-parolee">PAROLEE DETAILS</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Parolee ID</span>
+                  <input type="text" class="gov-doc__input" id="parolee-id" readonly value="PL-2024-0187">
+                  <span class="gov-doc__label">Full Name</span>
+                  <input type="text" class="gov-doc__input" id="full-name" readonly value="Michael K. Warupi">
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date of Birth</span>
+                  <input type="text" class="gov-doc__input" id="date-of-birth" readonly value="14/03/1985">
+                  <span class="gov-doc__label">Gender</span>
+                  <input type="text" class="gov-doc__input" id="gender" readonly value="Male">
+                </div>
+                <div class="gov-doc__row">
+                  <span class="gov-doc__label">Original Offence</span>
+                  <input type="text" class="gov-doc__input" id="original-offence" readonly value="Armed Robbery">
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date Paroled</span>
+                  <input type="date" class="gov-doc__input" id="date-paroled" value="2024-09-12">
+                  <span class="gov-doc__label">Parole Order No.</span>
+                  <input type="text" class="gov-doc__input" id="parole-order-no" value="PO-2024-0187">
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Supervising CBC Office</span>
+                  <input type="text" class="gov-doc__input" id="supervising-cbc" value="NCD Community Based Corrections">
+                  <span class="gov-doc__label">Parole Officer</span>
+                  <input type="text" class="gov-doc__input" id="parole-officer" value="Sgt. Mary A. Kila">
+                </div>
+              </div>
+            </section>
+
+            <section class="gov-doc__section" aria-labelledby="f4-sec-discharge">
+              <h2 class="gov-doc__section-head" id="f4-sec-discharge">DISCHARGE DETAILS</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date Completed on Parole</span>
+                  <input type="date" class="gov-doc__input" id="date-completed" required>
+                  <span class="gov-doc__label">Total Period on Parole</span>
+                  <input type="text" class="gov-doc__input" id="parole-period" value="12 months" required>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Parole Board Decision Date</span>
+                  <input type="text" class="gov-doc__input" id="decision-date" readonly>
+                  <span class="gov-doc__label">Decision</span>
+                  <span class="gov-doc__decision" id="decision-text">DISCHARGED FROM PAROLE ORDER</span>
+                </div>
+              </div>
+            </section>
+
+            <div class="gov-doc__notice" id="discharge-notice">
+              This is to certify that the above-named parolee has fully complied with all conditions of the
+              Parole Order and has successfully completed the period of parole supervision. The parolee is
+              hereby <strong>discharged from the Parole Order</strong> in accordance with the Parole Act 1991
+              and applicable regulations.
             </div>
-            <div class="field">
-              <label for="full-name">Full Name</label>
-              <input type="text" id="full-name" class="readonly-field" value="Michael K. Warupi" readonly>
-            </div>
-            <div class="field">
-              <label for="facility">Facility</label>
-              <input type="text" id="facility" class="readonly-field" value="Correctional Facility" readonly>
-            </div>
-            <div class="field">
-              <label for="hearing-date">Hearing Date</label>
-              <input type="text" id="hearing-date" class="readonly-field" value="25/08/2026" readonly>
+
+            <section class="gov-doc__section" aria-labelledby="f4-sec-conditions">
+              <h2 class="gov-doc__section-head" id="f4-sec-conditions">CONDITIONS AFTER DISCHARGE</h2>
+              <ol class="gov-doc__numbered" type="1">
+                <li>The parolee must not commit any further offences while at liberty.</li>
+                <li>The parolee must maintain good behaviour and respect the laws of Papua New Guinea.</li>
+                <li>The parolee must notify the Parole Board in writing of any change of residential address within seven (7) days.</li>
+                <li>Any breach of post-discharge obligations may result in further action under the Parole Act and Regulations.</li>
+              </ol>
+            </section>
+
+            <table class="gov-doc__sig-table" aria-label="Parole Board Members Signatures">
+              <caption style="caption-side:top;text-align:left;font-weight:700;font-size:0.72rem;padding:0.5rem 0 0.25rem;">Parole Board Members' Signatures</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Chairperson</th>
+                  <th scope="col">Member 1</th>
+                  <th scope="col">Member 2</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="gov-doc__sig-line"></span><span class="gov-doc__sig-date">Date: //____</span></td>
+                  <td><span class="gov-doc__sig-line"></span><span class="gov-doc__sig-date">Date: //____</span></td>
+                  <td><span class="gov-doc__sig-line"></span><span class="gov-doc__sig-date">Date: //____</span></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="gov-doc__bottom">
+              <div class="gov-doc__seal">
+                <span class="gov-doc__seal-label">Official Seal</span>
+                <div class="gov-doc__seal-circle" aria-hidden="true"></div>
+              </div>
+              <div class="gov-doc__notify">
+                <p><strong>Notification:</strong> Issued under the Parole Act 1991 and the Parole Regulations of Papua New Guinea. This document serves as official notice of discharge from parole supervision.</p>
+                <div class="gov-doc__notify-fields">
+                  <strong>Prepared By:</strong>
+                  <input type="text" class="gov-doc__underline" id="prepared-by">
+                  <strong>Position:</strong>
+                  <input type="text" class="gov-doc__underline" id="prepared-position" value="Chief Parole Officer">
+                  <strong>Date Issued:</strong>
+                  <input type="date" class="gov-doc__underline" id="date-issued">
+                </div>
+              </div>
             </div>
           </div>
+
+          <footer class="gov-doc__footer-bar">
+            This is an official notification. Please keep for your records.
+          </footer>
         </div>
-      </section>
+      </article>
 
-      <!-- Parole Order (Approval) -->
-      <section class="section" aria-labelledby="sec-order">
-        <h2 class="section-header" id="sec-order">Parole Order (Approval)</h2>
-        <div class="section-body">
-          <div class="approval-box">
-            <div class="approval-box__title">✅ Parole Application Approved</div>
-            <p class="approval-box__text">
-              The Parole Board has reviewed the application, hearing proceedings, and all supporting
-              documentation and has determined that parole shall be granted. This Parole Order is issued
-              in accordance with the <em>Parole Act 1991</em> and PNG Parole Regulation. The detainee
-              is hereby ordered to be released on parole subject to the conditions specified below.
-            </p>
-          </div>
+      <div id="officer-auth-mount"></div>
 
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="release-date">Release Date</label>
-              <input type="date" id="release-date" required>
-            </div>
-            <div class="field">
-              <label for="parole-duration">Parole Duration</label>
-              <select id="parole-duration" required>
-                <option value="">Select duration…</option>
-                <option value="6">6 Months</option>
-                <option value="12" selected>12 Months</option>
-                <option value="18">18 Months</option>
-                <option value="24">24 Months</option>
-                <option value="remainder">Remainder of Sentence</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="supervision-level">Supervision Level</label>
-              <select id="supervision-level" required>
-                <option value="">Select level…</option>
-                <option value="standard" selected>Standard Supervision</option>
-                <option value="intensive">Intensive Supervision</option>
-                <option value="minimum">Minimum Supervision</option>
-              </select>
-            </div>
-            <div class="field field--full">
-              <label for="release-address">Release Address</label>
-              <input type="text" id="release-address" value="Lot 14, Section 42, Gerehu Stage 6, National Capital District" required>
-            </div>
-          </div>
+      <div class="actions no-print form-actions-row">
+        <div class="left-btns">
+          <button type="button" class="btn btn-success" id="btn-issue">Issue Form 4 — Discharge</button>
+          <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
+          <button type="button" class="btn btn-outline" id="btn-prev-form">← Form 3</button>
         </div>
-      </section>
-
-      <!-- Parole Conditions -->
-      <section class="section" aria-labelledby="sec-conditions">
-        <h2 class="section-header" id="sec-conditions">Parole Conditions</h2>
-        <div class="section-body">
-          <p class="conditions-heading">Standard Conditions (Required)</p>
-          <ul class="conditions-list" id="required-conditions">
-            <li class="condition-item">
-              <input type="checkbox" id="cond-weekly" checked data-required="true">
-              <label class="condition-item__text" for="cond-weekly">Report to Community Based Corrections officer weekly.</label>
-            </li>
-            <li class="condition-item">
-              <input type="checkbox" id="cond-reside" checked data-required="true">
-              <label class="condition-item__text" for="cond-reside">Reside at approved address at all times.</label>
-            </li>
-            <li class="condition-item">
-              <input type="checkbox" id="cond-curfew" checked data-required="true">
-              <label class="condition-item__text" for="cond-curfew">Observe curfew: 9:00 PM – 6:00 AM.</label>
-            </li>
-            <li class="condition-item">
-              <input type="checkbox" id="cond-offences" checked data-required="true">
-              <label class="condition-item__text" for="cond-offences">Not commit any further offences.</label>
-            </li>
-            <li class="condition-item">
-              <input type="checkbox" id="cond-ncd" checked data-required="true">
-              <label class="condition-item__text" for="cond-ncd">Not leave the National Capital District without prior written permission.</label>
-            </li>
-          </ul>
-
-          <p class="conditions-heading conditions-heading--optional">Additional Optional Conditions</p>
-          <ul class="conditions-list" id="optional-conditions">
-            <li class="condition-item condition-item--optional">
-              <input type="checkbox" id="cond-anger">
-              <label class="condition-item__text" for="cond-anger">
-                Complete anger management and rehabilitation program.
-                <span class="condition-item__tag">Optional</span>
-              </label>
-            </li>
-            <li class="condition-item condition-item--optional">
-              <input type="checkbox" id="cond-testing">
-              <label class="condition-item__text" for="cond-testing">
-                Submit to random drug and alcohol testing.
-                <span class="condition-item__tag">Optional</span>
-              </label>
-            </li>
-          </ul>
-
-          <div class="field field--full" style="margin-top: 1rem;">
-            <label for="additional-conditions">Additional Conditions</label>
-            <textarea id="additional-conditions" rows="2" placeholder="Enter any additional parole conditions not listed above…"></textarea>
-          </div>
+        <div>
+          <button type="button" class="btn btn-secondary" id="btn-print">Print Form 4</button>
         </div>
-      </section>
-
-      <!-- Board Decision Details -->
-      <section class="section" aria-labelledby="sec-decision">
-        <h2 class="section-header" id="sec-decision">Board Decision Details</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="decision-date">Decision Date</label>
-              <input type="text" id="decision-date" class="readonly-field" value="25/08/2026" readonly>
-            </div>
-            <div class="field">
-              <label for="decision-by">Decision By</label>
-              <input type="text" id="decision-by" class="readonly-field" value="Hon. Justice David K. Cannings" readonly>
-            </div>
-            <div class="field">
-              <label for="board-vote">Board Vote</label>
-              <input type="text" id="board-vote" class="readonly-field vote-approved" value="5 – Approve | 0 – Refuse" readonly>
-            </div>
-            <div class="field field--full">
-              <label for="order-recipients">Official Order Sent To</label>
-              <textarea id="order-recipients" class="readonly-field" rows="4" readonly>Detainee — Correctional Facility
-Superintendent, Correctional Facility
-Community Based Corrections — Regional Office
-Department of Justice & Attorney General – Parole Secretariat
-Correctional Services HQ – Parole Records Unit</textarea>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div class="actions-bar">
-        <button type="button" class="btn btn-success" id="btn-issue">Record Parole Grant (Form 4)</button>
-        <button type="button" class="btn btn-primary" id="btn-save">Save Record</button>
-        <button type="button" class="btn btn-outline" id="btn-prev-form">← Form 3</button>
-        <button type="button" class="btn btn-outline" id="btn-switch-form5">Form 5 (Refusal) →</button>
-        <button type="button" class="btn btn-warning" id="btn-print-conditions">Print Parole Conditions</button>
-        <button type="button" class="btn btn-secondary" id="btn-print">Print Form 4</button>
       </div>
     </form>
+
+    <div class="print-footer">
+      <p>Generated by PMS — Papua New Guinea Parole Management System · Form 4 v2.0 · Parole Act 1991</p>
+      <p>Official discharge notification — unauthorized distribution is prohibited.</p>
+    </div>
   </main>
 
   <footer class="page-footer">
-    PNG Parole Regulation – Form 4 (Parole Granted) · Parole Act 1991
+    PNG Parole Regulation — Form 4 (Discharge of Parole Order) · Parole Act 1991
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

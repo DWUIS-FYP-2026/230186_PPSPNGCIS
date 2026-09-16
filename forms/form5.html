@@ -6,157 +6,233 @@
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
-  <title>Form 5 – Parole Refused | PNG Parole System</title>
+  <title>Form 5 — Applications After Refusal | PNG Parole System</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/forms.css">
+  <link rel="stylesheet" href="../css/official-forms.css">
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
-<body class="pms-form-page pms-form-page--form5 pms-form-page--refuse">
-  <header class="page-header no-print">
-    <div class="header-top">
-      <div data-pms-dashboard-btn></div>
+<body class="pms-form-page pms-form-page--form5 pms-form-page--refuse pms-form-page--official">
+  <div class="pms-page-header no-print">
+    <header class="form-top-nav" role="banner">
+      <div data-pms-dashboard-btn data-pms-dashboard-variant="structured"></div>
+      <span class="form-badge" aria-label="Current form">Form 5</span>
+    </header>
+
+    <section class="form-letterhead" aria-labelledby="form-title">
+    <div class="form-letterhead__logo">
+      <img class="form-letterhead__emblem" src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service emblem" data-pms-logo-fallback="../images/NationalEmblem.jpg">
     </div>
-    <div class="header-main">
-      <div class="header-brand pms-brand-logos" aria-hidden="true">
-        <span class="pms-logo-badge pms-logo-badge--pngcs">
-          <img src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service" data-pms-logo-fallback="../images/NationalEmblem.jpg">
-        </span>
-        <span class="pms-logo-divider" aria-hidden="true"></span>
-        <span class="pms-logo-badge pms-logo-badge--djag">
-          <img src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General">
-        </span>
-      </div>
-      <div class="header-title-block">
-        <div class="header-title">
-          <span class="gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
-          <h1>Form 5 — Parole Refused</h1>
-          <p>Official refusal record following board decision</p>
-          <p class="form-meta">
-            <strong>Application ID:</strong> <span id="applicationId">—</span>
-            &nbsp;·&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
-          </p>
-        </div>
-      </div>
-      <span class="role-badge">Form 5</span>
+    <div class="form-letterhead__center">
+      <h1 class="form-letterhead__title" id="form-title">Form 5 — Applications After Refusal</h1>
+      <p class="form-letterhead__subtitle">Reapplication documentation following parole board refusal</p>
+      <p class="form-letterhead__meta-pill">Application ID: <span id="applicationId">—</span></p>
     </div>
-  </header>
+    <div class="form-letterhead__logo form-letterhead__logo--right">
+      <img class="form-letterhead__emblem" src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General emblem">
+    </div>
+    </section>
+  </div>
 
   <main class="page-main">
     <div id="form-workflow-nav" class="no-print"></div>
+
+    <div class="status-banner no-print" id="applicantSummary">
+      <div class="status-item"><span class="label">Applicant:</span> <span class="value" id="detaineeName">—</span></div>
+      <div class="status-item"><span class="label">Prisoner ID:</span> <span class="value" id="ciNumber">—</span></div>
+      <div class="status-item"><span class="label">Facility:</span> <span class="value" id="facilityName">—</span></div>
+      <div class="status-item"><span class="label">Refusal No.:</span> <span class="value" id="refusalNoDisplay">—</span></div>
+      <div class="status-item"><span class="label">Eligible to Reapply:</span> <span class="value" id="reapplyDisplay">—</span></div>
+      <div class="status-item"><span class="label">Status:</span> <span class="status-badge pending" id="formStatus">DRAFT</span></div>
+    </div>
+
+    <div class="issued-banner hidden" id="issued-banner" role="status">
+      Form 5 — Applications After Refusal has been issued and recorded.
+    </div>
+
     <form id="form5-refusal" novalidate>
-      <div class="issued-banner" id="issued-banner" role="status">
-        ⛔ Parole Refused — Form 5 has been issued and recorded.
-      </div>
+      <article class="gov-doc gov-doc--form5" aria-label="Form 5 — Applications After Refusal">
+        <div class="gov-doc__card">
+          <header class="gov-doc__masthead">
+            <div class="gov-doc__crest gov-doc__crest--left">
+              <img src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service" data-pms-logo-fallback="../images/NationalEmblem.jpg">
+            </div>
+            <div class="gov-doc__title-block">
+              <span class="gov-doc__badge">FORM 5</span>
+              <h1 class="gov-doc__title">Applications After Refusal</h1>
+              <p class="gov-doc__subtitle">CORRECTIONAL SERVICE – PAROLE OFFICE</p>
+            </div>
+            <div class="gov-doc__crest gov-doc__crest--right">
+              <img src="../images/NationalEmblem.jpg" alt="National Emblem">
+            </div>
+          </header>
 
-      <!-- Detainee Information -->
-      <section class="section" aria-labelledby="sec-detainee">
-        <h2 class="section-header" id="sec-detainee">Detainee Information</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="cs-number">CS Number</label>
-              <input type="text" id="cs-number" class="readonly-field" value="CS-2024-0847" readonly>
+          <div class="gov-doc__body">
+            <section class="gov-doc__section" aria-labelledby="f5-sec-applicant">
+              <h2 class="gov-doc__section-head" id="f5-sec-applicant">APPLICANT DETAILS</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Prisoner ID</span>
+                  <input type="text" class="gov-doc__input" id="prisoner-id" readonly value="PR-000003">
+                  <span class="gov-doc__label">Application ID (New)</span>
+                  <input type="text" class="gov-doc__input" id="application-id-new" value="APP-2026-0042">
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Full Name</span>
+                  <input type="text" class="gov-doc__input" id="full-name" readonly value="James N. Apa">
+                  <span class="gov-doc__label">Gender</span>
+                  <input type="text" class="gov-doc__input" id="gender" readonly value="Male">
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date of Birth</span>
+                  <input type="text" class="gov-doc__input" id="date-of-birth" readonly value="22/07/1990">
+                  <span class="gov-doc__label">Correctional Institution</span>
+                  <input type="text" class="gov-doc__input" id="facility" readonly value="Bomana Correctional Institution">
+                </div>
+                <div class="gov-doc__row">
+                  <span class="gov-doc__label">Original Offence</span>
+                  <input type="text" class="gov-doc__input" id="original-offence" readonly value="Unlawful Wounding">
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date of Refusal</span>
+                  <input type="text" class="gov-doc__input" id="date-refusal" readonly value="15/06/2025">
+                  <span class="gov-doc__label">Parole Board Refusal No.</span>
+                  <input type="text" class="gov-doc__input" id="refusal-no" value="PB-REF-2025-0112">
+                </div>
+                <div class="gov-doc__row">
+                  <span class="gov-doc__label">Reason for Refusal</span>
+                  <div class="gov-doc__checks">
+                    <label class="gov-doc__check"><input type="checkbox" name="refusal-summary" value="behaviour" checked><span class="gov-doc__check-box"></span> Behaviour</label>
+                    <label class="gov-doc__check"><input type="checkbox" name="refusal-summary" value="documents"><span class="gov-doc__check-box"></span> Missing Documents</label>
+                    <label class="gov-doc__check"><input type="checkbox" name="refusal-summary" value="other"><span class="gov-doc__check-box"></span> Other</label>
+                    <span class="gov-doc__check-line">Specify: <input type="text" class="gov-doc__inline-blank" id="refusal-other"></span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="gov-doc__section" aria-labelledby="f5-sec-reapply">
+              <h2 class="gov-doc__section-head" id="f5-sec-reapply">DETAILS OF REAPPLICATION</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date Eligible to Reapply <sup>*</sup></span>
+                  <input type="date" class="gov-doc__input" id="reapply-date" required>
+                  <span class="gov-doc__label">Date of Reapplication</span>
+                  <input type="date" class="gov-doc__input" id="reapplication-date">
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Attached New Form 1</span>
+                  <div class="gov-doc__checks">
+                    <label class="gov-doc__check"><input type="radio" name="form1-attached" value="yes" checked><span class="gov-doc__check-box"></span> Yes</label>
+                    <label class="gov-doc__check"><input type="radio" name="form1-attached" value="no"><span class="gov-doc__check-box"></span> No</label>
+                  </div>
+                  <span class="gov-doc__label">Recalculation of Sentence</span>
+                  <label class="gov-doc__check"><input type="checkbox" id="recalc-completed" checked><span class="gov-doc__check-box"></span> Completed</label>
+                </div>
+              </div>
+              <p class="gov-doc__footnote">* Reapplication may be made 6 months prior to the 12 months period after refusal.</p>
+            </section>
+
+            <div class="gov-doc__panels">
+              <div class="gov-doc__panel">
+                <h3 class="gov-doc__panel-head">REASON(S) FOR REFUSAL (As per Parole Board Decision)</h3>
+                <div class="gov-doc__panel-body">
+                  <label class="gov-doc__check"><input type="checkbox" name="refusal-reason" value="behaviour" checked><span class="gov-doc__check-box"></span> Unsatisfactory behaviour in custody</label>
+                  <label class="gov-doc__check"><input type="checkbox" name="refusal-reason" value="documents"><span class="gov-doc__check-box"></span> Incomplete or missing documents</label>
+                  <label class="gov-doc__check"><input type="checkbox" name="refusal-reason" value="rehab"><span class="gov-doc__check-box"></span> Insufficient rehabilitation progress</label>
+                  <label class="gov-doc__check"><input type="checkbox" name="refusal-reason" value="community"><span class="gov-doc__check-box"></span> Community report not favourable</label>
+                  <label class="gov-doc__check"><input type="checkbox" name="refusal-reason" value="other"><span class="gov-doc__check-box"></span> Other</label>
+                  <span class="gov-doc__check-line">Specify: <input type="text" class="gov-doc__inline-blank" id="refusal-reason-other"></span>
+                </div>
+              </div>
+              <div class="gov-doc__panel">
+                <h3 class="gov-doc__panel-head">IMPROVEMENT / ACTION TAKEN SINCE REFUSAL</h3>
+                <div class="gov-doc__panel-body">
+                  <ul class="gov-doc__bullets">
+                    <li><label class="gov-doc__check"><input type="checkbox" name="improvement" value="behaviour" checked><span class="gov-doc__check-box"></span> Maintained good behaviour</label></li>
+                    <li><label class="gov-doc__check"><input type="checkbox" name="improvement" value="counselling" checked><span class="gov-doc__check-box"></span> Completed counselling/rehab programs</label></li>
+                    <li><label class="gov-doc__check"><input type="checkbox" name="improvement" value="documents"><span class="gov-doc__check-box"></span> Obtained required documents</label></li>
+                    <li><label class="gov-doc__check"><input type="checkbox" name="improvement" value="support"><span class="gov-doc__check-box"></span> Positive family/community support</label></li>
+                  </ul>
+                </div>
+              </div>
             </div>
-            <div class="field">
-              <label for="full-name">Full Name</label>
-              <input type="text" id="full-name" class="readonly-field" value="Michael K. Warupi" readonly>
-            </div>
-            <div class="field">
-              <label for="facility">Facility</label>
-              <input type="text" id="facility" class="readonly-field" value="Correctional Facility" readonly>
-            </div>
-            <div class="field">
-              <label for="hearing-date">Hearing Date</label>
-              <input type="text" id="hearing-date" class="readonly-field" value="25/08/2026" readonly>
+
+            <section class="gov-doc__section" aria-labelledby="f5-sec-docs" style="margin-top:0.75rem;">
+              <h2 class="gov-doc__section-head" id="f5-sec-docs">DOCUMENTS ATTACHED WITH THIS APPLICATION</h2>
+              <div class="gov-doc__doc-grid">
+                <label class="gov-doc__check"><input type="checkbox" name="attached-docs" value="form1" checked><span class="gov-doc__check-box"></span> New Form 1</label>
+                <label class="gov-doc__check"><input type="checkbox" name="attached-docs" value="dars" checked><span class="gov-doc__check-box"></span> Updated DARS</label>
+                <label class="gov-doc__check"><input type="checkbox" name="attached-docs" value="ppr"><span class="gov-doc__check-box"></span> Pre-Parole Report / Supporting Documents</label>
+                <label class="gov-doc__check"><input type="checkbox" name="attached-docs" value="other"><span class="gov-doc__check-box"></span> Other</label>
+                <span class="gov-doc__check-line" style="grid-column:1/-1;">Specify: <input type="text" class="gov-doc__inline-blank" id="attached-docs-other"></span>
+              </div>
+            </section>
+
+            <section class="gov-doc__section" aria-labelledby="f5-sec-cert">
+              <h2 class="gov-doc__section-head" id="f5-sec-cert">CERTIFICATION BY CS PAROLE OFFICER</h2>
+              <div class="gov-doc__cert">
+                <p class="gov-doc__cert-text">I certify that the information provided in this reapplication is true and correct to the best of my knowledge, and that all required documents have been attached as indicated above.</p>
+                <div class="gov-doc__cert-grid">
+                  <div class="gov-doc__row" style="border:none;padding:0;grid-template-columns:80px 1fr;">
+                    <span class="gov-doc__label">Name</span>
+                    <input type="text" class="gov-doc__input" id="cert-name">
+                  </div>
+                  <div class="gov-doc__row" style="border:none;padding:0;grid-template-columns:80px 1fr;">
+                    <span class="gov-doc__label">Position</span>
+                    <input type="text" class="gov-doc__input" id="cert-position" value="CS Parole Officer">
+                  </div>
+                  <div class="gov-doc__row" style="border:none;padding:0;grid-template-columns:80px 1fr;">
+                    <span class="gov-doc__label">Signature</span>
+                    <span class="gov-doc__sig-line"></span>
+                  </div>
+                  <div class="gov-doc__row" style="border:none;padding:0;grid-template-columns:80px 1fr;">
+                    <span class="gov-doc__label">Date</span>
+                    <input type="date" class="gov-doc__input" id="cert-date">
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div class="gov-doc__secretariat">
+              <h3 class="gov-doc__secretariat-head">FOR PAROLE SECRETARIAT USE ONLY</h3>
+              <div class="gov-doc__secretariat-grid">
+                <div class="gov-doc__secretariat-field"><strong>Received By:</strong><input type="text" class="gov-doc__underline"></div>
+                <div class="gov-doc__secretariat-field"><strong>Date Received:</strong><input type="text" class="gov-doc__underline" placeholder="dd / mm / yy"></div>
+                <div class="gov-doc__secretariat-field"><strong>Acknowledgement No.:</strong><input type="text" class="gov-doc__underline"></div>
+                <div class="gov-doc__secretariat-field"><strong>Processed By:</strong><input type="text" class="gov-doc__underline"></div>
+              </div>
             </div>
           </div>
+
+          <footer class="gov-doc__footer-bar">
+            Submit this reapplication with a new Form 1 to the Parole Secretariat – DJAG.
+          </footer>
         </div>
-      </section>
+      </article>
 
-      <!-- Notice of Refusal -->
-      <section class="section" aria-labelledby="sec-refusal">
-        <h2 class="section-header" id="sec-refusal">Notice of Refusal</h2>
-        <div class="section-body">
-          <div class="warning-box">
-            <div class="warning-box__title">⚠ Parole Application Refused</div>
-            <p class="warning-box__text">
-              The Parole Board has reviewed the application and supporting documentation and has determined
-              that parole shall not be granted at this time. This notice is issued in accordance with the
-              <em>Parole Act 1991</em> and PNG Parole Regulation. The detainee has the right to be informed
-              of the reasons for refusal and the earliest date upon which reapplication may be made.
-            </p>
-          </div>
+      <div id="officer-auth-mount"></div>
 
-          <div class="field-grid field-grid--2">
-            <div class="field">
-              <label for="refusal-reason">Reasons for Refusal</label>
-              <select id="refusal-reason" required>
-                <option value="">Select reason…</option>
-                <option value="public-safety" selected>Risk to public safety</option>
-                <option value="conduct">Unsatisfactory institutional conduct</option>
-                <option value="release-plan">Lack of viable release plan</option>
-                <option value="community-support">Insufficient community support</option>
-                <option value="reoffending">High risk of reoffending</option>
-                <option value="other">Other (specify below)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="reapply-date">Reapplication Eligible Date</label>
-              <input type="date" id="reapply-date" required>
-            </div>
-            <div class="field field--full">
-              <label for="justification">Detailed Justification</label>
-              <textarea id="justification" rows="4" required>Following review of the parole hearing held on 25/08/2026, the Board determined that the applicant presents an unacceptable risk to public safety at this time. Despite participation in institutional programs, conduct records indicate ongoing disciplinary concerns. The proposed release plan lacks verified community support and adequate supervision arrangements. The Board therefore refuses parole and advises that reapplication may be considered after a minimum period of 12 months, subject to improved conduct and a revised release plan.</textarea>
-            </div>
-            <div class="field">
-              <label for="reapply-period">Reapplication Period</label>
-              <input type="text" id="reapply-period" class="readonly-field" value="12 Months from Refusal Date" readonly>
-            </div>
-          </div>
+      <div class="actions no-print form-actions-row">
+        <div class="left-btns">
+          <button type="button" class="btn btn-danger" id="btn-issue">Issue Form 5 — Reapplication</button>
+          <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
+          <button type="button" class="btn btn-outline" id="btn-prev-form">← Form 3</button>
         </div>
-      </section>
-
-      <!-- Board Decision Details -->
-      <section class="section" aria-labelledby="sec-decision">
-        <h2 class="section-header" id="sec-decision">Board Decision Details</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="decision-date">Decision Date</label>
-              <input type="text" id="decision-date" class="readonly-field" value="25/08/2026" readonly>
-            </div>
-            <div class="field">
-              <label for="decision-by">Decision By</label>
-              <input type="text" id="decision-by" class="readonly-field" value="Hon. Justice David K. Cannings" readonly>
-            </div>
-            <div class="field">
-              <label for="board-vote">Board Vote</label>
-              <input type="text" id="board-vote" class="readonly-field" value="4 – Refuse | 1 – Approve" readonly>
-            </div>
-            <div class="field field--full">
-              <label for="notice-recipients">Official Notice Sent To</label>
-              <textarea id="notice-recipients" class="readonly-field" rows="4" readonly>Detainee — Correctional Facility
-Superintendent, Correctional Facility
-Legal Representative – Ms. Grace A. Tomure, Public Solicitor's Office
-Department of Justice & Attorney General – Parole Secretariat
-Correctional Services HQ – Parole Records Unit</textarea>
-            </div>
-          </div>
+        <div>
+          <button type="button" class="btn btn-secondary" id="btn-print">Print Form 5</button>
         </div>
-      </section>
-
-      <div class="actions-bar">
-        <button type="button" class="btn btn-danger" id="btn-issue">Record Parole Refusal (Form 5)</button>
-        <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
-        <button type="button" class="btn btn-outline" id="btn-prev-form">← Form 3</button>
-        <button type="button" class="btn btn-outline" id="btn-switch-form4">Form 4 (Grant) →</button>
-        <button type="button" class="btn btn-secondary" id="btn-print">Print Form 5</button>
       </div>
     </form>
+
+    <div class="print-footer">
+      <p>Generated by PMS — Papua New Guinea Parole Management System · Form 5 v2.0 · Parole Act 1991</p>
+      <p>Reapplication record — submit with a new Form 1 to the Parole Secretariat.</p>
+    </div>
   </main>
 
   <footer class="page-footer">
-    PNG Parole Regulation – Form 5 (Parole Refused) · Parole Act 1991
+    PNG Parole Regulation — Form 5 (Applications After Refusal) · Parole Act 1991
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

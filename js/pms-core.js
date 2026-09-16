@@ -40,14 +40,20 @@ const PMSCore = (() => {
     'board-vote.js',
   ];
 
+  // Scripts below are injected after page load, so a browser hard-reload does not
+  // refresh them. On localhost add a per-load stamp so edits always take effect.
+  const DEV_HOSTS = ['localhost', '127.0.0.1', '::1', ''];
+  const CACHE_STAMP = DEV_HOSTS.includes(window.location.hostname) ? `?t=${Date.now()}` : '';
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) {
+      if (document.querySelector(`script[data-pms-src="${src}"]`) || document.querySelector(`script[src="${src}"]`)) {
         resolve();
         return;
       }
       const el = document.createElement('script');
-      el.src = src;
+      el.dataset.pmsSrc = src;
+      el.src = `${src}${CACHE_STAMP}`;
       el.onload = () => resolve();
       el.onerror = () => reject(new Error(`Failed to load ${src}`));
       document.body.appendChild(el);
@@ -61,10 +67,11 @@ const PMSCore = (() => {
   }
 
   function ensureStylesheet(href) {
-    if (document.querySelector(`link[href="${href}"]`)) return;
+    if (document.querySelector(`link[data-pms-href="${href}"]`) || document.querySelector(`link[href="${href}"]`)) return;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = href;
+    link.dataset.pmsHref = href;
+    link.href = `${href}${CACHE_STAMP}`;
     document.head.appendChild(link);
   }
 

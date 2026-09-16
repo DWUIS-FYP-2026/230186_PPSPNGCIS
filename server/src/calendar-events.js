@@ -49,7 +49,7 @@ function buildEventsForUser(user, data) {
       subtitle: h.location || h.notes || h.status,
       type: 'hearing',
       severity: 'medium',
-      linkHref: h.applicationId ? `forms/hearing-portal.html?appId=${encodeURIComponent(h.applicationId)}` : null,
+      linkHref: h.applicationId ? `forms/board-decisions.html?appId=${encodeURIComponent(h.applicationId)}` : null,
     });
   });
 

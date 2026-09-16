@@ -28,9 +28,9 @@ const BOARD_ROLES = Object.freeze({
 });
 
 const BOARD_COMPOSITION = Object.freeze([
-  { seat: 'chairman', role: BOARD_ROLES.CHAIRMAN, label: 'Chairman (Secretary, DJAG)' },
-  { seat: 'doctor', role: BOARD_ROLES.MEDICAL, label: 'Medical Member (Doctor)' },
-  { seat: 'commissioner', role: BOARD_ROLES.CORRECTIONAL, label: 'Correctional Member (CS Commissioner)' },
+  { seat: 'chairman', role: BOARD_ROLES.CHAIRMAN, label: 'DJAG Secretary' },
+  { seat: 'doctor', role: BOARD_ROLES.MEDICAL, label: 'Psychiatrist' },
+  { seat: 'commissioner', role: BOARD_ROLES.CORRECTIONAL, label: 'PNGCS Commissioner' },
 ]);
 
 const ROLES = Object.freeze({

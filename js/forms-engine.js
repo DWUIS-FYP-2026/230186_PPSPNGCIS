@@ -114,14 +114,28 @@ const PMSForms = (() => {
   }
 
   function formatSentenceLength(p) {
+    if (!p) return '—';
+    if (p.sentenceType === 'Life' || p.sentence_type === 'Life') return 'Life (10 Years)';
     const months = PMSStorage.getSentenceDurationMonths(p);
-    if (!months) return '—';
-    const years = Math.floor(months / 12);
-    const rem = months % 12;
-    const parts = [];
-    if (years) parts.push(`${years} Year${years !== 1 ? 's' : ''}`);
-    if (rem) parts.push(`${rem} Month${rem !== 1 ? 's' : ''}`);
-    return parts.join(' ') || '—';
+    if (months > 0) {
+      const years = Math.floor(months / 12);
+      const rem = months % 12;
+      const parts = [];
+      if (years) parts.push(`${years} Year${years !== 1 ? 's' : ''}`);
+      if (rem) parts.push(`${rem} Month${rem !== 1 ? 's' : ''}`);
+      return parts.length ? parts.join(', ') : '0 Months';
+    }
+    const totalYears = p.totalSentenceYears ?? p.total_sentence_years;
+    if (totalYears != null && Number(totalYears) > 0) {
+      const totalMonths = Math.round(Number(totalYears) * 12);
+      const years = Math.floor(totalMonths / 12);
+      const rem = totalMonths % 12;
+      const parts = [];
+      if (years) parts.push(`${years} Year${years !== 1 ? 's' : ''}`);
+      if (rem) parts.push(`${rem} Month${rem !== 1 ? 's' : ''}`);
+      return parts.join(', ') || '0 Months';
+    }
+    return p.sentence || p.sentenceLength || '—';
   }
 
   function populateForm1Document(ctx) {

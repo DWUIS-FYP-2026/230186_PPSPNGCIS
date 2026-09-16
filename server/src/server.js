@@ -76,7 +76,10 @@ app.use('/api/prisoners', prisonersRouter);
 
 app.use('/api/prisoners/:prisonerId/documents', documentsRouter);
 app.use('/api/applications', applicationsRouter);
-app.use('/api/parole', paroleRouter);
+// 2026-09-14: Act 1991 /api/parole routes unmounted — legacy workflow (js/workflow.js + js/storage.js)
+// is the single active system; act1991ParoleSyncEnabled defaults false so the frontend does not call these.
+// Keep routes/parole.js and server/src/parole/ for future policy (community safety scoring, cooldown, notification).
+// app.use('/api/parole', paroleRouter);
 app.use('/api/calendar', calendarRouter);
 
 const webRoot = path.join(__dirname, '../..');
@@ -85,7 +88,16 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(webRoot, 'index.html'));
 });
 
-app.use(express.static(webRoot));
+const isProduction = process.env.NODE_ENV === 'production';
+
+app.use(express.static(webRoot, {
+  etag: !isProduction ? false : true,
+  lastModified: !isProduction ? false : true,
+  setHeaders: (res) => {
+    // Dev: never serve stale HTML/CSS/JS from the browser cache.
+    if (!isProduction) res.setHeader('Cache-Control', 'no-store, must-revalidate');
+  },
+}));
 
 
 
@@ -150,7 +162,7 @@ async function start() {
 
     console.log(`  Auth required: ${config.authRequired}`);
 
-    console.log(`  Parole:  POST ${base}/api/parole/applications/:id/submit-consent`);
+    // console.log(`  Parole:  POST ${base}/api/parole/applications/:id/submit-consent`); // unmounted 2026-09-14
 
     openLoginPage(config.port);
     startParoleEligibilityJob({ runOnStart: true });

@@ -1,4 +1,6 @@
 const PMSUI = (() => {
+  let panelNavigator = null;
+
   const NOTIF_ICONS = {
     application: 'fi fi-rr-document',
     hearing: 'fi fi-rr-calendar',
@@ -41,6 +43,30 @@ const PMSUI = (() => {
     return n.toLocaleString('en-US');
   }
 
+  function downloadDataUrl(dataUrl, fileName) {
+    if (!dataUrl) throw new Error('No file content available to download.');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = fileName || 'document';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function renderForm2AttachmentRow(file, appId) {
+    if (!file) return '';
+    const sizeKb = file.fileSize ? `${(file.fileSize / 1024).toFixed(1)} KB` : '';
+    const meta = [file.sectionKey === 'ddr' ? 'DAR' : 'PPR', file.fieldLabel, file.uploadedByName, fmtDate(file.uploadedAt)].filter(Boolean).join(' · ');
+    const downloadBtn = file.dataUrl
+      ? `<button type="button" class="btn-link btn-sm dossier-download-btn" data-f2-download="${esc(file.id)}" data-f2-app="${esc(appId)}">Download</button>`
+      : '<span class="meta">Metadata only</span>';
+    return `<li class="dossier-file-row">
+      <span class="dossier-file-row__name"><i class="fi fi-rr-document" aria-hidden="true"></i> ${esc(file.fileName)}${sizeKb ? ` <span class="meta">(${esc(sizeKb)})</span>` : ''}</span>
+      <span class="dossier-file-row__meta">${esc(meta)}</span>
+      ${downloadBtn}
+    </li>`;
+  }
+
   function setStat(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = formatStat(value);
@@ -59,7 +85,7 @@ const PMSUI = (() => {
       Active: 'active', 'Awaiting Eligibility': 'in-custody', 'In Custody': 'in-custody',
       'Eligible for Parole Application': 'eligible', 'Eligible for Parole': 'eligible',
       'Assessment in Progress': 'pending', 'Parole Application Pending': 'pending',
-      'Hearing Scheduled': 'pending', Approved: 'active', 'On Parole': 'parole',
+      'Hearing Scheduled': 'pending', 'Hearing In Progress': 'pending', Approved: 'active', 'On Parole': 'parole',
       Rejected: 'eligible', Refused: 'eligible', Released: 'released',
       'Sentence Completed': 'inactive', Deferred: 'leave',
       Draft: 'inactive', Submitted: 'pending', 'Returned for Correction': 'eligible',
@@ -92,9 +118,38 @@ const PMSUI = (() => {
       instEl.classList.remove('hidden');
     }
     const boardEl = document.getElementById('board-position');
-    if (boardEl && user.boardPosition) {
-      boardEl.textContent = user.boardPosition;
-      boardEl.classList.remove('hidden');
+    if (boardEl) {
+      const boardLabel = typeof PMSBoardVote !== 'undefined'
+        ? PMSBoardVote.formatBoardPosition(user)
+        : (user.boardPosition || '');
+      if (boardLabel && boardLabel !== '—') {
+        boardEl.textContent = boardLabel;
+        boardEl.classList.remove('hidden');
+      }
+    }
+  }
+
+  function getActionMessageCount(user) {
+    const actionTypes = new Set(['board_review', 'escalation', 'eligibility', 'verification', 'hearing', 'deadline']);
+    return PMSStorage.getNotificationsForUser(user)
+      .filter((n) => !n.read && !n.resolved && actionTypes.has(n.type))
+      .length;
+  }
+
+  function engageNotificationOnNavigate(n, user) {
+    if (!n || !user) return;
+    if (!n.read) PMSStorage.markNotificationRead(n.id, user);
+    if (n.type === 'verification' && n.applicationId) {
+      const app = PMSStorage.getApplicationById(n.applicationId);
+      if (app && PMSStorage.isCommanderVerified(app)) {
+        PMSStorage.resolveVerificationNotifications(n.applicationId);
+      }
+    }
+    if (['hearing', 'escalation', 'deadline'].includes(n.type) && n.applicationId) {
+      const app = PMSStorage.getApplicationById(n.applicationId);
+      if (['Hearing Scheduled', 'Hearing In Progress'].includes(app?.status) || PMSStorage.getHearingsByApplication(n.applicationId).some((h) => !['Cancelled', 'Completed'].includes(h.status))) {
+        PMSStorage.resolveHearingNotifications(n.applicationId);
+      }
     }
   }
 
@@ -106,10 +161,124 @@ const PMSUI = (() => {
       badge.classList.toggle('nav-notif-badge--active', count > 0);
       badge.setAttribute('aria-label', count ? `${count} unread notifications` : 'No unread notifications');
     });
-    document.querySelectorAll('.sidebar-nav .nav-item[data-nav-id="notifications"]').forEach((el) => {
-      el.classList.toggle('nav-item--has-unread', count > 0);
-    });
     PMSWorkspace?.syncNotifBadge?.(count);
+  }
+
+  function setPanelNavigator(handler) {
+    panelNavigator = typeof handler === 'function' ? handler : null;
+  }
+
+  function openNotificationsPanel() {
+    if (document.getElementById('panel-notifications')) {
+      if (typeof panelNavigator === 'function') {
+        panelNavigator('notifications', 'notifications');
+        PMSSidebar?.closeMobile?.();
+        return;
+      }
+      document.dispatchEvent(new CustomEvent('pms:open-panel', {
+        detail: { panel: 'notifications', navId: 'notifications' },
+      }));
+      PMSSidebar?.closeMobile?.();
+      return;
+    }
+    const session = typeof PMSStorage !== 'undefined' ? PMSStorage.getSession?.() : null;
+    const user = session?.user;
+    const dash = user && typeof PMSAuth !== 'undefined' ? PMSAuth.getDashboardForRole(user.role) : null;
+    if (dash) {
+      window.location.href = `${dash}?panel=notifications&navId=notifications`;
+    }
+  }
+
+  function bindNotificationBell(user, options = {}) {
+    const bell = document.getElementById(options.toggleBtnId || 'workspace-notif-bell');
+    if (!bell || bell.dataset.notifBellBound) return;
+    bell.dataset.notifBellBound = 'true';
+    bell.removeAttribute('aria-haspopup');
+    bell.removeAttribute('aria-expanded');
+    bell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openNotificationsPanel();
+      options.onOpen?.();
+      if (user) updateNotifBadge(user);
+    });
+  }
+
+  function renderNotificationDropdown(dropdownId, user, limit = 5) {
+    const el = typeof dropdownId === 'string' ? document.getElementById(dropdownId) : dropdownId;
+    if (!el || !user) return;
+    const items = recentNotifications(user, limit);
+    const unread = PMSStorage.getUnreadCountForUser(user);
+    const head = `<div class="header-dropdown__head">
+      <strong>Notifications</strong>
+      ${unread ? `<span class="meta">${unread} unread</span>` : ''}
+    </div>`;
+    const body = items.length
+      ? `<div class="header-dropdown__body">${items.map((n) => {
+        const preview = n.message.length > 72 ? `${n.message.slice(0, 72)}…` : n.message;
+        const unreadCls = !n.read && !n.resolved ? ' header-dropdown__item--unread' : '';
+        return `<button type="button" class="header-dropdown__item${unreadCls}" data-notif-id="${esc(n.id)}" role="menuitem">
+          <strong>${esc(n.title)}</strong>
+          <span>${esc(preview)}</span>
+        </button>`;
+      }).join('')}</div>`
+      : '<div class="header-dropdown__empty">No notifications yet.</div>';
+    const foot = `<div class="header-dropdown__foot">
+      <button type="button" data-view-all-notifications>View all notifications</button>
+    </div>`;
+    el.innerHTML = head + body + foot;
+  }
+
+  function bindNotificationDropdown(dropdownId, user, options = {}) {
+    const dropdown = typeof dropdownId === 'string' ? document.getElementById(dropdownId) : dropdownId;
+    const toggleBtn = document.getElementById(options.toggleBtnId || 'workspace-notif-bell');
+    if (!dropdown || !toggleBtn || toggleBtn.dataset.notifDropdownBound) return;
+    toggleBtn.dataset.notifDropdownBound = 'true';
+
+    const close = () => {
+      dropdown.hidden = true;
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    };
+
+    const open = () => {
+      renderNotificationDropdown(dropdown, user, options.limit || 5);
+      dropdown.hidden = false;
+      toggleBtn.setAttribute('aria-expanded', 'true');
+    };
+
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (dropdown.hidden) open();
+      else close();
+    });
+
+    dropdown.addEventListener('click', (e) => {
+      const viewAll = e.target.closest('[data-view-all-notifications]');
+      if (viewAll) {
+        e.preventDefault();
+        close();
+        openNotificationsPanel();
+        return;
+      }
+      const item = e.target.closest('[data-notif-id]');
+      if (!item) return;
+      const n = PMSStorage.getNotifications().find((x) => x.id === item.dataset.notifId);
+      if (!n) return;
+      engageNotificationOnNavigate(n, user);
+      const link = resolveNotificationLink(n, user);
+      close();
+      options.onUpdate?.();
+      updateNotifBadge(user);
+      if (link) window.location.href = link;
+      else openNotificationsPanel();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!dropdown.hidden && !e.target.closest('#header-notif-dropdown, #workspace-notif-bell')) close();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !dropdown.hidden) close();
+    });
   }
 
   function notificationStatusBadge(n) {
@@ -144,7 +313,8 @@ const PMSUI = (() => {
     el.dataset.overviewNotifBound = 'true';
     const navigate = (row) => {
       const id = row.dataset.notifId;
-      if (id && user) PMSStorage.markNotificationRead(id, user);
+      const n = id ? PMSStorage.getNotifications().find((x) => x.id === id) : null;
+      if (n) engageNotificationOnNavigate(n, user);
       onUpdate?.();
       window.location.href = row.dataset.notifNav;
     };
@@ -247,16 +417,16 @@ const PMSUI = (() => {
       ? PMSRBAC.canScheduleHearing(user)
       : user?.role === 'DJAG Secretary';
     if (n.applicationId && canSchedule && (n.type === 'hearing' || n.type === 'escalation' || n.type === 'deadline' || n.linkPanel === 'hearings')) {
-      return `forms/hearing-portal.html?appId=${encodeURIComponent(n.applicationId)}`;
+      return `forms/hearing-schedule.html?appId=${encodeURIComponent(n.applicationId)}`;
     }
-    if (n.type === 'verification' && n.applicationId && user?.role === 'Jail Commander') {
+    if (n.type === 'verification' && n.applicationId && ['Jail Commander', 'CS Parole Clerk'].includes(user?.role)) {
       return `${dash}?panel=verification&app=${encodeURIComponent(n.applicationId)}`;
     }
     if (n.type === 'board_review' && n.applicationId) {
       if (n.linkPanel === 'decisions') {
         return `${dash}?panel=decisions&navId=decisions`;
       }
-      return `forms/hearing-portal.html?appId=${encodeURIComponent(n.applicationId)}`;
+      return `forms/board-decisions.html?appId=${encodeURIComponent(n.applicationId)}`;
     }
     if (n.applicationId) return `${dash}?panel=applications&app=${encodeURIComponent(n.applicationId)}`;
     if (n.hearingId) return `${dash}?panel=hearings&hearing=${encodeURIComponent(n.hearingId)}`;
@@ -344,7 +514,7 @@ const PMSUI = (() => {
       const openLink = e.target.closest('[data-open-notif]');
       if (openLink) {
         const n = PMSStorage.getNotifications().find((x) => x.id === openLink.dataset.openNotif);
-        if (n && !n.read) PMSStorage.markNotificationRead(n.id, user);
+        if (n) engageNotificationOnNavigate(n, user);
         onUpdate?.();
         return;
       }
@@ -354,13 +524,13 @@ const PMSUI = (() => {
         if (n) {
           const link = resolveNotificationLink(n, user);
           if (link) {
-            if (!n.read) PMSStorage.markNotificationRead(n.id, user);
+            engageNotificationOnNavigate(n, user);
             onUpdate?.();
             window.location.href = link;
             return;
           }
           if (!n.read) {
-            PMSStorage.markNotificationRead(n.id, user);
+            engageNotificationOnNavigate(n, user);
             onUpdate?.();
           }
         }
@@ -715,16 +885,152 @@ const PMSUI = (() => {
     }).join('')}</ol>`;
   }
 
+  function applicationRowAttributes(app, actor) {
+    if (!app?.id) return '';
+    const target = typeof PMSStorage !== 'undefined'
+      ? PMSStorage.resolveApplicationEditTarget(app, actor)
+      : null;
+    const title = target?.label ? `Continue: ${target.label}` : 'Open application';
+    return `class="app-row--clickable" data-application-row="${esc(app.id)}" title="${esc(title)}" tabindex="0" role="button"`;
+  }
+
+  function navigateToApplicationEdit(appId, actor) {
+    const app = PMSStorage.getApplicationById(appId);
+    if (!app) {
+      showError('Application not found.');
+      return;
+    }
+    const target = PMSStorage.resolveApplicationEditTarget(app, actor);
+    if (!target?.href) {
+      showError('Unable to open this application.');
+      return;
+    }
+    window.location.href = target.href;
+  }
+
+  function renderApplicationActionButtons(app, actor) {
+    if (!app || app.archived || !actor) return '';
+    const parts = [];
+    if (typeof PMSRBAC !== 'undefined' && PMSRBAC.can(actor, 'applications', 'update')) {
+      const target = PMSStorage.resolveApplicationEditTarget(app, actor);
+      parts.push(`<button type="button" class="btn-icon" data-edit-application="${esc(app.id)}" title="${esc(target?.label || 'Continue editing')}">Edit</button>`);
+    }
+    if (PMSStorage.canArchiveApplication?.(app, actor)) {
+      parts.push(`<button type="button" class="btn-icon" data-archive-application="${esc(app.id)}" title="Archive closed case">Archive</button>`);
+    }
+    if (PMSStorage.canDeleteApplication?.(app, actor)) {
+      parts.push(`<button type="button" class="btn-icon btn-icon--danger" data-delete-application="${esc(app.id)}" title="Delete draft application">Delete</button>`);
+    }
+    return parts.length ? `<span class="table-actions">${parts.join('')}</span>` : '—';
+  }
+
+  function bindApplicationActionHandlers(onChange) {
+    if (typeof onChange === 'function') {
+      document.addEventListener('pms:application-changed', onChange);
+    }
+    if (document.documentElement.dataset.appActionsBound) return;
+    document.documentElement.dataset.appActionsBound = 'true';
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const appRow = e.target.closest('[data-application-row]');
+      if (!appRow || appRow !== document.activeElement) return;
+      e.preventDefault();
+      const session = typeof PMSStorage !== 'undefined' ? PMSStorage.getSession() : null;
+      const actor = session?.id && typeof PMSStorage !== 'undefined'
+        ? (PMSStorage.getUserById(session.id) || session)
+        : session;
+      if (actor) navigateToApplicationEdit(appRow.dataset.applicationRow, actor);
+    });
+    document.addEventListener('click', async (e) => {
+      const session = typeof PMSStorage !== 'undefined' ? PMSStorage.getSession() : null;
+      const actor = session?.id && typeof PMSStorage !== 'undefined'
+        ? (PMSStorage.getUserById(session.id) || session)
+        : session;
+      if (!actor) return;
+
+      const notifyChange = () => document.dispatchEvent(new CustomEvent('pms:application-changed'));
+
+      const editBtn = e.target.closest('[data-edit-application]');
+      if (editBtn) {
+        e.preventDefault();
+        navigateToApplicationEdit(editBtn.dataset.editApplication, actor);
+        return;
+      }
+      const appRow = e.target.closest('[data-application-row]');
+      if (appRow && !e.target.closest('a, button, input, select, textarea, label')) {
+        e.preventDefault();
+        navigateToApplicationEdit(appRow.dataset.applicationRow, actor);
+        return;
+      }
+      const deleteBtn = e.target.closest('[data-delete-application]');
+      if (deleteBtn) {
+        e.preventDefault();
+        const appId = deleteBtn.dataset.deleteApplication;
+        const ok = await confirmDialog('Permanently delete this parole application? This cannot be undone.', 'Delete Application');
+        if (!ok) return;
+        try {
+          PMSStorage.deleteApplication(appId, actor);
+          notifyChange();
+          showSuccess('Application deleted.');
+        } catch (err) {
+          showError(err.message);
+        }
+        return;
+      }
+      const archiveBtn = e.target.closest('[data-archive-application]');
+      if (archiveBtn) {
+        e.preventDefault();
+        const appId = archiveBtn.dataset.archiveApplication;
+        const ok = await confirmDialog('Archive this case? It will be hidden from active lists but kept for records.', 'Archive Application');
+        if (!ok) return;
+        try {
+          PMSStorage.archiveApplication(appId, actor);
+          notifyChange();
+          showSuccess('Application archived.');
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+    });
+  }
+
+  function bindLiveDataRefresh(onRefresh, { refreshOnFocus = true } = {}) {
+    if (typeof onRefresh !== 'function' || typeof window === 'undefined') return () => {};
+    let timer = null;
+    const run = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { onRefresh(); }, 120);
+    };
+    window.addEventListener('pms:data-changed', run);
+    if (refreshOnFocus) {
+      window.addEventListener('focus', run);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') run();
+      });
+    }
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pms:data-changed', run);
+      if (refreshOnFocus) window.removeEventListener('focus', run);
+    };
+  }
+
   return {
     esc, fmtDate, fmtDateTime, formatStat, setStat, recentNotifications, statusClass, instName, prisonerName,
-    initShell, updateNotifBadge, switchPanel, bindNav, renderBarChart,
+    bindLiveDataRefresh,
+    initShell, updateNotifBadge, switchPanel, setPanelNavigator, openNotificationsPanel,
+    bindNav, renderBarChart,
     renderAuditFeed, auditStatusLabel, auditStatusClass,
-    renderNotificationPanel, bindNotificationPanel, resolveNotificationLink,
+    renderNotificationPanel, bindNotificationPanel, bindNotificationBell,
+    bindNotificationDropdown, renderNotificationDropdown,
+    getActionMessageCount, resolveNotificationLink,
     renderOverviewNotificationRow, syncOverviewNotifHeader, notificationStatusBadge, bindOverviewNotifications,
     bindModalClose, progressBar, applyDeepLinkNav, highlightDeepLinkRow, getDeepLinkParam, showToast,
     showAlertDialog, showError, showSuccess, bindStatCards, showStatDrilldown, hideStatDrilldown,
     prisonerDrilldownRow, appDrilldownRow,
     confirmDialog, showLoading, hideLoading, createPaginator,
-    renderCaseTracker,
+    renderCaseTracker, renderApplicationActionButtons, applicationRowAttributes,
+    bindApplicationActionHandlers, navigateToApplicationEdit,
+    downloadDataUrl, renderForm2AttachmentRow,
   };
 })();

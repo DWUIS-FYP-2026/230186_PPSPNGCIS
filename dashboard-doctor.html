@@ -6,7 +6,7 @@
   <link rel="icon" type="image/jpeg" href="images/NationalEmblem.jpg">
   <script src="js/auth-guard.js"></script>
   <script src="js/page-zoom.js"></script>
-  <title>Medical Board Assessor — PMS</title>
+  <title>Psychiatrist — Parole Board — PMS</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -19,14 +19,14 @@
         <div class="workspace-header__primary">
           <div class="workspace-header__titles">
             <h1 id="panel-title">Overview</h1>
-            <p id="panel-subtitle">Medical Board Assessor Dashboard</p>
+            <p id="panel-subtitle">Psychiatrist — Parole Board Dashboard</p>
           </div>
         </div>
       </header>
 
       <section class="panel active" id="panel-overview">
         <div class="panel-toolbar">
-          <p class="toolbar-note">Review parole cases, upload medical evaluation documents, and cast your independent board vote (Approve, Deny, or Defer).</p>
+          <p class="toolbar-note">Review parole cases in the Board Vote portal — verify Form 2 claims, complete the 1–5 interview evaluation, sign with your PIN, and submit your vote alongside other board members.</p>
         </div>
         <div class="stats-grid stats-grid--uniform">
           <article class="stat-card stat-card--alert"><span class="stat-label">Awaiting My Vote</span><strong class="stat-value" id="stat-votes">0</strong></article>
@@ -53,7 +53,7 @@
 
       <section class="panel" id="panel-applications">
         <div class="panel-toolbar"><p class="toolbar-note">Parole cases in hearing or board review.</p></div>
-        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Status</th><th>Panel Votes</th><th>Medical Docs</th><th></th></tr></thead><tbody id="applications-tbody"></tbody></table></div></div>
+        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Status</th><th>Panel Votes</th><th>Your Vote</th><th></th></tr></thead><tbody id="applications-tbody"></tbody></table></div></div>
       </section>
 
       <section class="panel" id="panel-hearings">
@@ -61,13 +61,8 @@
         <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Prisoner</th><th>Application</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody id="hearings-tbody"></tbody></table></div></div>
       </section>
 
-      <section class="panel" id="panel-evaluations">
-        <div class="panel-toolbar"><p class="toolbar-note">Upload medical evaluation documents for cases under board review.</p></div>
-        <div class="card"><div class="card-body" id="evaluations-list"></div></div>
-      </section>
-
       <section class="panel" id="panel-decisions">
-        <div class="card"><div class="card-header"><h2>Board Votes</h2></div><div class="card-body" id="decisions-list"></div></div>
+        <div class="card"><div class="card-header"><h2>Board Vote</h2></div><div class="card-body" id="decisions-list"></div></div>
       </section>
 
       <section class="panel" id="panel-notifications">

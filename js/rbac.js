@@ -7,15 +7,15 @@ const PMSRBAC = (() => {
 
   const PERMISSIONS = {
     'System Administrator': {
-      modules: ['overview', 'users', 'institutions', 'prisoners', 'applications', 'cases', 'eligibility', 'notifications', 'audit', 'settings', 'reports', 'analytics', 'forms', 'offenses', 'hearings', 'release', 'guarantors', 'documents', 'board_members'],
+      modules: ['overview', 'prisoners', 'cases', 'eligibility', 'notifications', 'audit', 'reports', 'analytics', 'profile'],
       prisoners: { create: false, read: true, update: false, delete: false, scope: 'all', export: true },
-      applications: { create: true, read: true, update: true, delete: true, scope: 'all' },
+      applications: { create: false, read: true, update: false, delete: false, scope: 'all' },
       forms: { 1: 'view', 2: 'view', 3: 'view', 4: 'view', 5: 'view' },
-      users: { create: true, read: true, update: true, delete: true },
-      institutions: { create: true, read: true, update: true, delete: true },
-      hearings: { create: true, read: true, update: true },
-      decisions: { create: true, read: true },
-      assessments: { create: true, read: true },
+      users: { create: false, read: true, update: false, delete: false },
+      institutions: { create: false, read: true, update: false, delete: false },
+      hearings: { create: false, read: true, update: false },
+      decisions: { create: false, read: true },
+      assessments: { create: false, read: true },
       reports: ['system', 'operational', 'audit', 'institutional', 'board'],
       notifications: ['all'],
     },
@@ -30,7 +30,7 @@ const PMSRBAC = (() => {
       decisions: { create: false, read: true },
       assessments: { create: false, read: true },
       reports: ['operational', 'prisoner', 'application'],
-      notifications: ['eligibility', 'application', 'returned', 'form2'],
+      notifications: ['eligibility', 'deadline', 'prisoner_change', 'board_review'],
     },
     'CS Parole Clerk': {
       modules: ['overview', 'prisoners', 'eligibility', 'applications', 'cases', 'notifications', 'reports', 'forms', 'guarantors', 'documents', 'release'],
@@ -43,7 +43,7 @@ const PMSRBAC = (() => {
       decisions: { create: false, read: true },
       assessments: { create: false, read: true },
       reports: ['operational', 'prisoner', 'application', 'institutional'],
-      notifications: ['eligibility', 'application', 'returned', 'institutional', 'verification'],
+      notifications: ['eligibility', 'deadline', 'prisoner_change', 'board_review'],
     },
     'Jail Commander': {
       modules: ['overview', 'prisoners', 'applications', 'verification', 'release', 'notifications', 'forms'],
@@ -56,7 +56,7 @@ const PMSRBAC = (() => {
       decisions: { create: false, read: true },
       assessments: { create: false, read: true },
       reports: ['institutional'],
-      notifications: ['verification', 'institutional', 'returned', 'application', 'release', 'board_review'],
+      notifications: ['deadline', 'prisoner_change', 'board_review'],
     },
     'DJAG Parole Clerk': {
       modules: ['overview', 'prisoners', 'applications', 'cases', 'eligibility', 'reports', 'hearings', 'notifications', 'forms', 'documents'],
@@ -69,7 +69,7 @@ const PMSRBAC = (() => {
       decisions: { create: false, read: true },
       assessments: { create: false, read: true },
       reports: ['application', 'pre-parole', 'hearing'],
-      notifications: ['application', 'application_submitted', 'hearing', 'deadline'],
+      notifications: ['eligibility', 'deadline', 'prisoner_change', 'board_review'],
     },
     'DJAG Secretary': {
       modules: ['overview', 'applications', 'cases', 'hearings', 'decisions', 'notifications', 'reports', 'forms', 'analytics'],
@@ -82,7 +82,7 @@ const PMSRBAC = (() => {
       decisions: { create: true, read: true },
       assessments: { create: true, read: true },
       reports: ['hearing', 'application', 'board', 'decision', 'meeting'],
-      notifications: ['hearing', 'deadline', 'board_review'],
+      notifications: ['deadline', 'board_review', 'prisoner_change'],
     },
     'Doctor': {
       modules: ['overview', 'prisoners', 'applications', 'decisions', 'notifications', 'forms'],
@@ -95,7 +95,7 @@ const PMSRBAC = (() => {
       decisions: { create: false, read: true },
       assessments: { create: true, read: true },
       reports: ['board'],
-      notifications: ['board_review'],
+      notifications: ['board_review', 'prisoner_change'],
     },
     'CS Commissioner': {
       modules: ['overview', 'prisoners', 'applications', 'decisions', 'notifications', 'reports', 'forms'],
@@ -134,9 +134,6 @@ const PMSRBAC = (() => {
     if (!p) return false;
     if (resource === 'prisoners' && ['create', 'update', 'delete'].includes(action)) {
       return canModifyPrisoner(user);
-    }
-    if (user.role === 'System Administrator' || normalizeRole(user.role) === 'System Administrator') {
-      return true;
     }
     const r = p[resource];
     if (!r) return false;
@@ -234,30 +231,42 @@ const PMSRBAC = (() => {
     return ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(normalizeRole(user?.role));
   }
 
+  /**
+   * Every board member votes, but only the DJAG Secretary (Board Chairman)
+   * records the overall outcome and issues Form 4 / Form 5.
+   */
+  function canRecordBoardDecision(user) {
+    return normalizeRole(user?.role) === 'DJAG Secretary';
+  }
+
   /** Form 2 section ownership: DAR/DDR = CS (PNGCS) Parole Clerk; PPR = DJAG Parole Clerk. */
   function canEditForm2Section(user, sectionKey) {
     const role = normalizeRole(user?.role);
     const key = String(sectionKey || '').toLowerCase();
     if (key === 'ddr' || key === 'dar') {
-      return ['CS Parole Clerk', 'System Administrator'].includes(role);
+      return role === 'CS Parole Clerk';
     }
     if (key === 'ppr') {
-      return ['DJAG Parole Clerk', 'System Administrator'].includes(role);
+      return role === 'DJAG Parole Clerk';
     }
     return false;
   }
 
   function canVerifyApplication(user) {
-    return ['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
+    return ['Jail Commander', 'CS Parole Clerk'].includes(normalizeRole(user?.role));
   }
 
   function canAuthorizeRelease(user) {
-    return ['Jail Commander', 'CS Parole Clerk', 'System Administrator'].includes(normalizeRole(user?.role));
+    return ['Jail Commander', 'CS Parole Clerk'].includes(normalizeRole(user?.role));
   }
 
-  /** Only DJAG Secretary may set or change parole hearing dates (System Administrator for support). */
+  /** Only DJAG Secretary may set or change parole hearing dates. */
   function canScheduleHearing(user) {
-    return ['DJAG Secretary', 'System Administrator'].includes(normalizeRole(user?.role));
+    return normalizeRole(user?.role) === 'DJAG Secretary';
+  }
+
+  function isAdminViewOnly(user) {
+    return normalizeRole(user?.role) === 'System Administrator';
   }
 
   function canAccessForm(user, formNumber, mode = 'view') {
@@ -307,12 +316,13 @@ const PMSRBAC = (() => {
     verification: 'institutional',
     hearing: 'hearing',
     deadline: 'deadline',
-    escalation: 'hearing',
+    escalation: 'deadline',
     approval: 'board_review',
     board_review: 'board_review',
     release: 'release',
     contract: 'system',
     document: 'application',
+    prisoner_change: 'prisoner_change',
     system: 'system',
   };
 
@@ -349,10 +359,12 @@ const PMSRBAC = (() => {
     requirePrisonerModify,
     canEditForms,
     canSubmitAssessment,
+    canRecordBoardDecision,
     canEditForm2Section,
     canVerifyApplication,
     canAuthorizeRelease,
     canScheduleHearing,
+    isAdminViewOnly,
     canAccessForm,
     canAccessModule,
     scopeFilter,

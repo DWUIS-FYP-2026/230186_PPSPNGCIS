@@ -27,7 +27,7 @@ const PMSFormWorkflow = (() => {
     {
       n: 3,
       key: 'form3',
-      title: 'Form 3 — Institutional Report',
+      title: 'Form 3 — Parole Hearing Record',
       prereqs: ['form1', 'form2'],
       dashboard: '../dashboard.html',
       dataKey: 'png_form3_institutional',
@@ -36,7 +36,7 @@ const PMSFormWorkflow = (() => {
     {
       n: 4,
       key: 'form4',
-      title: 'Form 4 — Parole Granted',
+      title: 'Form 4 — Discharge of Parole Order',
       prereqs: ['form1', 'form2', 'form3'],
       dashboard: '../dashboard.html',
       dataKey: 'png_form4_granted',
@@ -45,7 +45,7 @@ const PMSFormWorkflow = (() => {
     {
       n: 5,
       key: 'form5',
-      title: 'Form 5 — Parole Refused',
+      title: 'Form 5 — Applications After Refusal',
       prereqs: ['form1', 'form2', 'form3'],
       dashboard: '../dashboard.html',
       dataKey: 'png_form5_refused',
@@ -213,14 +213,50 @@ const PMSFormWorkflow = (() => {
         }
         const outcome = PMSStorage.getBoardDecisionOutcome(app);
         if (formN === 4 && outcome === 'Parole Refused') {
-          return { n: 5, key: 'form5', title: 'Form 5 — Parole Refused' };
+          return { n: 5, key: 'form5', title: 'Form 5 — Applications After Refusal' };
         }
         if (formN === 5 && outcome === 'Parole Granted') {
-          return { n: 4, key: 'form4', title: 'Form 4 — Parole Granted' };
+          return { n: 4, key: 'form4', title: 'Form 4 — Discharge of Parole Order' };
         }
       }
     }
     return null;
+  }
+
+  function hasFormData(formN, appId) {
+    if (isFormDataComplete(formN, appId)) return true;
+    if (appId && appId !== '_default' && typeof PMSStorage !== 'undefined') {
+      const app = PMSStorage.getApplicationById(appId);
+      const fd = app?.formData?.[`form${formN}`];
+      if (fd && typeof fd === 'object') {
+        const keys = Object.keys(fd).filter((k) => {
+          const v = fd[k];
+          if (v == null || v === '') return false;
+          if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return false;
+          return true;
+        });
+        if (keys.length > 0) return true;
+      }
+    }
+    const data = readFormData(formN, appId);
+    return !!(data && Object.keys(data).length > 0);
+  }
+
+  function canUserViewForm(formN) {
+    const user = getSessionUser();
+    if (!user) return true;
+    if (typeof PMSRBAC === 'undefined') return true;
+    return PMSRBAC.canAccessForm(user, formN, 'view');
+  }
+
+  /** Allow navigation to view saved or completed forms even when workflow gates block editing. */
+  function canOpenForReview(appId, formN) {
+    if (!getDef(formN)) return false;
+    if (!canUserViewForm(formN)) return false;
+    if (canAccess(appId, formN)) return true;
+    if (formN === 1) return true;
+    if (hasFormData(formN, appId)) return true;
+    return false;
   }
 
   function canAccess(appId, formN) {
@@ -231,6 +267,7 @@ const PMSFormWorkflow = (() => {
     if (!appId || appId === '_default' || typeof PMSStorage === 'undefined') return true;
     const app = PMSStorage.getApplicationById(appId);
     if (!app) return false;
+    if (formN === 3) return PMSStorage.isForm3HearingPhaseOpen?.(app) ?? true;
     if (formN === 4) return PMSStorage.canProceedToForm4(app);
     if (formN === 5) return PMSStorage.canProceedToForm5(app);
     return true;
@@ -268,8 +305,10 @@ const PMSFormWorkflow = (() => {
       }
       if (formN === 2) patch.assessmentSubmitted = true;
       if (formN === 3) {
-        patch.status = patch.status || 'approved';
-        patch.commanderRecommendation = patch.commanderRecommendation || 'Verified';
+        const existing = app.formData?.form3;
+        if (PMSStorage.isForm3Complete(existing)) return;
+        patch.status = patch.status || 'submitted';
+        patch.submitted = true;
       }
       if (formN === 4) {
         patch.status = 'submitted';
@@ -284,26 +323,67 @@ const PMSFormWorkflow = (() => {
     } catch (_) { /* offline */ }
   }
 
-  function formHref(formN, appId) {
+  function formHref(formN, appId, { review = false } = {}) {
     const id = encodeURIComponent(appId || getAppId());
     const inFormsDir = /\/forms(\/|$)/.test(window.location.pathname);
-    return inFormsDir ? `form${formN}.html?appId=${id}` : `forms/form${formN}.html?appId=${id}`;
+    const base = inFormsDir ? `form${formN}.html?appId=${id}` : `forms/form${formN}.html?appId=${id}`;
+    return review ? `${base}&mode=review` : base;
   }
 
-  function openForm(formN, appId) {
+  function openForm(formN, appId, options = {}) {
     const id = appId || getAppId();
     const def = getDef(formN);
     if (!def) return;
-    if (!canAccess(id, formN)) {
+    const editable = canAccess(id, formN);
+    const reviewable = canOpenForReview(id, formN);
+    if (!editable && !reviewable) {
       const blocker = getBlockingForm(id, formN);
       showWorkflowAlert(`Complete ${blocker?.title || 'the previous form'} before opening ${def.title}.`);
       return;
     }
-    window.location.href = formHref(formN, id);
+    window.location.href = formHref(formN, id, { review: options.review || !editable });
   }
 
-  function getNextForm(formN) { return FORM_DEFS.find((f) => f.n === formN + 1) || null; }
-  function getPrevForm(formN) { return FORM_DEFS.find((f) => f.n === formN - 1) || null; }
+  function getOutcomeFormN(appId) {
+    if (!appId || appId === '_default' || typeof PMSStorage === 'undefined') return null;
+    const app = PMSStorage.getApplicationById(appId);
+    if (!app || !PMSStorage.isBoardDecisionFinalized(app)) return null;
+    const outcome = PMSStorage.getBoardDecisionOutcome(app);
+    if (outcome === 'Parole Granted') return 4;
+    if (outcome === 'Parole Refused') return 5;
+    return null;
+  }
+
+  /** Forms 4 and 5 are mutually exclusive — only the board-outcome form appears in the workflow. */
+  function getWorkflowSteps(appId) {
+    const base = FORM_DEFS.filter((f) => f.n <= 3);
+    const outcomeN = getOutcomeFormN(appId);
+    if (outcomeN === 4) return [...base, getDef(4)];
+    if (outcomeN === 5) return [...base, getDef(5)];
+    if (!appId || appId === '_default') return FORM_DEFS;
+    return base;
+  }
+
+  function redirectToOutcomeFormIfNeeded(formN, appId) {
+    const outcomeN = getOutcomeFormN(appId);
+    if (!outcomeN || outcomeN === formN || (formN !== 4 && formN !== 5)) return false;
+    window.location.replace(formHref(outcomeN, appId));
+    return true;
+  }
+
+  function getNextForm(formN, appId) {
+    if (formN === 3) {
+      const outcomeN = getOutcomeFormN(appId);
+      return outcomeN ? getDef(outcomeN) : null;
+    }
+    if (formN === 4 || formN === 5) return null;
+    return FORM_DEFS.find((f) => f.n === formN + 1) || null;
+  }
+
+  function getPrevForm(formN) {
+    if (formN === 4 || formN === 5) return getDef(3);
+    return FORM_DEFS.find((f) => f.n === formN - 1) || null;
+  }
 
   function getProgressMountParent() {
     return document.getElementById('form-workflow-nav')
@@ -320,7 +400,8 @@ const PMSFormWorkflow = (() => {
       if (formN === 1) openForm(2, appId);
       else if (formN === 2) openForm(3, appId);
       else if (formN === 3) {
-        if (canAccessHearingPortal()) window.location.href = hearingPortalHref(appId);
+        if (canScheduleHearing()) window.location.href = schedulePortalHref(appId);
+        else if (canAccessHearingPortal()) window.location.href = hearingPortalHref(appId);
         else window.location.href = getDashboardHref();
       } else {
         window.location.href = getDashboardHref();
@@ -350,7 +431,13 @@ const PMSFormWorkflow = (() => {
   function hearingPortalHref(appId) {
     const id = encodeURIComponent(appId || getAppId());
     const inFormsDir = /\/forms(\/|$)/.test(window.location.pathname);
-    return inFormsDir ? `hearing-portal.html?appId=${id}` : `forms/hearing-portal.html?appId=${id}`;
+    return inFormsDir ? `board-decisions.html?appId=${id}` : `forms/board-decisions.html?appId=${id}`;
+  }
+
+  function schedulePortalHref(appId) {
+    const id = encodeURIComponent(appId || getAppId());
+    const inFormsDir = /\/forms(\/|$)/.test(window.location.pathname);
+    return inFormsDir ? `hearing-schedule.html?appId=${id}` : `forms/hearing-schedule.html?appId=${id}`;
   }
 
   function injectStyles() {
@@ -358,13 +445,6 @@ const PMSFormWorkflow = (() => {
     const style = document.createElement('style');
     style.id = 'pms-form-workflow-styles';
     style.textContent = `
-      .wf-progress { background:#fff;border:1px solid #d0d8e4;border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.25rem;box-shadow:0 2px 12px rgba(0,43,92,.06); }
-      .wf-progress__title { font-size:.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5a6b7d;margin-bottom:.75rem; }
-      .wf-progress__steps { display:flex;gap:.35rem;flex-wrap:wrap; }
-      .wf-step { flex:1;min-width:4.5rem;text-align:center;padding:.5rem .35rem;border-radius:6px;font-size:.6875rem;font-weight:600;background:#eef2f7;color:#5a6b7d;border:1px solid #d0d8e4; }
-      .wf-step--done { background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7; }
-      .wf-step--current { background:#002b5c;color:#fff;border-color:#002b5c; }
-      .wf-step--locked { opacity:.55; }
       .wf-gate { position:fixed;inset:0;background:rgba(0,43,92,.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1.5rem; }
       .wf-gate__panel { background:#fff;border-radius:10px;max-width:440px;width:100%;padding:2rem;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25);border-top:4px solid #b71c1c; }
       .wf-gate__panel h2 { font-size:1.25rem;color:#002b5c;margin-bottom:.75rem; }
@@ -378,16 +458,9 @@ const PMSFormWorkflow = (() => {
       .wf-continue__text { font-size:.9375rem;font-weight:600;color:#1b5e20; }
       .wf-continue__btn { padding:.5rem 1rem;background:#1e6b32;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit; }
       body.wf-blocked .page-main { pointer-events:none;opacity:.45;user-select:none;filter:grayscale(.2); }
-      .wf-readonly-banner { background:#fff8e1;border:1px solid #ffe082;border-left:4px solid #ffc107;border-radius:8px;padding:.875rem 1rem;margin-bottom:1.25rem;font-size:.875rem;color:#664d03; }
-      .wf-form-nav { display:flex;flex-wrap:wrap;gap:.5rem .75rem;align-items:center;margin-bottom:1.25rem;padding:.75rem 1rem;background:#f8fafc;border:1px solid #dce3ed;border-radius:8px; }
-      .wf-form-nav__label { font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5a6b7d;margin-right:.25rem; }
-      .wf-form-nav__btn { padding:.45rem .9rem;border-radius:6px;font-weight:600;font-size:.8125rem;cursor:pointer;border:1px solid #d0d8e4;background:#fff;color:#002b5c;font-family:inherit; }
-      .wf-form-nav__btn:hover { background:#eef2f7;border-color:#002b5c; }
-      .wf-form-nav__btn--primary { background:#002b5c;color:#fff;border-color:#002b5c; }
-      .wf-form-nav__btn--primary:hover { background:#001a3d; }
+      .wf-form-nav__btn:hover { background:#eef2f7;border-color:#0f2942; }
+      .wf-form-nav__btn--primary:hover { background:#0a1f33; }
       .wf-form-nav__btn:disabled { opacity:.45;cursor:not-allowed; }
-      .wf-step { cursor:pointer; }
-      .wf-step--locked { cursor:not-allowed; }
     `;
     document.head.appendChild(style);
   }
@@ -395,12 +468,13 @@ const PMSFormWorkflow = (() => {
   function renderProgressBar(currentFormN, appId) {
     injectStyles();
     const checks = getChecks(appId);
+    const steps = getWorkflowSteps(appId);
     document.getElementById('wf-progress')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'wf-progress';
     wrap.className = 'wf-progress no-print';
     wrap.innerHTML = `<div class="wf-progress__title">Parole Case Workflow</div>
-      <div class="wf-progress__steps">${FORM_DEFS.map((f) => {
+      <div class="wf-progress__steps">${steps.map((f) => {
         const done = checks[f.key];
         const current = f.n === currentFormN;
         const accessible = canAccess(appId, f.n) || done || current;
@@ -420,7 +494,7 @@ const PMSFormWorkflow = (() => {
         const n = Number(el.dataset.formN);
         if (Number.isNaN(n)) return;
         if (n === currentFormN) return;
-        if (!canAccess(appId, n) && !getChecks(appId)[`form${n}`]) {
+        if (!canOpenForReview(appId, n)) {
           const blocker = getBlockingForm(appId, n);
           showWorkflowAlert(`Complete ${blocker?.title || 'the previous form'} before opening Form ${n}.`);
           return;
@@ -435,8 +509,9 @@ const PMSFormWorkflow = (() => {
     if (!appId || appId === '_default') return;
 
     const prev = getPrevForm(currentFormN);
-    const next = getNextForm(currentFormN);
+    const next = getNextForm(currentFormN, appId);
     const checks = getChecks(appId);
+    const outcomeN = getOutcomeFormN(appId);
     let navHost = document.getElementById('wf-form-nav');
     if (!navHost) {
       navHost = document.createElement('div');
@@ -446,19 +521,23 @@ const PMSFormWorkflow = (() => {
       if (mount) mount.appendChild(navHost);
     }
 
-    const showHearing = currentFormN >= 3 && checks.form3 && canAccessHearingPortal();
+    const showHearing = currentFormN <= 3 && checks.form3 && canAccessHearingPortal();
+    const outcomeBtn = outcomeN && currentFormN === 3 && currentFormN !== outcomeN
+      ? `<button type="button" class="wf-form-nav__btn wf-form-nav__btn--primary" data-wf-nav="outcome">Open Form ${outcomeN} →</button>`
+      : '';
     navHost.innerHTML = `
       <span class="wf-form-nav__label">Navigate:</span>
       ${prev ? `<button type="button" class="wf-form-nav__btn" data-wf-nav="prev">← Form ${prev.n}</button>` : ''}
       ${next ? `<button type="button" class="wf-form-nav__btn wf-form-nav__btn--primary" data-wf-nav="next"${canAccess(appId, next.n) ? '' : ' disabled'}>Form ${next.n} →</button>` : ''}
-      ${showHearing ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="hearing">Hearing Portal</button>' : ''}
-      ${currentFormN >= 4 ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="form4">Form 4</button><button type="button" class="wf-form-nav__btn" data-wf-nav="form5">Form 5</button>' : ''}`;
+      ${outcomeBtn}
+      ${showHearing ? '<button type="button" class="wf-form-nav__btn" data-wf-nav="hearing">Hearing Portal</button>' : ''}`;
 
     navHost.querySelector('[data-wf-nav="prev"]')?.addEventListener('click', () => { if (prev) openForm(prev.n, appId); });
     navHost.querySelector('[data-wf-nav="next"]')?.addEventListener('click', () => { if (next) openForm(next.n, appId); });
-    navHost.querySelector('[data-wf-nav="hearing"]')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
-    navHost.querySelector('[data-wf-nav="form4"]')?.addEventListener('click', () => openForm(4, appId));
-    navHost.querySelector('[data-wf-nav="form5"]')?.addEventListener('click', () => openForm(5, appId));
+    navHost.querySelector('[data-wf-nav="outcome"]')?.addEventListener('click', () => { if (outcomeN) openForm(outcomeN, appId); });
+    navHost.querySelector('[data-wf-nav="hearing"]')?.addEventListener('click', () => {
+      window.location.href = canScheduleHearing() ? schedulePortalHref(appId) : hearingPortalHref(appId);
+    });
   }
 
   function mountFormChrome(formN, appId) {
@@ -479,7 +558,7 @@ const PMSFormWorkflow = (() => {
       <div class="wf-gate__panel" role="dialog">
         <h2>Form Locked</h2>
         <p>${blocker?.key === 'board'
-          ? `All three board members (DJAG Secretary, CS Commissioner, and Doctor) must submit their Approve, Deny, or Defer votes before <strong>${def?.title || 'this form'}</strong> can be opened.`
+          ? `All three board members (DJAG Secretary, PNGCS Commissioner, and Psychiatrist) must submit their Approve, Deny, or Defer votes before <strong>${def?.title || 'this form'}</strong> can be opened.`
           : `Complete <strong>${blocker?.title || 'the previous form'}</strong> before accessing <strong>${def?.title || 'this form'}</strong>.`}</p>
         <div class="wf-gate__actions">
           ${blocker?.key === 'board' ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-hearing">Open Hearing Portal</button>` : ''}
@@ -508,28 +587,28 @@ const PMSFormWorkflow = (() => {
     }
 
     if (formN === 3 && canScheduleHearing()) {
-      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 completed — schedule the parole hearing date for this prisoner</span>
-        <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Portal →</button>`;
+      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — schedule the parole hearing (DJAG Secretary)</span>
+        <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Schedule →</button>`;
       banner.classList.add('show');
-      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
+      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = schedulePortalHref(appId); });
       return;
     }
 
     if (formN === 3 && canAccessHearingPortal()) {
-      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 completed — view case in the Hearing Portal (DJAG Secretary will set the hearing date)</span>
+      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — view case in the Hearing Portal (DJAG Secretary will set the hearing date)</span>
         <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Portal →</button>`;
       banner.classList.add('show');
-      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
+      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = schedulePortalHref(appId); });
       return;
     }
 
     if (formN === 3) {
-      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — DJAG will schedule the parole hearing within 14 days</span>`;
+      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — DJAG will schedule the parole hearing within 14 days after commander verification</span>`;
       banner.classList.add('show');
       return;
     }
 
-    const next = getNextForm(formN);
+    const next = getNextForm(formN, appId);
     if (!next) return;
     banner.innerHTML = `<span class="wf-continue__text">✅ ${getDef(formN)?.title} completed — ready for ${next.title}</span>
       <button type="button" class="wf-continue__btn" id="wf-continue-btn">Continue to Form ${next.n} →</button>`;
@@ -537,28 +616,63 @@ const PMSFormWorkflow = (() => {
     document.getElementById('wf-continue-btn')?.addEventListener('click', () => openForm(next.n, appId));
   }
 
+  function showReviewBanner(formN, appId) {
+    if (canAccess(appId, formN)) return;
+    injectStyles();
+    const blocker = getBlockingForm(appId, formN);
+    let banner = document.getElementById('wf-review-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'wf-review-banner';
+      banner.className = 'wf-readonly-banner';
+      const mount = getProgressMountParent();
+      const progress = document.getElementById('wf-progress');
+      if (progress) progress.insertAdjacentElement('afterend', banner);
+      else if (mount) mount.insertBefore(banner, mount.firstChild);
+    }
+    banner.innerHTML = blocker?.key === 'board'
+      ? '👁 <strong>Review mode</strong> — Board decision is not final yet. This form is view-only until all panel votes are recorded.'
+      : `👁 <strong>Review mode</strong> — Viewing saved data. Complete <strong>${blocker?.title || 'prior forms'}</strong> before editing this form.`;
+    banner.style.display = 'block';
+  }
+
   function initPage(formN) {
     injectStyles();
     document.body.classList.add('pms-form-page');
     const appId = getAppId();
-    applyViewOnlyMode(formN);
+    const params = new URLSearchParams(window.location.search);
+    const reviewMode = params.get('mode') === 'review';
+    if (redirectToOutcomeFormIfNeeded(formN, appId)) {
+      return { appId, blocked: true, markCompleteAndAdvance: () => {}, refreshProgress: () => {} };
+    }
     migrateLegacyData(formN, appId);
     const backLink = document.querySelector('.back-link');
     if (backLink) backLink.href = getDashboardHref();
     mountFormChrome(formN, appId);
 
-    if (!canAccess(appId, formN)) {
+    const editable = canAccess(appId, formN);
+    const reviewable = canOpenForReview(appId, formN);
+
+    if (!editable && !reviewable) {
       showGate(formN, appId);
       return { appId, blocked: true, markCompleteAndAdvance: () => {}, refreshProgress: () => mountFormChrome(formN, appId) };
     }
 
-    if (isFormDataComplete(formN, appId)) showContinueBanner(formN, appId);
+    const viewOnly = reviewMode || !editable || !canUserEditForm(formN);
+    if (viewOnly) {
+      applyViewOnlyMode(formN);
+      if (!editable && reviewable) showReviewBanner(formN, appId);
+    }
+
+    if (editable && isFormDataComplete(formN, appId)) showContinueBanner(formN, appId);
 
     return {
       appId,
       blocked: false,
+      readOnly: viewOnly,
       getDataKey: () => getDataStorageKey(formN, appId),
       markCompleteAndAdvance(meta) {
+        if (viewOnly || !editable) return;
         markComplete(formN, appId, meta);
         mountFormChrome(formN, appId);
         showContinueBanner(formN, appId);
@@ -579,9 +693,9 @@ const PMSFormWorkflow = (() => {
   }
 
   return {
-    FORM_DEFS, getAppId, getDataStorageKey, getChecks, canAccess, getBlockingForm,
+    FORM_DEFS, getAppId, getDataStorageKey, getChecks, canAccess, canOpenForReview, hasFormData, getBlockingForm,
     markComplete, openForm, initPage, isFormDataComplete, prereqsMet, canUserEditForms, canUserEditForm,
-    hearingPortalHref, canAccessHearingPortal, canScheduleHearing, mountFormChrome, navigateAfterSubmit,
-    getNextForm, getPrevForm, formHref,
+    hearingPortalHref, schedulePortalHref, canAccessHearingPortal, canScheduleHearing, mountFormChrome, navigateAfterSubmit,
+    getNextForm, getPrevForm, formHref, getOutcomeFormN, getWorkflowSteps, showContinueBanner, getDef,
   };
 })();

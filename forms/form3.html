@@ -6,154 +6,188 @@
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
-  <title>Form 3 – Institutional Report | PNG Parole System</title>
+  <title>Form 3 — Parole Hearing Record | PNG Parole System</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/forms.css">
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body class="pms-form-page pms-form-page--form3">
-  <header class="page-header no-print">
-    <div class="header-top">
-      <div data-pms-dashboard-btn></div>
+
+  <div class="pms-page-header no-print">
+    <header class="form-top-nav" role="banner">
+      <div data-pms-dashboard-btn data-pms-dashboard-variant="structured"></div>
+      <span class="form-badge" aria-label="Current form">Form 3</span>
+    </header>
+
+    <section class="form-letterhead" aria-labelledby="form-title">
+    <div class="form-letterhead__logo">
+      <img class="form-letterhead__emblem" src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service emblem" data-pms-logo-fallback="../images/NationalEmblem.jpg">
     </div>
-    <div class="header-main">
-      <div class="header-brand pms-brand-logos" aria-hidden="true">
-        <span class="pms-logo-badge pms-logo-badge--pngcs">
-          <img src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service" data-pms-logo-fallback="../images/NationalEmblem.jpg">
-        </span>
-        <span class="pms-logo-divider" aria-hidden="true"></span>
-        <span class="pms-logo-badge pms-logo-badge--djag">
-          <img src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General">
-        </span>
-      </div>
-      <div class="header-title-block">
-        <div class="header-title">
-          <span class="gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
-          <h1>Form 3 — Institutional Report</h1>
-          <p>Institutional assessment and commander recommendation</p>
-          <p class="form-meta">
-            <strong>Application ID:</strong> <span id="applicationId">—</span>
-            &nbsp;·&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
-          </p>
-        </div>
-      </div>
-      <span class="role-badge">Form 3</span>
+    <div class="form-letterhead__center">
+      <h1 class="form-letterhead__title" id="form-title">Form 3 — Parole Hearing Record</h1>
+      <p class="form-letterhead__subtitle">Record parole board hearing proceedings after the session is scheduled</p>
+      <p class="form-letterhead__meta-pill">Application ID: <span id="applicationId">—</span></p>
+      <p class="form-letterhead__meta-extra"><strong>Case status:</strong> <span id="case-status">—</span></p>
     </div>
-  </header>
+    <div class="form-letterhead__logo form-letterhead__logo--right">
+      <img class="form-letterhead__emblem" src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General emblem">
+    </div>
+    </section>
+  </div>
 
   <main class="page-main">
     <div id="form-workflow-nav" class="no-print"></div>
-    <form id="form3-hearing" novalidate>
-      <!-- Detainee Information -->
-      <section class="section" aria-labelledby="sec-detainee">
-        <h2 class="section-header" id="sec-detainee">Detainee Information</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--3">
-            <div class="field">
-              <label for="cs-number">CS Number</label>
-              <input type="text" id="cs-number" class="readonly-field" value="" readonly>
-            </div>
-            <div class="field">
-              <label for="full-name">Full Name</label>
-              <input type="text" id="full-name" class="readonly-field" value="" readonly>
-            </div>
-            <div class="field">
-              <label for="facility">Facility</label>
-              <input type="text" id="facility" class="readonly-field" value="" readonly>
-            </div>
-            <div class="field">
-              <label for="application-date">Application Date</label>
-              <input type="text" id="application-date" class="readonly-field" value="" readonly>
-            </div>
+
+    <div class="status-banner no-print" id="applicantSummary">
+      <div class="status-item"><span class="label">Detainee:</span> <span class="value" id="detaineeName">—</span></div>
+      <div class="status-item"><span class="label">CI #:</span> <span class="value" id="ciNumber">—</span></div>
+      <div class="status-item"><span class="label">Facility:</span> <span class="value" id="facilityName">—</span></div>
+      <div class="status-item"><span class="label">Application Date:</span> <span class="value" id="applicationDate">—</span></div>
+      <div class="status-item"><span class="label">Form 3:</span> <span class="status-badge pending" id="form3Status">DRAFT</span></div>
+    </div>
+
+    <div class="form3-readiness no-print hidden" id="readiness-alert" role="alert"></div>
+
+    <form id="form3-form" novalidate>
+      <section class="section" aria-labelledby="sec-institutional">
+        <h2 class="section-header" id="sec-institutional">A. Institutional Record</h2>
+        <p class="section-intro">Document the detainee's conduct, discipline, and rehabilitation programs while in custody. This report supports the parole hearing dossier.</p>
+        <div class="field-grid field-grid--2">
+          <div class="field">
+            <label for="dateOfAdmission">Date of Admission</label>
+            <input type="date" id="dateOfAdmission" name="dateOfAdmission">
+          </div>
+          <div class="field">
+            <label for="sentenceReviewDate">Sentence Review Date</label>
+            <input type="date" id="sentenceReviewDate" name="sentenceReviewDate">
+          </div>
+          <div class="field field--full">
+            <label for="conductDuringSentence">Conduct During Sentence *</label>
+            <textarea id="conductDuringSentence" name="conductDuringSentence" rows="4" placeholder="Summarize behaviour, compliance with institution rules, and engagement with staff…"></textarea>
+          </div>
+          <div class="field field--full">
+            <label for="disciplinaryRecord">Disciplinary Record</label>
+            <textarea id="disciplinaryRecord" name="disciplinaryRecord" rows="3" placeholder="List any major or minor disciplinary incidents, or state none recorded…"></textarea>
+          </div>
+          <div class="field field--full">
+            <label for="programParticipation">Program Participation &amp; Rehabilitation *</label>
+            <textarea id="programParticipation" name="programParticipation" rows="4" placeholder="Education, vocational training, counselling, faith-based programs, and other rehabilitation activities…"></textarea>
+          </div>
+          <div class="field field--full">
+            <label for="workAssignment">Work Assignment</label>
+            <textarea id="workAssignment" name="workAssignment" rows="2" placeholder="Current or recent work detail within the institution…"></textarea>
+          </div>
+          <div class="field field--full">
+            <label for="mentalHealthAssessment">Mental Health Assessment</label>
+            <textarea id="mentalHealthAssessment" name="mentalHealthAssessment" rows="3" placeholder="Summary of mental health observations or assessments, if available…"></textarea>
+          </div>
+          <div class="field field--full">
+            <label for="medicalAssessment">Medical Assessment</label>
+            <textarea id="medicalAssessment" name="medicalAssessment" rows="3" placeholder="Summary of relevant medical conditions or treatment…"></textarea>
           </div>
         </div>
       </section>
 
-      <!-- Document Verification -->
-      <section class="section" aria-labelledby="sec-docs">
-        <h2 class="section-header" id="sec-docs">Document Verification</h2>
-        <div class="section-body">
-          <ul class="checklist" id="doc-checklist">
-            <li class="checklist-item">
-              <span class="checklist-item__label">Form 1 – Parole Application</span>
-              <span class="status-badge status-badge--verified">✅ Received &amp; Verified</span>
-            </li>
-            <li class="checklist-item">
-              <span class="checklist-item__label">DAR – Detainee Assessment Report</span>
-              <span class="status-badge status-badge--verified">✅ Uploaded</span>
-            </li>
-            <li class="checklist-item">
-              <span class="checklist-item__label">PPR – Pre-Parole Report</span>
-              <span class="status-badge status-badge--verified">✅ Uploaded</span>
-            </li>
-            <li class="checklist-item">
-              <span class="checklist-item__label">Medical/Psychological Evaluation</span>
-              <span class="status-badge status-badge--verified">✅ Uploaded</span>
-            </li>
-            <li class="checklist-item">
-              <span class="checklist-item__label">Community Support Verification</span>
-              <span class="status-badge status-badge--verified">✅ Uploaded</span>
-            </li>
-            <li class="checklist-item">
-              <span class="checklist-item__label">Inmate Conduct Record</span>
-              <span class="status-badge status-badge--verified">✅ Uploaded</span>
-            </li>
-          </ul>
-          <div class="overall-status" id="overall-status">
-            ✅ All Documents Complete – Ready for Hearing
+      <section class="section" aria-labelledby="sec-recommendation">
+        <h2 class="section-header" id="sec-recommendation">B. Institutional Recommendation</h2>
+        <div class="field-grid field-grid--2">
+          <div class="field field--full">
+            <label for="institutionalRecommendation">Institutional Recommendation *</label>
+            <select id="institutionalRecommendation" name="institutionalRecommendation">
+              <option value="">Select recommendation…</option>
+              <option value="Recommended">Recommended for parole hearing</option>
+              <option value="Recommended with conditions">Recommended with conditions</option>
+              <option value="Not recommended">Not recommended at this time</option>
+              <option value="Defer">Defer — further observation required</option>
+            </select>
+          </div>
+          <div class="field field--full">
+            <label for="recommendationNotes">Recommendation Notes</label>
+            <textarea id="recommendationNotes" name="recommendationNotes" rows="4" placeholder="Provide supporting reasons for the institutional recommendation…"></textarea>
+          </div>
+          <div class="field">
+            <label for="officerName">Preparing Officer *</label>
+            <input type="text" id="officerName" name="officerName" placeholder="CS Parole Clerk / Officer name">
+          </div>
+          <div class="field">
+            <label for="commanderName">Jail Commander</label>
+            <input type="text" id="commanderName" name="commanderName" placeholder="Commander endorsing this report">
+          </div>
+          <div class="field">
+            <label for="preparedDate">Report Date</label>
+            <input type="date" id="preparedDate" name="preparedDate">
           </div>
         </div>
       </section>
 
-      <!-- Institutional Report -->
-      <section class="section" aria-labelledby="sec-report">
-        <h2 class="section-header" id="sec-report">Institutional Report</h2>
-        <div class="section-body">
-          <div class="field-grid field-grid--2">
-            <div class="field">
-              <label for="commander-name">Reporting Officer</label>
-              <input type="text" id="commander-name" required>
-            </div>
-            <div class="field">
-              <label for="recommendation">Recommendation</label>
-              <select id="recommendation" required>
-                <option value="">Select recommendation…</option>
-                <option value="Recommended">Recommended for parole</option>
-                <option value="Not Recommended">Not recommended</option>
-                <option value="Conditional">Conditional recommendation</option>
-              </select>
-            </div>
-            <div class="field field--full">
-              <label for="institutional-report">Institutional Report</label>
-              <textarea id="institutional-report" rows="6" required placeholder="Summarize conduct, program participation, institutional behaviour, and readiness for parole consideration…"></textarea>
-            </div>
-            <div class="field field--full">
-              <label for="conduct-summary">Conduct Summary</label>
-              <textarea id="conduct-summary" rows="3" placeholder="Disciplinary record, incident history, and rehabilitation progress…"></textarea>
-            </div>
+      <section class="section form3-hearing-panel" aria-labelledby="sec-hearing">
+        <h2 class="section-header" id="sec-hearing">C. Parole Hearing Record</h2>
+        <p class="section-intro">Form 3 is the hearing phase — record minutes and attendance once the DJAG Secretary has scheduled the parole board session.</p>
+
+        <div class="form3-hearing-summary" id="hearing-summary">
+          <p class="form3-hearing-summary__empty">No hearing scheduled yet. After Form 3 is submitted and commander verification is complete, the DJAG Secretary will schedule the parole hearing.</p>
+        </div>
+
+        <div class="field-grid field-grid--2">
+          <div class="field field--full">
+            <label for="hearingProceedings">Hearing Proceedings Summary</label>
+            <textarea id="hearingProceedings" name="hearingProceedings" rows="5" placeholder="Record hearing minutes: attendees, presentations, detainee statement, and matters raised…"></textarea>
+          </div>
+          <div class="field field--full">
+            <label for="boardMembersPresent">Board Members Present</label>
+            <textarea id="boardMembersPresent" name="boardMembersPresent" rows="2" placeholder="DJAG Secretary, PNGCS Commissioner, Psychiatrist, and other attendees…"></textarea>
+          </div>
+          <div class="field">
+            <label for="detaineePresent">Detainee Present</label>
+            <select id="detaineePresent" name="detaineePresent">
+              <option value="">—</option>
+              <option value="yes">Yes — attended in person</option>
+              <option value="video">Yes — via video link</option>
+              <option value="no">No — excused / not present</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="legalRepresentative">Legal Representative</label>
+            <input type="text" id="legalRepresentative" name="legalRepresentative" placeholder="Name or N/A">
+          </div>
+          <div class="field field--full">
+            <label for="hearingOutcomeNotes">Hearing Outcome Notes</label>
+            <textarea id="hearingOutcomeNotes" name="hearingOutcomeNotes" rows="3" placeholder="Preliminary hearing observations before formal Form 4 / Form 5 decision…"></textarea>
           </div>
         </div>
       </section>
-
-      <div class="actions-bar">
-        <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
-        <button type="button" class="btn btn-success" id="btn-submit">Submit Institutional Report</button>
-        <button type="button" class="btn btn-outline" id="btn-prev-form">← Form 2</button>
-        <button type="button" class="btn btn-outline" id="btn-next-hearing">Hearing Portal →</button>
-        <button type="button" class="btn btn-secondary" id="btn-print">Print Form 3</button>
-      </div>
     </form>
+
+    <div id="officer-auth-mount"></div>
+
+    <div class="actions no-print form-actions-row">
+      <div class="left-btns">
+        <button type="button" class="btn btn-secondary" id="btn-save-draft">Save Draft</button>
+        <button type="button" class="btn btn-success" id="btn-submit-form3">Submit Form 3</button>
+        <button type="button" class="btn btn-outline" id="btn-open-hearing" hidden>Open Hearing Portal</button>
+        <button type="button" class="btn btn-outline" id="btn-prev-form">← Form 2</button>
+        <button type="button" class="btn btn-primary" id="btn-next-form" hidden>Form 4 →</button>
+      </div>
+      <div>
+        <button type="button" class="btn btn-secondary" id="btn-print">Print</button>
+      </div>
+    </div>
+
+    <div class="print-footer">
+      <p>Generated by PMS — Papua New Guinea Parole Management System · Form 3 v2.0 · Parole Act 1991</p>
+      <p>Institutional report and hearing record — retain for audit purposes.</p>
+    </div>
   </main>
 
   <footer class="page-footer">
-    PNG Parole Regulation – Form 3 (Institutional Report) · Parole Act 1991
+    PNG Parole Regulation — Form 3 (Institutional Report &amp; Hearing Record) · Parole Act 1991
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="../js/pms-core.js"></script>
   <script>
-    PMSCore.bootForm(['form3-institutional.js']).then(function () { PMSForm3Institutional.init(); });
+    PMSCore.bootForm(['form1-validation.js', 'form3-institutional.js']).then(function () { PMSForm3Institutional.init(); });
   </script>
 </body>
 </html>

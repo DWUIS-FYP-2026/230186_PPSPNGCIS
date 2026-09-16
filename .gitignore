@@ -1,4 +1,4 @@
-﻿# PMS project-specific
+# PMS project-specific
 server/node_modules/
 server/.env
 .vs/

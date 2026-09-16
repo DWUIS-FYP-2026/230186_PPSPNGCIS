@@ -298,7 +298,7 @@ const PMSReports = (() => {
         headers.push('Name', 'Role', 'Position', 'Contract Expiry', 'Status');
         users.filter((u) => ['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(u.role))
           .filter((u) => reportType !== 'contract_expiry' || ['Approaching Expiry', 'Expired'].includes(u.contractStatus))
-          .forEach((u) => rows.push([`${u.firstName} ${u.lastName}`, u.role, u.boardPosition || u.position || '—', fmtDate(u.contractExpiryDate), u.contractStatus || u.status]));
+          .forEach((u) => rows.push([`${u.firstName} ${u.lastName}`, u.role, typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.formatBoardPosition(u) : (u.boardPosition || u.position || '—'), fmtDate(u.contractExpiryDate), u.contractStatus || u.status]));
         break;
       default:
         return null;

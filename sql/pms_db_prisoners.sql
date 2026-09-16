@@ -1,11 +1,8 @@
 -- PMS MySQL schema for WampServer / MySQL Workbench
 -- Run this script in MySQL Workbench against your local server.
 
-CREATE DATABASE IF NOT EXISTS pms_db
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
 
-USE pms_db;
+
 
 CREATE TABLE IF NOT EXISTS prisoners (
   id INT AUTO_INCREMENT PRIMARY KEY,

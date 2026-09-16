@@ -2,7 +2,7 @@
  * PMS Form 1 — server-side validation (mirrors js/form1-validation.js).
  */
 const CRITERIA = [
-  { id: 'sentence_threshold', label: 'Minimum sentence served (one-third / 1/3 of total sentence)', auto: true },
+  { id: 'sentence_threshold', label: 'Minimum sentence served (one-half / 1/2 of total sentence)', auto: true },
   { id: 'sentence_dates_valid', label: 'Valid sentence dates (SSD before SED)', auto: true },
   { id: 'prisoner_status', label: 'Prisoner status permits parole eligibility screening', auto: true },
   { id: 'no_active_detainers', label: 'No active detainers or holds preventing parole consideration', auto: false },
@@ -11,7 +11,7 @@ const CRITERIA = [
 ];
 
 function computeProgress(prisoner, settings) {
-  const fraction = settings?.paroleEligibilityFraction ?? 1 / 3;
+  const fraction = settings?.paroleEligibilityFraction ?? 1 / 2;
   if (!prisoner?.sentence_start_date || !prisoner?.sentence_end_date) {
     return { percent: 0, eligible: false, eligibilityDate: null, totalMonths: 0 };
   }
@@ -37,7 +37,7 @@ function computeProgress(prisoner, settings) {
 
 function computeAutoCriteria(prisoner, progress, settings) {
   const results = {};
-  const thresholdPct = ((settings?.paroleEligibilityFraction ?? 1 / 3) * 100).toFixed(1);
+  const thresholdPct = ((settings?.paroleEligibilityFraction ?? 1 / 2) * 100).toFixed(1);
 
   results.sentence_threshold = {
     result: progress?.eligible ? 'pass' : 'fail',

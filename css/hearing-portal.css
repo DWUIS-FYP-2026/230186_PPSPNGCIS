@@ -176,9 +176,29 @@ body.pms-portal-page {
   align-items: flex-start;
   border-bottom: 2px solid var(--color-surface-muted);
   padding-bottom: 1rem;
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.75rem;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.hearing-session-banner {
+  margin: 0 0 1.1rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgb(26 107 60 / 0.25);
+  background: rgb(26 107 60 / 0.08);
+  color: var(--portal-text);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.hearing-session-banner[hidden] {
+  display: none;
+}
+
+.hearing-session-banner--pending {
+  border-color: rgb(191 130 0 / 0.35);
+  background: rgb(191 130 0 / 0.08);
 }
 
 .offender-header .main-info h2 { color: var(--portal-text); font-size: 1.5rem; margin: 0; }
@@ -427,6 +447,141 @@ body.pms-portal-page {
   color: var(--portal-muted);
 }
 
+/* Per-seat vote breakdown above the overall board outcome */
+.panel-tally {
+  margin: 0 0 0.75rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--portal-border);
+  border-radius: 14px;
+}
+
+.panel-tally__title {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--portal-text);
+}
+
+.panel-tally__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.panel-tally__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(110px, 1fr) auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  background: var(--portal-surface);
+  border-left: 3px solid var(--portal-border);
+  font-size: 0.8125rem;
+}
+
+.panel-tally__row--approve { border-left-color: var(--color-success); }
+.panel-tally__row--deny { border-left-color: var(--color-danger); }
+.panel-tally__row--defer { border-left-color: var(--color-warning); }
+
+.panel-tally__seat { font-weight: 600; color: var(--portal-text); }
+.panel-tally__name { color: var(--portal-muted); }
+
+.panel-tally__vote {
+  justify-self: end;
+  font-weight: 600;
+  color: var(--portal-text);
+}
+
+.panel-tally__row--pending .panel-tally__vote {
+  font-weight: 500;
+  color: var(--portal-muted);
+}
+
+.panel-tally__row--approve .panel-tally__vote { color: var(--color-success); }
+.panel-tally__row--deny .panel-tally__vote { color: var(--color-danger); }
+.panel-tally__row--defer .panel-tally__vote { color: var(--color-warning); }
+
+.panel-tally__summary {
+  margin: 0.7rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--portal-muted);
+}
+
+@media (max-width: 768px) {
+  .panel-tally__row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .panel-tally__name { grid-column: 1 / -1; }
+}
+
+/* Overall board outcome — Approve (Form 4) / Reject (Form 5) */
+.final-outcome {
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  border-radius: 14px;
+}
+
+.final-outcome__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--portal-text);
+}
+
+.final-outcome__note {
+  margin: 0 0 0.85rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--portal-muted);
+}
+
+.final-outcome__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.final-outcome__actions[hidden] {
+  display: none;
+}
+
+.pms-portal-page .final-outcome__btn {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.pms-portal-page .final-outcome__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.final-outcome__btn-title { font-weight: 700; font-size: 0.9rem; }
+.final-outcome__btn-hint { font-weight: 500; font-size: 0.72rem; opacity: 0.9; }
+
+.pms-portal-page .final-outcome__btn--active {
+  box-shadow: 0 0 0 3px rgba(26, 107, 60, 0.18);
+}
+
+.pms-portal-page .btn-danger.final-outcome__btn--active {
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.18);
+}
+
+.final-outcome__footer:not(:empty) { margin-top: 0.75rem; }
+
+@media (max-width: 768px) {
+  .final-outcome__actions { grid-template-columns: 1fr; }
+}
+
 .assessment-progress {
   display: flex;
   flex-wrap: wrap;
@@ -474,6 +629,22 @@ body.pms-portal-page {
   background: rgb(26 107 60 / 0.08);
   border: 1px solid rgb(26 107 60 / 0.18);
   font-size: 0.8125rem;
+}
+
+.assessor-submit-blocker {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.875rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-warning);
+  border-left-width: 3px;
+  background: rgb(191 130 0 / 0.08);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--portal-text);
+}
+
+.assessor-submit-blocker[hidden] {
+  display: none;
 }
 
 .panel-member--done .avatar {

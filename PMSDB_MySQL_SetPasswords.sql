@@ -1,17 +1,19 @@
--- Run this in MySQL Workbench after PMSDB.sql to set known login passwords.
--- Usernames follow initial.surname@agency (cs.gov.pg, djag.gov.pg, health.gov.pg).
+-- Set known login passwords for demo accounts.
+-- Passwords stored in the user_credentials table (not users.PasswordHash).
 
-USE PMSDB;
+-- 1. Make sure each user has a credentials row with the new password.
+INSERT INTO user_credentials (username, password)
+VALUES
+  ('j.dole@cs.gov.pg',    'Password123!'),
+  ('m.kila@djag.gov.pg',  'Password123!'),
+  ('s.tau@cs.gov.pg',     'Password123!'),
+  ('h.morris@djag.gov.pg','Password123!'),
+  ('r.sine@health.gov.pg','Password123!'),
+  ('t.bain@cs.gov.pg',    'Password123!'),
+  ('p.koroma@cs.gov.pg',  'Password123!')
+ON DUPLICATE KEY UPDATE password = VALUES(password);
 
-UPDATE Users SET PasswordHash = 'Password123!' WHERE Username IN (
-  'j.dole@cs.gov.pg',
-  'm.kila@djag.gov.pg',
-  's.tau@cs.gov.pg',
-  'h.morris@djag.gov.pg',
-  'r.sine@health.gov.pg',
-  't.bain@cs.gov.pg',
-  'p.koroma@cs.gov.pg'
-);
-
--- Verify
-SELECT UserID, Username, Role, IsActive, LEFT(PasswordHash, 20) AS PasswordPreview FROM Users;
+-- 2. Verify
+SELECT u.id, u.username, u.role, u.status, c.password
+FROM users u
+LEFT JOIN user_credentials c ON c.username = u.username;

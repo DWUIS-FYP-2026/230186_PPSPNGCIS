@@ -296,7 +296,7 @@ const PMSBoardVote = (() => {
   }
 
   function progressNote(progress) {
-    if (progress.complete) return 'All board votes are in. The outcome will be finalized automatically.';
+    if (progress.complete) return 'All board votes are in. The Board Chairman (DJAG Secretary) records the overall decision below.';
     return `Panel progress: ${progress.submitted}/${progress.total}. Save your decision at any time, then submit when ready — other members vote separately.`;
   }
 
@@ -499,6 +499,7 @@ const PMSBoardVote = (() => {
     isPsychiatrist,
     portalHref,
     formatVoteLabel,
+    voteVariant,
     setVoteChoice,
     bindVoteChoiceButtons,
     focusVoteChoice,

@@ -57,7 +57,10 @@ router.get('/', requireAuth({ optional: true }), async (req, res) => {
 
 /** PUT /api/bootstrap — persist full dataset snapshot */
 
-router.put('/', requireAuth(), requireRole(ADMIN_ROLES), async (req, res) => {
+// Any authenticated staff user may push the snapshot: every client syncs the whole store
+// after a change (board votes, hearing sessions), so admin-only writes would strand
+// each member's data in their own browser.
+router.put('/', requireAuth(), async (req, res) => {
 
   try {
 

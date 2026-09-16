@@ -4,35 +4,43 @@ const passwordInput = document.getElementById('password');
 const emailError = document.getElementById('email-error');
 const passwordError = document.getElementById('password-error');
 const submitBtn = document.getElementById('submit-btn');
-const togglePasswordBtn = document.querySelector('.toggle-password');
+const togglePasswordBtn = document.getElementById('password-toggle-btn');
+const togglePasswordIcon = document.getElementById('password-toggle-icon');
 const loginFloater = document.getElementById('home-login-floater');
 const loginOpenBtns = document.querySelectorAll('[data-login-open], #home-login-open');
 const loginCloseBtn = document.getElementById('home-login-close');
 const loginBackdrop = document.getElementById('home-login-backdrop');
 
-function isPasswordHidden() {
-  return !passwordInput || passwordInput.type === 'password';
+/** Default: masked password, eye icon visible */
+let showPassword = false;
+
+function renderPasswordToggleIcon() {
+  if (!togglePasswordBtn || !togglePasswordIcon) return;
+  const iconName = showPassword ? 'eye-off' : 'eye';
+  togglePasswordIcon.replaceChildren();
+  const icon = document.createElement('i');
+  icon.setAttribute('data-lucide', iconName);
+  icon.className = 'toggle-password-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  togglePasswordIcon.appendChild(icon);
+  if (typeof lucide !== 'undefined') lucide.createIcons({ root: togglePasswordIcon });
+  togglePasswordBtn.setAttribute('aria-label', showPassword ? 'Hide password' : 'Show password');
+  togglePasswordBtn.setAttribute('aria-pressed', showPassword ? 'true' : 'false');
 }
 
-function updatePasswordToggleIcon() {
-  if (!togglePasswordBtn) return;
-  const hidden = isPasswordHidden();
-  const iconName = hidden ? 'eye' : 'eye-off';
-  togglePasswordBtn.innerHTML = `<i data-lucide="${iconName}" class="toggle-password-icon" aria-hidden="true"></i>`;
-  if (typeof lucide !== 'undefined') lucide.createIcons({ root: togglePasswordBtn });
-  togglePasswordBtn.setAttribute('aria-label', hidden ? 'Show password' : 'Hide password');
-  togglePasswordBtn.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+function syncPasswordVisibility() {
+  if (passwordInput) passwordInput.type = showPassword ? 'text' : 'password';
+  renderPasswordToggleIcon();
 }
 
 togglePasswordBtn?.addEventListener('click', (e) => {
   e.preventDefault();
-  if (!passwordInput) return;
-  passwordInput.type = isPasswordHidden() ? 'text' : 'password';
-  updatePasswordToggleIcon();
-  passwordInput.focus({ preventScroll: true });
+  showPassword = !showPassword;
+  syncPasswordVisibility();
+  passwordInput?.focus({ preventScroll: true });
 });
 
-updatePasswordToggleIcon();
+syncPasswordVisibility();
 
 function openLoginFloater() {
   loginFloater?.classList.remove('hidden');
@@ -48,6 +56,12 @@ function closeLoginFloater() {
 loginOpenBtns.forEach((btn) => btn.addEventListener('click', openLoginFloater));
 loginCloseBtn?.addEventListener('click', closeLoginFloater);
 loginBackdrop?.addEventListener('click', closeLoginFloater);
+
+document.getElementById('forgot-password-btn')?.addEventListener('click', () => {
+  if (typeof window.showLandingToast === 'function') {
+    window.showLandingToast('Contact your system administrator to reset your password.', 'error');
+  }
+});
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && loginFloater && !loginFloater.classList.contains('hidden')) {
@@ -116,6 +130,18 @@ function handleLoginSuccess(user) {
     setFieldError(input, errorEl, '');
   });
 });
+
+(async function showExistingSessionWelcome() {
+  try {
+    if (typeof PMSStorage === 'undefined') return;
+    await PMSStorage.ensureLoaded();
+    const session = PMSStorage.getSession();
+    if (!session || typeof window.showLoginWelcome !== 'function') return;
+    const user = PMSStorage.getUserById(session.id) || session;
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email;
+    window.showLoginWelcome(name);
+  } catch (_) { /* ignore */ }
+})();
 
 form?.addEventListener('submit', async (e) => {
   e.preventDefault();

@@ -2,7 +2,7 @@
  * PMS — Shared collapsible sidebar navigation (RBAC-aware).
  */
 const PMSSidebar = (() => {
-  const BREAKPOINT = 1024;
+  const BREAKPOINT = 768;
   const STORAGE_KEY = 'pms_sidebar_collapsed';
 
   const ROLE_BRAND = {
@@ -11,8 +11,8 @@ const PMSSidebar = (() => {
     'CS Parole Clerk': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Parole Clerk', wide: false },
     'Jail Commander': { logo: 'images/PNG CS Logo.jpg', subtitle: 'Jail Commander', wide: false },
     'DJAG Parole Clerk': { logo: 'images/djag.png', subtitle: 'DJAG Parole Clerk', wide: true },
-    'DJAG Secretary': { logo: 'images/djag.png', subtitle: 'DJAG Secretary · Board Chair', wide: true },
-    'Doctor': { logo: 'images/djag.png', subtitle: 'Board Medical Assessor', wide: true },
+    'DJAG Secretary': { logo: 'images/djag.png', subtitle: 'DJAG Secretary · Parole Board', wide: true },
+    'Doctor': { logo: 'images/djag.png', subtitle: 'Psychiatrist · Parole Board', wide: true },
     'CS Commissioner': { logo: 'images/PNG CS Logo.jpg', subtitle: 'CS Commissioner · Board Member', wide: false },
   };
 
@@ -20,58 +20,60 @@ const PMSSidebar = (() => {
   const NAV_SECTIONS = {
     'System Administrator': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Parole Management', ids: ['cases', 'eligibility', 'form1', 'form2', 'form3', 'form4', 'form5'] },
+      { label: 'Parole Tracking', ids: ['cases', 'eligibility'] },
       { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings-upcoming'] },
-      { label: 'Release', ids: ['release-pending', 'release-done'] },
-      { label: 'Operations', ids: ['notifications'] },
       { label: 'Reports & Analytics', ids: ['reports', 'analytics', 'audit'] },
-      { label: 'Administration', ids: ['users', 'board-members', 'institutions', 'settings', 'profile'] },
+      { label: 'Account', ids: ['profile'] },
     ],
     'CS Parole Clerk': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1', 'form2', 'form3'] },
       { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Operations', ids: ['notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'Jail Commander': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Institution', ids: ['verification', 'release', 'applications', 'prisoners'] },
-      { label: 'Operations', ids: ['notifications', 'profile'] },
+      { label: 'Account', ids: ['profile'] },
     ],
     'CS Parole Officer': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1'] },
       { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Operations', ids: ['notifications'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'DJAG Parole Clerk': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form2', 'form4'] },
       { label: 'Prisoners', ids: ['prisoners'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings'] },
-      { label: 'Operations', ids: ['notifications'] },
+      { label: 'Hearings', ids: ['hearing-schedule', 'hearings'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'DJAG Secretary': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings', 'applications'] },
-      { label: 'Board', ids: ['decisions', 'form4', 'form5'] },
-      { label: 'Operations', ids: ['notifications', 'profile'] },
+      {
+        label: 'Hearing Scheduling',
+        hint: 'Set parole hearing dates after Form 3',
+        ids: ['hearing-schedule', 'applications', 'hearings'],
+      },
+      {
+        label: 'Parole Board',
+        hint: 'Vote, decisions, and outcome forms',
+        ids: ['board-decisions', 'decisions', 'form4', 'form5'],
+      },
+      { label: 'Account', ids: ['profile'] },
     ],
     'Doctor': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'prisoners'] },
-      { label: 'Hearings', ids: ['hearing-portal', 'hearings'] },
-      { label: 'Medical Board', ids: ['evaluations', 'decisions'] },
-      { label: 'Operations', ids: ['notifications', 'profile'] },
+      { label: 'Hearings', ids: ['hearing-schedule', 'hearings'] },
+      { label: 'Parole Board', ids: ['board-decisions', 'decisions'] },
+      { label: 'Account', ids: ['profile'] },
     ],
     'CS Commissioner': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Board', ids: ['hearing-portal', 'decisions'] },
-      { label: 'Reports', ids: ['reports', 'notifications', 'profile'] },
+      { label: 'Board', ids: ['board-decisions', 'decisions'] },
+      { label: 'Reports', ids: ['reports', 'profile'] },
     ],
   };
 
@@ -79,26 +81,12 @@ const PMSSidebar = (() => {
   const MENUS = {
     'System Administrator': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'cases', module: 'cases', panel: 'prisoners', label: 'Cases', icon: 'fi fi-rr-folder' },
+      { id: 'cases', module: 'cases', panel: 'prisoners', label: 'Parole Process Track', icon: 'fi fi-rr-route' },
       { id: 'eligibility', module: 'eligibility', panel: 'prisoners', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
-      { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
-      { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
-      { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
-      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
-      { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-user-lock' },
-      { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
-      { id: 'hearings-upcoming', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'release-pending', module: 'release', panel: 'prisoners', label: 'Pending Release', icon: 'fi fi-rr-hourglass' },
-      { id: 'release-done', module: 'release', panel: 'prisoners', label: 'Released Prisoners', icon: 'fi fi-rr-door-open' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'analytics', module: 'analytics', panel: 'reports', label: 'Analytics', icon: 'fi fi-rr-chart-pie' },
       { id: 'audit', module: 'audit', panel: 'audit', label: 'Audit Trail', icon: 'fi fi-rr-journal' },
-      { id: 'users', module: 'users', panel: 'users', label: 'User Management', icon: 'fi fi-rr-users' },
-      { id: 'board-members', module: 'board_members', panel: 'users', label: 'Board Members', icon: 'fi fi-rr-id-badge' },
-      { id: 'institutions', module: 'institutions', href: 'institutions.html', label: 'Institutions', icon: 'fi fi-rr-building' },
-      { id: 'settings', module: 'settings', panel: 'settings', label: 'System Settings', icon: 'fi fi-rr-settings' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'CS Parole Clerk': [
@@ -109,7 +97,6 @@ const PMSSidebar = (() => {
       { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
       { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
@@ -120,9 +107,8 @@ const PMSSidebar = (() => {
       { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
       { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
+      { id: 'board-decisions', module: 'hearings', href: 'forms/board-decisions.html', label: 'Board Vote', icon: 'fi fi-rr-gavel' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
@@ -132,37 +118,33 @@ const PMSSidebar = (() => {
       { id: 'eligibility', module: 'eligibility', panel: 'eligibility', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
       { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'DJAG Secretary': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
+      { id: 'hearing-schedule', module: 'hearings', href: 'forms/hearing-schedule.html', label: 'Schedule Hearing Dates', icon: 'fi fi-rr-calendar-clock' },
+      { id: 'applications', module: 'applications', panel: 'applications', label: 'Cases Awaiting Schedule', icon: 'fi fi-rr-hourglass-end' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'applications', module: 'applications', panel: 'applications', label: 'Schedule Hearings', icon: 'fi fi-rr-hourglass-end' },
-      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4', icon: 'fi fi-rr-document' },
-      { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5', icon: 'fi fi-rr-document' },
-      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'My Board Assessment', icon: 'fi fi-rr-gavel' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'board-decisions', module: 'decisions', href: 'forms/board-decisions.html', label: 'Board Vote Portal', icon: 'fi fi-rr-gavel' },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Cases Awaiting Vote', icon: 'fi fi-rr-list-check' },
+      { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4 — Parole Grant', icon: 'fi fi-rr-document' },
+      { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5 — Parole Refusal', icon: 'fi fi-rr-document' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'Doctor': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'applications', module: 'cases', panel: 'applications', label: 'Parole Cases', icon: 'fi fi-rr-folder' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
+      { id: 'board-decisions', module: 'decisions', href: 'forms/board-decisions.html', label: 'Board Vote Portal', icon: 'fi fi-rr-gavel' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
-      { id: 'evaluations', module: 'decisions', panel: 'evaluations', label: 'Medical Evaluations', icon: 'fi fi-rr-stethoscope' },
-      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Board Votes', icon: 'fi fi-rr-gavel' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
+      { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Cases Awaiting Vote', icon: 'fi fi-rr-list-check' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'CS Commissioner': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
-      { id: 'hearing-portal', module: 'hearings', href: 'forms/hearing-portal.html', label: 'Hearing Portal', icon: 'fi fi-rr-calendar-clock' },
+      { id: 'board-decisions', module: 'hearings', href: 'forms/board-decisions.html', label: 'Board Vote', icon: 'fi fi-rr-gavel' },
       { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Commissioner Assessments', icon: 'fi fi-rr-gavel' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'Jail Commander': [
@@ -171,7 +153,6 @@ const PMSSidebar = (() => {
       { id: 'release', module: 'release', panel: 'release', label: 'Authorize Release', icon: 'fi fi-rr-door-open' },
       { id: 'applications', module: 'applications', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
-      { id: 'notifications', module: 'notifications', panel: 'notifications', label: 'Notifications', icon: 'fi fi-rr-bell', badge: true },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
   };
@@ -243,6 +224,7 @@ const PMSSidebar = (() => {
       if (!sectionItems.length) return '';
       return `<div class="nav-section">
         ${section.label ? `<div class="nav-section-label">${esc(section.label)}</div>` : ''}
+        ${section.hint ? `<div class="nav-section-hint">${esc(section.hint)}</div>` : ''}
         <ul class="nav-list">${sectionItems.map((item) => `<li>${renderNavItem(item, user)}</li>`).join('')}</ul>
       </div>`;
     }).join('');
@@ -264,17 +246,19 @@ const PMSSidebar = (() => {
     const navHtml = renderGroupedNav(user);
 
     return `
-      <div class="sidebar-header">
-        <button type="button" class="sidebar-collapse-btn" id="sidebar-collapse-btn" aria-label="Toggle sidebar">
-          <span class="sidebar-collapse-btn__bars" aria-hidden="true"><span></span><span></span><span></span></span>
-        </button>
+      <div class="sidebar-header sidebar-logo-area">
         <div class="sidebar-brand">
-          ${logosHtml}
+          <div class="sidebar-logo-mark" aria-hidden="true">
+            <img src="images/NationalEmblem.jpg" alt="" class="sidebar-logo-icon">
+          </div>
           <div class="sidebar-brand-text">
-            <strong>Parole Management System</strong>
+            <strong>Parole Management</strong>
             <span>${esc(subtitle)}</span>
           </div>
         </div>
+        <button type="button" class="sidebar-collapse-btn" id="sidebar-collapse-btn" aria-label="Collapse sidebar">
+          <span class="sidebar-collapse-btn__bars" aria-hidden="true"><span></span><span></span><span></span></span>
+        </button>
       </div>
       <nav class="sidebar-nav" aria-label="Main navigation">${navHtml}</nav>
       <div class="sidebar-footer">
@@ -284,7 +268,12 @@ const PMSSidebar = (() => {
             <p class="sidebar-user__name" id="user-name">${esc(`${user.firstName} ${user.lastName}`)}</p>
             <p class="sidebar-user__role" id="user-role">${esc(user.role)}</p>
             ${inst ? `<p class="sidebar-user__inst user-inst" id="user-institution">${esc(inst.name)}</p>` : '<p class="sidebar-user__inst user-inst hidden" id="user-institution"></p>'}
-            ${user.boardPosition ? `<p class="sidebar-user__inst sidebar-user__board user-inst board-position" id="board-position">${esc(user.boardPosition)}</p>` : '<p class="sidebar-user__inst sidebar-user__board user-inst board-position hidden" id="board-position"></p>'}
+            ${(() => {
+              const boardLabel = typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.formatBoardPosition(user) : (user.boardPosition || '');
+              return boardLabel && boardLabel !== '—'
+                ? `<p class="sidebar-user__inst sidebar-user__board user-inst board-position" id="board-position">${esc(boardLabel)}</p>`
+                : '<p class="sidebar-user__inst sidebar-user__board user-inst board-position hidden" id="board-position"></p>';
+            })()}
           </div>
         </div>
         <button type="button" class="sidebar-signout btn-logout" id="logout-btn">Sign out</button>
@@ -339,7 +328,10 @@ const PMSSidebar = (() => {
             <dt>Email</dt><dd>${esc(user.email || '—')}</dd>
             <dt>Contact</dt><dd>${esc(user.phone || user.contactNumber || '—')}</dd>
             ${inst ? `<dt>Institution</dt><dd>${esc(inst.name)}</dd>` : ''}
-            ${user.boardPosition ? `<dt>Board Position</dt><dd>${esc(user.boardPosition)}</dd>` : ''}
+            ${(() => {
+              const boardLabel = typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.formatBoardPosition(user) : (user.boardPosition || '');
+              return boardLabel && boardLabel !== '—' ? `<dt>Board Position</dt><dd>${esc(boardLabel)}</dd>` : '';
+            })()}
             <dt>Status</dt><dd>${esc(user.status || 'Active')}</dd>
           </dl>
         </div>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
+  <title>Forms 4 &amp; 5 — Official Preview | PNG Parole System</title>
+  <link rel="stylesheet" href="../css/forms.css">
+  <link rel="stylesheet" href="../css/official-forms.css">
+  <style>
+    body.pms-form-page--official-preview {
+      background: #f3f4f6;
+      min-height: 100vh;
+    }
+    .preview-toolbar {
+      max-width: none;
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      border-bottom: 1px solid #e5e7eb;
+      background: #fff;
+    }
+    .preview-toolbar h1 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #111;
+    }
+    .preview-toolbar p {
+      margin: 0.15rem 0 0;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+    .preview-toolbar__actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+  </style>
+</head>
+<body class="pms-form-page pms-form-page--official-preview">
+  <header class="preview-toolbar no-print">
+    <div>
+      <h1>Official Parole Forms — Design Reference</h1>
+      <p>Only one outcome form applies per case: Form 4 if parole is granted, Form 5 if refused.</p>
+    </div>
+    <div class="preview-toolbar__actions">
+      <a class="btn btn-outline" href="form4.html">Open Form 4</a>
+      <a class="btn btn-outline" href="form5.html">Open Form 5</a>
+      <button type="button" class="btn btn-secondary" onclick="window.print()">Print Page</button>
+    </div>
+  </header>
+
+  <main class="page-main">
+    <div class="official-forms-grid">
+
+      <!-- FORM 4 -->
+      <article class="gov-doc gov-doc--form4" aria-label="Form 4 — Discharge of Parole Order">
+        <div class="gov-doc__card">
+          <header class="gov-doc__masthead">
+            <div class="gov-doc__crest"><img src="../images/NationalEmblem.jpg" alt=""></div>
+            <div class="gov-doc__title-block">
+              <span class="gov-doc__badge">FORM 4</span>
+              <h1 class="gov-doc__title">Discharge of Parole Order</h1>
+              <p class="gov-doc__subtitle">PAROLE BOARD – DEPARTMENT OF JUSTICE &amp; ATTORNEY GENERAL</p>
+            </div>
+            <div class="gov-doc__crest"><img src="../images/djag_logo.jpg" alt=""></div>
+          </header>
+          <div class="gov-doc__body">
+            <section class="gov-doc__section">
+              <h2 class="gov-doc__section-head">PAROLEE DETAILS</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Parolee ID</span><span class="gov-doc__value">PL-2024-0187</span>
+                  <span class="gov-doc__label">Full Name</span><span class="gov-doc__value">Michael K. Warupi</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date of Birth</span><span class="gov-doc__value">14/03/1985</span>
+                  <span class="gov-doc__label">Gender</span><span class="gov-doc__value">Male</span>
+                </div>
+                <div class="gov-doc__row">
+                  <span class="gov-doc__label">Original Offence</span><span class="gov-doc__value">Armed Robbery</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date Paroled</span><span class="gov-doc__value">12/09/2024</span>
+                  <span class="gov-doc__label">Parole Order No.</span><span class="gov-doc__value">PO-2024-0187</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Supervising CBC Office</span><span class="gov-doc__value">NCD Community Based Corrections</span>
+                  <span class="gov-doc__label">Parole Officer</span><span class="gov-doc__value">Sgt. Mary A. Kila</span>
+                </div>
+              </div>
+            </section>
+            <section class="gov-doc__section">
+              <h2 class="gov-doc__section-head">DISCHARGE DETAILS</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date Completed on Parole</span><span class="gov-doc__value">12/09/2025</span>
+                  <span class="gov-doc__label">Total Period on Parole</span><span class="gov-doc__value">12 months</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Parole Board Decision Date</span><span class="gov-doc__value">20/09/2025</span>
+                  <span class="gov-doc__label">Decision</span><span class="gov-doc__decision">DISCHARGED FROM PAROLE ORDER</span>
+                </div>
+              </div>
+            </section>
+            <div class="gov-doc__notice">
+              This is to certify that the above-named parolee has fully complied with all conditions of the
+              Parole Order and has successfully completed the period of parole supervision. The parolee is
+              hereby <strong>discharged from the Parole Order</strong> in accordance with the Parole Act 1991
+              and applicable regulations.
+            </div>
+            <section class="gov-doc__section">
+              <h2 class="gov-doc__section-head">CONDITIONS AFTER DISCHARGE</h2>
+              <ol class="gov-doc__numbered" type="1">
+                <li>The parolee must not commit any further offences while at liberty.</li>
+                <li>The parolee must maintain good behaviour and respect the laws of Papua New Guinea.</li>
+                <li>The parolee must notify the Parole Board in writing of any change of residential address within seven (7) days.</li>
+                <li>Any breach of post-discharge obligations may result in further action under the Parole Act and Regulations.</li>
+              </ol>
+            </section>
+            <table class="gov-doc__sig-table">
+              <caption style="caption-side:top;text-align:left;font-weight:700;font-size:0.72rem;padding:0.5rem 0 0.25rem;">Parole Board Members' Signatures</caption>
+              <thead><tr><th>Chairperson</th><th>Member 1</th><th>Member 2</th></tr></thead>
+              <tbody><tr>
+                <td><span class="gov-doc__sig-line"></span><span class="gov-doc__sig-date">Date: //____</span></td>
+                <td><span class="gov-doc__sig-line"></span><span class="gov-doc__sig-date">Date: //____</span></td>
+                <td><span class="gov-doc__sig-line"></span><span class="gov-doc__sig-date">Date: //____</span></td>
+              </tr></tbody>
+            </table>
+            <div class="gov-doc__bottom">
+              <div class="gov-doc__seal"><span class="gov-doc__seal-label">Official Seal</span><div class="gov-doc__seal-circle"></div></div>
+              <div class="gov-doc__notify">
+                <p><strong>Notification:</strong> Issued under the Parole Act 1991 and the Parole Regulations of Papua New Guinea.</p>
+                <div class="gov-doc__notify-fields">
+                  <strong>Prepared By:</strong><span class="gov-doc__value">Hon. David K. Cannings</span>
+                  <strong>Position:</strong><span class="gov-doc__value">Chief Parole Officer</span>
+                  <strong>Date Issued:</strong><span class="gov-doc__value">20/09/2025</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer class="gov-doc__footer-bar">This is an official notification. Please keep for your records.</footer>
+        </div>
+      </article>
+
+      <!-- FORM 5 -->
+      <article class="gov-doc gov-doc--form5" aria-label="Form 5 — Applications After Refusal">
+        <div class="gov-doc__card">
+          <header class="gov-doc__masthead">
+            <div class="gov-doc__crest"><img src="../images/PNG CS Logo.jpg" alt=""></div>
+            <div class="gov-doc__title-block">
+              <span class="gov-doc__badge">FORM 5</span>
+              <h1 class="gov-doc__title">Applications After Refusal</h1>
+              <p class="gov-doc__subtitle">CORRECTIONAL SERVICE – PAROLE OFFICE</p>
+            </div>
+            <div class="gov-doc__crest"><img src="../images/NationalEmblem.jpg" alt=""></div>
+          </header>
+          <div class="gov-doc__body">
+            <section class="gov-doc__section">
+              <h2 class="gov-doc__section-head">APPLICANT DETAILS</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Prisoner ID</span><span class="gov-doc__value">PR-000003</span>
+                  <span class="gov-doc__label">Application ID (New)</span><span class="gov-doc__value">APP-2026-0042</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Full Name</span><span class="gov-doc__value">James N. Apa</span>
+                  <span class="gov-doc__label">Gender</span><span class="gov-doc__value">Male</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date of Birth</span><span class="gov-doc__value">22/07/1990</span>
+                  <span class="gov-doc__label">Correctional Institution</span><span class="gov-doc__value">Bomana Correctional Institution</span>
+                </div>
+                <div class="gov-doc__row">
+                  <span class="gov-doc__label">Original Offence</span><span class="gov-doc__value">Unlawful Wounding</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date of Refusal</span><span class="gov-doc__value">15/06/2025</span>
+                  <span class="gov-doc__label">Parole Board Refusal No.</span><span class="gov-doc__value">PB-REF-2025-0112</span>
+                </div>
+                <div class="gov-doc__row">
+                  <span class="gov-doc__label">Reason for Refusal</span>
+                  <div class="gov-doc__checks">
+                    <label class="gov-doc__check"><input type="checkbox" checked disabled><span class="gov-doc__check-box"></span> Behaviour</label>
+                    <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Missing Documents</label>
+                    <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Other</label>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section class="gov-doc__section">
+              <h2 class="gov-doc__section-head">DETAILS OF REAPPLICATION</h2>
+              <div class="gov-doc__fields">
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Date Eligible to Reapply *</span><span class="gov-doc__value">15/12/2025</span>
+                  <span class="gov-doc__label">Date of Reapplication</span><span class="gov-doc__value">09/03/2026</span>
+                </div>
+                <div class="gov-doc__row gov-doc__row--split">
+                  <span class="gov-doc__label">Attached New Form 1</span>
+                  <div class="gov-doc__checks">
+                    <label class="gov-doc__check"><input type="checkbox" checked disabled><span class="gov-doc__check-box"></span> Yes</label>
+                    <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> No</label>
+                  </div>
+                  <span class="gov-doc__label">Recalculation of Sentence</span>
+                  <label class="gov-doc__check"><input type="checkbox" checked disabled><span class="gov-doc__check-box"></span> Completed</label>
+                </div>
+              </div>
+              <p class="gov-doc__footnote">* Reapplication may be made 6 months prior to the 12 months period after refusal.</p>
+            </section>
+            <div class="gov-doc__panels">
+              <div class="gov-doc__panel">
+                <h3 class="gov-doc__panel-head">REASON(S) FOR REFUSAL (As per Parole Board Decision)</h3>
+                <div class="gov-doc__panel-body">
+                  <label class="gov-doc__check"><input type="checkbox" checked disabled><span class="gov-doc__check-box"></span> Unsatisfactory behaviour in custody</label>
+                  <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Incomplete or missing documents</label>
+                  <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Insufficient rehabilitation progress</label>
+                  <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Community report not favourable</label>
+                  <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Other</label>
+                </div>
+              </div>
+              <div class="gov-doc__panel">
+                <h3 class="gov-doc__panel-head">IMPROVEMENT / ACTION TAKEN SINCE REFUSAL</h3>
+                <div class="gov-doc__panel-body">
+                  <ul class="gov-doc__bullets">
+                    <li>Maintained good behaviour</li>
+                    <li>Completed counselling/rehab programs</li>
+                    <li>Obtained required documents</li>
+                    <li>Positive family/community support</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <section class="gov-doc__section" style="margin-top:0.75rem;">
+              <h2 class="gov-doc__section-head">DOCUMENTS ATTACHED WITH THIS APPLICATION</h2>
+              <div class="gov-doc__doc-grid">
+                <label class="gov-doc__check"><input type="checkbox" checked disabled><span class="gov-doc__check-box"></span> New Form 1</label>
+                <label class="gov-doc__check"><input type="checkbox" checked disabled><span class="gov-doc__check-box"></span> Updated DARS</label>
+                <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Pre-Parole Report / Supporting Documents</label>
+                <label class="gov-doc__check"><input type="checkbox" disabled><span class="gov-doc__check-box"></span> Other</label>
+              </div>
+            </section>
+            <section class="gov-doc__section">
+              <h2 class="gov-doc__section-head">CERTIFICATION BY CS PAROLE OFFICER</h2>
+              <div class="gov-doc__cert">
+                <p class="gov-doc__cert-text">I certify that the information provided in this reapplication is true and correct to the best of my knowledge.</p>
+                <div class="gov-doc__cert-grid">
+                  <div><strong>Name:</strong> John Dole</div>
+                  <div><strong>Position:</strong> CS Parole Officer</div>
+                  <div><strong>Signature:</strong> <span class="gov-doc__sig-line" style="display:inline-block;width:60%;vertical-align:bottom;"></span></div>
+                  <div><strong>Date:</strong> 09/03/2026</div>
+                </div>
+              </div>
+            </section>
+            <div class="gov-doc__secretariat">
+              <h3 class="gov-doc__secretariat-head">FOR PAROLE SECRETARIAT USE ONLY</h3>
+              <div class="gov-doc__secretariat-grid">
+                <div class="gov-doc__secretariat-field"><strong>Received By:</strong><span class="gov-doc__underline" style="border-bottom:1px solid #374151;display:inline-block;min-width:100px;"></span></div>
+                <div class="gov-doc__secretariat-field"><strong>Date Received:</strong><span>__ / __ / __</span></div>
+                <div class="gov-doc__secretariat-field"><strong>Acknowledgement No.:</strong><span class="gov-doc__underline" style="border-bottom:1px solid #374151;display:inline-block;min-width:80px;"></span></div>
+                <div class="gov-doc__secretariat-field"><strong>Processed By:</strong><span class="gov-doc__underline" style="border-bottom:1px solid #374151;display:inline-block;min-width:80px;"></span></div>
+              </div>
+            </div>
+          </div>
+          <footer class="gov-doc__footer-bar">Submit this reapplication with a new Form 1 to the Parole Secretariat – DJAG.</footer>
+        </div>
+      </article>
+
+    </div>
+  </main>
+</body>
+</html>

@@ -51,10 +51,19 @@
   const FORM_WORKFLOW = [
     { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', owner: 'CS Parole Officer', prereqs: [] },
     { n: 2, key: 'form2', label: 'Form 2 — Personal Particulars', owner: 'CS Parole Clerk', prereqs: ['form1'] },
-    { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', owner: 'CS Parole Clerk', prereqs: ['form1', 'form2'] },
-    { n: 4, key: 'form4', label: 'Form 4 — Parole Granted', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'] },
-    { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 3, key: 'form3', label: 'Form 3 — Parole Hearing Record', owner: 'CS Parole Clerk', prereqs: ['form1', 'form2'] },
+    { n: 4, key: 'form4', label: 'Form 4 — Discharge of Parole Order', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'], outcome: 'Parole Granted' },
+    { n: 5, key: 'form5', label: 'Form 5 — Applications After Refusal', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'], outcome: 'Parole Refused' },
   ];
+
+  function getFormWorkflowForApp(app) {
+    const base = FORM_WORKFLOW.filter((f) => f.n <= 3);
+    if (!app) return FORM_WORKFLOW;
+    const outcome = PMSStorage.getBoardDecisionOutcome?.(app);
+    if (outcome === 'Parole Granted') return [...base, FORM_WORKFLOW.find((f) => f.n === 4)];
+    if (outcome === 'Parole Refused') return [...base, FORM_WORKFLOW.find((f) => f.n === 5)];
+    return base;
+  }
 
   let comboboxPrisoners = [];
   let comboboxLocked = false;
@@ -64,9 +73,7 @@
     const ids = new Set();
     const list = [];
     scopePrisoners().forEach((p) => {
-      const prog = PMSStorage.getPrisonerProgress(p);
-      const hasActiveApp = scopeApps().some((a) => a.prisonerId === p.id && !['Approved', 'Refused'].includes(a.status));
-      const eligible = prog.eligible || p.status === 'Eligible for Parole Application' || hasActiveApp;
+      const eligible = PMSStorage.isEligibleParoleApplicant(p, scopeApps());
       if (eligible && !ids.has(p.id)) {
         ids.add(p.id);
         list.push(p);
@@ -190,14 +197,25 @@
     return prereqs.every((k) => checks[k]);
   }
 
-  function getFormRowState(formDef, checks, activeFormNumber) {
+  function getFormRowState(formDef, checks, activeFormNumber, app = null) {
     const done = !!checks[formDef.key];
     const canEdit = PMSRBAC.canAccessForm(actor, formDef.n, 'edit');
     const canView = PMSRBAC.canAccessForm(actor, formDef.n, 'view');
     const prereqsOk = prereqsMet(checks, formDef.prereqs);
+    const hasData = app?.id && typeof PMSFormWorkflow !== 'undefined'
+      && PMSFormWorkflow.hasFormData(formDef.n, app.id);
 
     if (done) {
-      return { state: 'completed', badge: 'Completed', icon: 'fi fi-rr-check-circle', clickable: canView || canEdit, reason: 'Completed' };
+      return { state: 'completed', badge: 'Completed', icon: 'fi fi-rr-check-circle', clickable: canView || canEdit, reason: 'View completed form' };
+    }
+    if (!prereqsOk && hasData) {
+      return {
+        state: 'review',
+        badge: 'Review',
+        icon: 'fi fi-rr-eye',
+        clickable: canView || canEdit,
+        reason: 'View saved form data (complete prior forms to edit)',
+      };
     }
     if (!prereqsOk) {
       return { state: 'locked', badge: 'Locked', icon: 'fi fi-rr-lock', clickable: false, reason: 'Complete prior forms first' };
@@ -214,8 +232,9 @@
     return { state: 'pending', badge: 'Ready', icon: 'fi fi-rr-circle', clickable: true, reason: 'Available to complete' };
   }
 
-  function getActiveFormNumber(checks) {
-    for (const f of FORM_WORKFLOW) {
+  function getActiveFormNumber(checks, app) {
+    const workflow = getFormWorkflowForApp(app);
+    for (const f of workflow) {
       if (checks[f.key]) continue;
       if (!prereqsMet(checks, f.prereqs)) continue;
       if (PMSRBAC.canAccessForm(actor, f.n, 'edit')) return f.n;
@@ -232,14 +251,28 @@
     const app = findApplicationForPrisoner(prisonerId);
     if (!app) return { formN: 1, appId: null, label: 'Form 1 — start application' };
 
+    const target = PMSStorage.resolveApplicationEditTarget(app, actor);
+    if (target?.formN) {
+      const def = getFormWorkflowForApp(app).find((f) => f.n === target.formN);
+      return {
+        formN: target.formN,
+        appId: app.id,
+        label: target.label || def?.label || `Form ${target.formN}`,
+      };
+    }
+    if (target?.label) {
+      return { formN: null, appId: app.id, label: target.label };
+    }
+
     const checks = PMSStorage.getFormCompletionSummary(app).checks;
-    const activeFormNumber = getActiveFormNumber(checks);
+    const activeFormNumber = getActiveFormNumber(checks, app);
     if (activeFormNumber) {
-      const def = FORM_WORKFLOW.find((f) => f.n === activeFormNumber);
+      const def = getFormWorkflowForApp(app).find((f) => f.n === activeFormNumber);
       return { formN: activeFormNumber, appId: app.id, label: def?.label || `Form ${activeFormNumber}` };
     }
 
-    for (const f of FORM_WORKFLOW) {
+    const workflow = getFormWorkflowForApp(app);
+    for (const f of workflow) {
       if (checks[f.key]) continue;
       if (!prereqsMet(checks, f.prereqs)) continue;
       const canView = PMSRBAC.canAccessForm(actor, f.n, 'view');
@@ -247,21 +280,21 @@
       if (canView || canEdit) return { formN: f.n, appId: app.id, label: f.label };
     }
 
-    for (const f of FORM_WORKFLOW) {
+    for (const f of workflow) {
       if (!checks[f.key]) return { formN: f.n, appId: app.id, label: f.label };
     }
 
-    const last = FORM_WORKFLOW[FORM_WORKFLOW.length - 1];
+    const last = workflow[workflow.length - 1];
     return { formN: last.n, appId: app.id, label: last.label };
   }
 
   function openPrisonerWorkflowForm(prisonerId) {
-    const target = resolveWorkflowFormForPrisoner(prisonerId);
-    if (!target.appId) {
+    const app = findApplicationForPrisoner(prisonerId);
+    if (!app) {
       openNewApplication(prisonerId);
       return;
     }
-    PMSForms.openForm(target.formN, target.appId);
+    PMSUI.navigateToApplicationEdit(app.id, actor);
   }
 
   function updateAppStatusBanner(app, prisonerId) {
@@ -356,7 +389,7 @@
   function renderOverview() {
     const prisoners = scopePrisoners();
     const apps = scopeApps();
-    const eligible = prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible).length;
+    const eligible = PMSStorage.countEligibleParoleApplicants(actor.institutionId);
     const form1Pending = apps.filter((a) => PMSStorage.isActiveParoleApplication(a) && !PMSStorage.isForm1Complete(a.formData?.form1)).length;
     const activeCases = apps.filter((a) => PMSStorage.isActiveParoleApplication(a)).length;
     const unread = PMSStorage.getUnreadCountForUser(actor);
@@ -385,8 +418,7 @@
         statId: 'stat-eligible',
         title: 'Eligible for Parole',
         columns: ['ID', 'Name', 'Institution', 'Eligibility', ''],
-        getRows: () => scopePrisoners()
-          .filter((p) => PMSStorage.getPrisonerProgress(p).eligible)
+        getRows: () => PMSStorage.getEligibleParoleApplicants(actor.institutionId)
           .map((p) => PMSUI.prisonerDrilldownRow(p, `<td>${PMSUI.fmtDate(PMSStorage.getPrisonerProgress(p).eligibilityDate)}</td>`)),
       },
       {
@@ -439,7 +471,7 @@
 
     document.getElementById('eligibility-rule').textContent = PMSStorage.getSettings().paroleEligibilityLabel;
 
-    document.getElementById('eligibility-tbody').innerHTML = scopePrisoners().map((p) => {
+    document.getElementById('eligibility-tbody').innerHTML = PMSStorage.getEligibleParoleApplicants(actor.institutionId).map((p) => {
 
       const prog = PMSStorage.getPrisonerProgress(p);
       const app = findApplicationForPrisoner(p.id);
@@ -453,9 +485,12 @@
         : (prog.eligible ? '<span class="meta">No application yet</span>' : '—');
       const startAction = prog.eligible && !app
         ? `<button type="button" class="btn-icon" data-start-app="${PMSUI.esc(p.id)}">Start Application</button>`
-        : (app ? `<button type="button" class="btn-icon" data-open-prisoner-form="${PMSUI.esc(p.id)}">Continue Form ${workflow.formN}</button>` : '—');
+        : (app ? `<button type="button" class="btn-icon" data-open-prisoner-form="${PMSUI.esc(p.id)}">Review Forms</button>` : '—');
 
-      return `<tr class="${prog.eligible ? 'row-eligible' : ''}"><td>${nameCell}</td><td>${PMSUI.fmtDate(p.sentenceStartDate)}</td><td>${Math.floor(prog.totalMonths / 12)}y ${prog.totalMonths % 12}m</td><td>${prog.percent.toFixed(0)}%</td><td>${PMSUI.fmtDate(prog.eligibilityDate)}${prog.eligible ? ' <span class="eligible-tag">ELIGIBLE</span>' : ''}</td><td>${PMSUI.esc(p.status)}</td><td>${formStatus}</td><td>${startAction}</td></tr>`;
+      const rowAttrs = app
+        ? `class="eligibility-row--clickable ${prog.eligible ? 'row-eligible' : ''}" data-open-prisoner-form="${PMSUI.esc(p.id)}" title="Open ${PMSUI.esc(workflow.label)}" tabindex="0" role="button"`
+        : `class="${prog.eligible ? 'row-eligible' : ''}"`;
+      return `<tr ${rowAttrs}><td>${nameCell}</td><td>${PMSUI.fmtDate(p.sentenceStartDate)}</td><td>${Math.floor(prog.totalMonths / 12)}y ${prog.totalMonths % 12}m</td><td>${prog.percent.toFixed(0)}%</td><td>${PMSUI.fmtDate(prog.eligibilityDate)}${prog.eligible ? ' <span class="eligible-tag">ELIGIBLE</span>' : ''}</td><td>${PMSUI.esc(p.status)}</td><td>${formStatus}</td><td>${startAction}</td></tr>`;
 
     }).join('');
 
@@ -491,13 +526,13 @@
 
     const summary = app?.id ? PMSStorage.getFormCompletionSummary(app) : { completed: 0, total: 5 };
 
-    const activeFormNumber = getActiveFormNumber(checks);
+    const activeFormNumber = getActiveFormNumber(checks, app);
 
-    const rows = FORM_WORKFLOW.map((f) => {
+    const rows = getFormWorkflowForApp(app).map((f) => {
 
-      const rowState = getFormRowState(f, checks, activeFormNumber);
+      const rowState = getFormRowState(f, checks, activeFormNumber, app);
 
-      const clickable = rowState.clickable && (app?.id || rowState.state === 'active' || rowState.state === 'pending');
+      const clickable = rowState.clickable && (app?.id || rowState.state === 'active' || rowState.state === 'pending' || rowState.state === 'review' || rowState.state === 'completed');
 
       const rowClass = [
 
@@ -563,7 +598,7 @@
 
       const p = PMSStorage.getPrisonerById(a.prisonerId);
 
-      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${formsSummary(a)}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td><button type="button" class="btn-icon" data-edit-app="${a.id}">Manage</button></td></tr>`;
+      return `<tr ${PMSUI.applicationRowAttributes(a, actor)}><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${formsSummary(a)}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td>${PMSUI.renderApplicationActionButtons(a, actor)}</td></tr>`;
 
     }).join('') || '<tr><td colspan="5" class="empty-state">No applications.</td></tr>';
 
@@ -660,6 +695,8 @@
 
   });
 
+  PMSUI.setPanelNavigator((panel, navId) => PMSUI.switchPanel(panel, panelTitles, refresh, navId));
+
   PMSUI.initShell(actor);
 
   PMSUI.bindModalClose();
@@ -728,7 +765,7 @@
   document.addEventListener('click', (e) => {
 
     const prisonerFormBtn = e.target.closest('[data-open-prisoner-form]');
-    if (prisonerFormBtn) {
+    if (prisonerFormBtn && !e.target.closest('a[href]:not([href="#"])')) {
       e.preventDefault();
       openPrisonerWorkflowForm(prisonerFormBtn.dataset.openPrisonerForm);
       return;
@@ -780,13 +817,25 @@
 
     }
 
+    const eligRow = e.target.closest('[data-open-prisoner-form].eligibility-row--clickable');
+    if (eligRow && eligRow === document.activeElement && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      openPrisonerWorkflowForm(eligRow.dataset.openPrisonerForm);
+    }
+
   });
 
 
 
   PMSUI.bindOverviewNotifications('overview-notifications', actor, () => refresh('overview'));
 
+  PMSUI.bindApplicationActionHandlers(() => refresh('applications'));
   if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');
+
+  PMSUI.bindLiveDataRefresh(() => {
+    const active = document.querySelector('.sidebar-nav .nav-item.active')?.dataset.panel || 'overview';
+    refresh(active);
+  });
   setupStatCards();
 
 })();

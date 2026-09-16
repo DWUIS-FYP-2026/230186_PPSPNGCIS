@@ -181,7 +181,7 @@
 
   function renderEligibility() {
     document.getElementById('eligibility-rule').textContent = PMSStorage.getSettings().paroleEligibilityLabel;
-    document.getElementById('eligibility-tbody').innerHTML = scopePrisoners().map((p) => {
+    document.getElementById('eligibility-tbody').innerHTML = PMSStorage.getEligibleParoleApplicants(actor.institutionId).map((p) => {
       const prog = PMSStorage.getPrisonerProgress(p);
       const app = findApplicationForPrisoner(p.id);
       const workflow = resolveWorkflowFormForPrisoner(p.id);
@@ -206,7 +206,7 @@
     const pprBtn = PMSStorage.needsDjagForm2Ppr(a)
       ? `<button type="button" class="btn-icon" data-open-form="2" data-app="${a.id}">Open Form 2</button> `
       : '';
-    return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${form2ActionLabel(a)}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td>${pprBtn}<button type="button" class="btn-icon" data-review="${a.id}">Review</button> ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}</td></tr>`;
+    return `<tr ${PMSUI.applicationRowAttributes(a, actor)}><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${form2ActionLabel(a)}</td><td>${PMSUI.fmtDate(a.submittedAt)}</td><td>${pprBtn}<button type="button" class="btn-icon" data-review="${a.id}">Review</button> ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''} ${PMSUI.renderApplicationActionButtons(a, actor)}</td></tr>`;
   }
 
   function renderApplications() {
@@ -288,10 +288,10 @@
   function openHearingPortal() {
     const eligible = djagApps().filter((a) => ['Pre-Parole Report Prepared'].includes(a.status));
     if (eligible.length === 1) {
-      window.location.href = `forms/hearing-portal.html?appId=${encodeURIComponent(eligible[0].id)}`;
+      window.location.href = `forms/hearing-schedule.html?appId=${encodeURIComponent(eligible[0].id)}`;
       return;
     }
-    window.location.href = 'forms/hearing-portal.html';
+    window.location.href = 'forms/hearing-schedule.html';
   }
 
   PMSSidebar.init({
@@ -299,6 +299,7 @@
     activePanel: 'overview',
     onNavigate: (panel, meta) => PMSUI.switchPanel(panel, panelTitles, refresh, meta?.navId),
   });
+  PMSUI.setPanelNavigator((panel, navId) => PMSUI.switchPanel(panel, panelTitles, refresh, navId));
   PMSUI.initShell(actor);
   PMSUI.bindModalClose();
   PMSUI.bindNotificationPanel('notification-list', actor, () => refresh('notifications'));
@@ -364,6 +365,12 @@
 
   PMSUI.bindOverviewNotifications('overview-notifications', actor, () => refresh('overview'));
 
+  PMSUI.bindApplicationActionHandlers(() => refresh('applications'));
   if (!PMSUI.applyDeepLinkNav((p, n) => PMSUI.switchPanel(p, panelTitles, refresh, n))) refresh('overview');
+
+  PMSUI.bindLiveDataRefresh(() => {
+    const active = document.querySelector('.sidebar-nav .nav-item.active')?.dataset.panel || 'overview';
+    refresh(active);
+  });
   setupStatCards();
 })();

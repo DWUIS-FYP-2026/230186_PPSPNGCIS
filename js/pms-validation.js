@@ -113,11 +113,127 @@ const PMSValidation = (() => {
   }
 
   function validateForm3(data) {
+    if (data?.checkpointPassed && data?.submitted) return { valid: true, errors: [] };
     const errors = [];
-    errors.push(required(data.commanderName, 'Commander name'));
-    errors.push(required(data.institutionalReport, 'Institutional report'));
-    errors.push(required(data.recommendation, 'Recommendation'));
+    const hasInstitutional = !!(data.conductDuringSentence || data.programParticipation);
+    const hasHearing = !!(data.hearingProceedings || data.boardMembersPresent || data.hearingOutcomeNotes);
+    if (hasHearing || !hasInstitutional) {
+      errors.push(required(data.hearingProceedings, 'Hearing proceedings summary'));
+      errors.push(required(data.boardMembersPresent, 'Board members present'));
+      errors.push(required(data.officerName || data.commanderName, 'Recording officer name'));
+      return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
+    }
+    errors.push(required(data.conductDuringSentence, 'Conduct during sentence'));
+    errors.push(required(data.programParticipation, 'Program participation and rehabilitation'));
+    const recommendation = data.institutionalRecommendation || data.commanderRecommendation || data.recommendation;
+    errors.push(required(recommendation, 'Institutional recommendation'));
+    errors.push(required(data.officerName || data.commanderName, 'Preparing officer name'));
     return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
+  }
+
+  function validateForm3Checkpoint(app) {
+    if (!app || typeof PMSStorage === 'undefined') {
+      return { valid: false, allPassed: false, errors: ['Application not found.'], items: [] };
+    }
+    const fd = app.formData || {};
+    const prisoner = PMSStorage.getPrisonerById(app.prisonerId);
+    const items = [];
+    const errors = [];
+
+    const f1 = fd.form1 || {};
+    const hasParoleSections = !!(f1.sections?.E || f1.sectionE || f1.prisonerDetails);
+    const f1Complete = PMSStorage.isForm1Complete(f1);
+    let f1Valid = f1Complete;
+    let f1Detail = f1Complete ? 'Submitted' : (hasParoleSections ? 'Draft saved — submit Form 1 to continue' : 'Not completed');
+    let f1FieldErrors = [];
+
+    if (f1Complete && typeof PMSForm1Validation !== 'undefined' && prisoner) {
+      const progress = PMSStorage.getPrisonerProgress(prisoner);
+      const settings = PMSStorage.DEFAULT_SETTINGS || {};
+      const v = PMSForm1Validation.validateForm1(f1, prisoner, progress, settings, { submit: true });
+      f1Valid = v.valid;
+      f1FieldErrors = v.errors || [];
+      f1Detail = v.valid
+        ? `Outcome: ${f1.eligibilityOutcome || 'recorded'} · Officer: ${f1.officerName || '—'} · Date: ${f1.screeningDate || '—'}`
+        : f1FieldErrors.slice(0, 3).join('; ');
+    } else if (!f1Complete) {
+      f1FieldErrors = ['Form 1 must be submitted before Form 3.'];
+    }
+
+    items.push({
+      id: 'form1',
+      label: 'Form 1 — Parole Eligibility Screening',
+      ok: f1Complete && f1Valid,
+      detail: f1Detail,
+      errors: f1FieldErrors,
+      fixForm: 1,
+    });
+    if (!f1Complete || !f1Valid) errors.push(...f1FieldErrors);
+
+    const ddr = fd.form2?.sections?.ddr || {};
+    const darSubmitted = !!(ddr.submitted && ddr.confirmed);
+    let darValid = darSubmitted;
+    let darErrors = [];
+    if (darSubmitted) {
+      const v = validateForm2Section('ddr', { ...ddr, confirmed: true });
+      darValid = v.valid;
+      darErrors = v.errors;
+    } else {
+      darErrors = ['DAR section has not been submitted by CS Parole Clerk.'];
+    }
+
+    items.push({
+      id: 'form2-dar',
+      label: 'Form 2 — DAR (Detainee Assessment Report)',
+      ok: darSubmitted && darValid,
+      detail: darSubmitted
+        ? `${ddr.officerName || ddr.darOfficer || 'Officer recorded'} · ${ddr.status || 'submitted'}`
+        : 'Awaiting CS Parole Clerk submission',
+      errors: darErrors,
+      fixForm: 2,
+      fixSection: 'dar',
+    });
+    if (!darSubmitted || !darValid) errors.push(...darErrors);
+
+    const ppr = fd.form2?.sections?.ppr || {};
+    const pprSubmitted = !!(ppr.submitted && ppr.confirmed);
+    let pprValid = pprSubmitted;
+    let pprErrors = [];
+    if (pprSubmitted) {
+      const v = validateForm2Section('ppr', { ...ppr, confirmed: true });
+      pprValid = v.valid;
+      pprErrors = v.errors;
+    } else {
+      pprErrors = ['PPR section has not been submitted by DJAG Parole Clerk.'];
+    }
+
+    items.push({
+      id: 'form2-ppr',
+      label: 'Form 2 — PPR (Pre-Parole Report)',
+      ok: pprSubmitted && pprValid,
+      detail: pprSubmitted
+        ? `${ppr.clerkName || ppr.pprOfficer || ppr.officerName || 'Clerk recorded'} · ${ppr.status || 'submitted'}`
+        : 'Awaiting DJAG Parole Clerk submission',
+      errors: pprErrors,
+      fixForm: 2,
+      fixSection: 'ppr',
+    });
+    if (!pprSubmitted || !pprValid) errors.push(...pprErrors);
+
+    items.push({
+      id: 'case-link',
+      label: 'Application linked to detainee record',
+      ok: !!(app.prisonerId && prisoner),
+      detail: prisoner
+        ? `${prisoner.firstName} ${prisoner.lastName} (${prisoner.prisonerNumber || prisoner.id})`
+        : 'Prisoner record missing',
+      errors: prisoner ? [] : ['Link a valid prisoner to this application.'],
+      fixForm: null,
+    });
+    if (!prisoner) errors.push('Application must be linked to a detainee record.');
+
+    const allPassed = items.every((item) => item.ok);
+    return { valid: allPassed, allPassed, errors: [...new Set(errors.filter(Boolean))], items };
   }
 
   function validateAssessment(assessment) {
@@ -162,6 +278,7 @@ const PMSValidation = (() => {
     findDuplicateCase,
     validateForm2Section,
     validateForm3,
+    validateForm3Checkpoint,
     validateAssessment,
     validateGuarantor,
     showFieldErrors,

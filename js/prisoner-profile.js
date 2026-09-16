@@ -23,11 +23,14 @@
 
   const canEdit = PMSRBAC.canModifyPrisoner(actor);
   const root = document.getElementById('case-file-root');
-  root.innerHTML = PMSPrisonerUI.renderCaseFile(prisoner, { showEditLink: canEdit, actor });
+  function renderCase() {
+    root.innerHTML = PMSPrisonerUI.renderCaseFile(prisoner, { showEditLink: canEdit, actor });
+    document.getElementById('btn-print-case')?.addEventListener('click', () => window.print());
+  }
+  renderCase();
+  PMSUI.bindApplicationActionHandlers(renderCase);
 
   PMSPageChrome.init({ basePath: '' });
-
-  document.getElementById('btn-print-case')?.addEventListener('click', () => window.print());
 
   PMSSidebar.init({
     user: actor,

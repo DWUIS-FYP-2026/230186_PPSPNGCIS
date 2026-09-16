@@ -10,6 +10,8 @@ const PMSHearingPortal = (() => {
   const DECISIONS_PAGE_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const SCHEDULE_ROLES = ['DJAG Secretary'];
   const DECIDE_ROLES = [];
+  /** Board Chairman — the only seat that records the overall outcome and issues Form 4/5. */
+  const CHAIR_ROLES = ['DJAG Secretary'];
   const ASSESS_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const PANEL_ROLES = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
   const SCHEDULABLE_STATUSES = ['Pre-Parole Report Prepared', 'Hearing Scheduled'];
@@ -45,6 +47,7 @@ const PMSHearingPortal = (() => {
   let canSchedule = false;
   let canDecide = false;
   let canAssess = false;
+  let canGrantOutcome = false;
   let canUseMedicalScore = false;
   let queue = [];
   let currentIndex = 0;
@@ -56,6 +59,8 @@ const PMSHearingPortal = (() => {
   let psychSubmitGate = null;
   let voteOfficerAuth = null;
   let voteSubmitGate = null;
+  let sessionSyncTimer = null;
+  let sessionSyncBound = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -478,6 +483,7 @@ const PMSHearingPortal = (() => {
 
   function renderDeadline(app, hearing) {
     const alert = $('deadline-alert');
+    if (!alert) return;
     const info = PMSStorage.getHearingDeadlineInfo(app);
     if (!info) {
       alert.hidden = true;
@@ -562,6 +568,203 @@ const PMSHearingPortal = (() => {
       btn.textContent = 'Open Form 4 — Discharge of Parole Order';
     } else if (outcome === 'Parole Refused') {
       btn.textContent = 'Open Form 5 — Applications After Refusal';
+    }
+  }
+
+  function getOutcomeFormNumber(outcome) {
+    if (outcome === 'Parole Granted') return 4;
+    if (outcome === 'Parole Refused') return 5;
+    return null;
+  }
+
+  function outcomeFormLabel(formN) {
+    return formN === 4
+      ? 'Open Form 4 — Discharge of Parole Order'
+      : 'Open Form 5 — Applications After Refusal';
+  }
+
+  function openOutcomeForm(formN) {
+    if (!formN || !currentAppId) return;
+    if (typeof PMSForms !== 'undefined') {
+      PMSForms.openForm(formN, currentAppId);
+    } else if (typeof PMSFormWorkflow !== 'undefined') {
+      PMSFormWorkflow.openForm(formN, currentAppId);
+    }
+  }
+
+  function seatLabel(role) {
+    return typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.getBoardMemberLabel(role) : role;
+  }
+
+  function seatLabels(roles) {
+    return (roles || []).map(seatLabel).join(', ');
+  }
+
+  /** Per-seat vote breakdown shown directly above the overall board outcome. */
+  function renderPanelTally(app, show) {
+    const block = $('panel-tally');
+    if (!block) return;
+    block.hidden = !show;
+    if (!show) return;
+
+    const all = PMSStorage.getBoardAssessments(app.id);
+    const byRole = {};
+    const draftByRole = {};
+    all.forEach((a) => {
+      if (a.submissionStatus === 'Submitted') byRole[a.role] = a;
+      else if (a.submissionStatus === 'Draft') draftByRole[a.role] = a;
+    });
+
+    $('panel-tally-list').innerHTML = PMSStorage.BOARD_ASSESSOR_ROLES.map((role) => {
+      const a = byRole[role];
+      const draft = draftByRole[role];
+      const user = (a || draft)?.assessorId
+        ? PMSStorage.getUserById((a || draft).assessorId)
+        : PMSStorage.getUsers().find((u) => u.role === role && u.status === 'Active');
+      const name = a?.assessorName || draft?.assessorName || (user ? `${user.firstName} ${user.lastName}` : '—');
+      const seat = typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.getBoardMemberLabel(role) : role;
+      const isMe = ((a || draft)?.assessorId || user?.id) === actor?.id;
+      const voteLabel = (v) => (typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.formatVoteLabel(v) : v);
+      let variant = 'pending';
+      let status = 'Not voted yet';
+      if (a) {
+        variant = typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.voteVariant(a.vote) : 'defer';
+        status = `${voteLabel(a.vote)}${a.score != null ? ` · ${a.score}%` : ''}`;
+      } else if (draft?.vote) {
+        status = `Draft — ${voteLabel(draft.vote)}`;
+      }
+      return `<div class="panel-tally__row panel-tally__row--${variant}">
+        <span class="panel-tally__seat">${esc(seat)}${isMe ? ' (you)' : ''}</span>
+        <span class="panel-tally__name">${esc(name)}</span>
+        <span class="panel-tally__vote">${esc(status)}</span>
+      </div>`;
+    }).join('');
+
+    const progress = PMSStorage.getBoardAssessmentProgress(app);
+    const tally = PMSStorage.calculateBoardVotes(app);
+    const counts = `Approve ${tally.votes.Approved} · Deny ${tally.votes.Refused} · Defer ${tally.votes.Deferred}`;
+    $('panel-tally-summary').textContent = progress.complete
+      ? `All ${progress.total} votes submitted — ${counts}.`
+      : `${progress.submitted} of ${progress.total} votes submitted — ${counts}. Awaiting: ${seatLabels(progress.pendingRoles)}.`;
+  }
+
+  /**
+   * Overall board outcome shown under every member's vote panel. All members see
+   * the panel result; only the Board Chairman (DJAG Secretary) can issue Form 4/5.
+   * The enabled button follows the panel majority.
+   */
+  function renderFinalOutcome(app) {
+    const block = $('final-outcome');
+    if (!block) return;
+    const approveBtn = $('btn-final-approve');
+    const rejectBtn = $('btn-final-reject');
+    const openBtn = $('btn-final-open-form');
+    const note = $('final-outcome-note');
+    const title = $('final-outcome-title');
+    const actions = block.querySelector('.final-outcome__actions');
+
+    const show = portalMode === 'decisions' && canAssess && DECISION_STATUSES.includes(app?.status);
+    block.hidden = !show;
+    renderPanelTally(app, show);
+    if (!show) return;
+
+    const setBtn = (btn, enabled, reason) => {
+      btn.disabled = !enabled;
+      btn.title = reason;
+      btn.classList.toggle('final-outcome__btn--active', enabled);
+    };
+
+    const progress = PMSStorage.getBoardAssessmentProgress(app);
+    const outcome = PMSStorage.getBoardDecisionOutcome(app);
+    const formN = getOutcomeFormNumber(outcome);
+    const tally = PMSStorage.calculateBoardVotes(app);
+    const recorded = app.boardDecision?.outcome;
+    const decidedBy = app.boardDecision?.decidedByName || '—';
+    const decidedAt = app.boardDecision?.decidedAt ? ` on ${PMSUI.fmtDate(app.boardDecision.decidedAt)}` : '';
+
+    if (title) {
+      title.textContent = canGrantOutcome
+        ? 'Overall Board Decision — Chairman'
+        : 'Overall Board Decision';
+    }
+
+    // Members other than the Chairman vote only; no grant/refuse action for them.
+    if (!canGrantOutcome) {
+      if (actions) actions.hidden = true;
+      openBtn.hidden = true;
+      if (recorded) {
+        note.textContent = `Recorded: ${recorded} — issued by ${decidedBy}${decidedAt}.`;
+      } else if (!progress.complete) {
+        note.textContent = `Awaiting votes from: ${seatLabels(progress.pendingRoles)}. The DJAG Secretary (Board Chairman) issues Form 4 or Form 5 once all votes are in.`;
+      } else if (!formN) {
+        note.textContent = `All votes are in (${tally.calculation}) — the panel outcome is Deferred, so no outcome form applies yet.`;
+      } else {
+        note.textContent = `All votes are in (${tally.calculation}). Panel majority: ${outcome}. Only the DJAG Secretary (Board Chairman) can issue Form ${formN}.`;
+      }
+      return;
+    }
+
+    if (actions) actions.hidden = false;
+
+    if (recorded) {
+      note.textContent = `Recorded: ${recorded} — confirmed by ${decidedBy}${decidedAt}.${formN ? ` Complete Form ${formN}.` : ''}`;
+      setBtn(approveBtn, false, 'Overall decision already recorded');
+      setBtn(rejectBtn, false, 'Overall decision already recorded');
+      openBtn.hidden = !formN;
+      if (formN) openBtn.textContent = outcomeFormLabel(formN);
+      return;
+    }
+
+    openBtn.hidden = true;
+
+    if (!progress.complete) {
+      note.textContent = `Unlocks once all ${progress.total} board votes are submitted. Awaiting: ${seatLabels(progress.pendingRoles)}.`;
+      setBtn(approveBtn, false, 'Awaiting all board votes');
+      setBtn(rejectBtn, false, 'Awaiting all board votes');
+      return;
+    }
+
+    if (!formN) {
+      note.textContent = `All votes are in (${tally.calculation}) but the panel outcome is Deferred, so neither Form 4 nor Form 5 applies yet.`;
+      setBtn(approveBtn, false, 'Panel outcome is Deferred');
+      setBtn(rejectBtn, false, 'Panel outcome is Deferred');
+      return;
+    }
+
+    const majorityIsGrant = outcome === 'Parole Granted';
+    note.textContent = `All votes are in (${tally.calculation}). Panel majority: ${outcome}. Confirm below to issue Form ${formN}.`;
+    setBtn(approveBtn, majorityIsGrant, majorityIsGrant
+      ? 'Record grant and open Form 4'
+      : 'Panel majority refused parole');
+    setBtn(rejectBtn, !majorityIsGrant, majorityIsGrant
+      ? 'Panel majority granted parole'
+      : 'Record refusal and open Form 5');
+  }
+
+  async function finalizeBoardOutcome(outcome) {
+    if (!currentAppId) return;
+    if (!canGrantOutcome) {
+      showToast('Only the DJAG Secretary (Board Chairman) may issue Form 4 or Form 5.');
+      return;
+    }
+    const app = PMSStorage.getApplicationById(currentAppId);
+    if (!app) return;
+    const panelOutcome = PMSStorage.getBoardDecisionOutcome(app);
+    if (panelOutcome !== outcome) {
+      showToast(panelOutcome
+        ? `Panel majority is ${panelOutcome} — you cannot record ${outcome}.`
+        : 'All board votes must be submitted before the overall decision.');
+      return;
+    }
+    const formN = getOutcomeFormNumber(outcome);
+    try {
+      await PMSStorage.recordBoardDecision(currentAppId, { outcome }, actor);
+      showToast(`Overall decision recorded: ${outcome}. Opening Form ${formN}.`);
+      renderQueue();
+      selectCase(currentIndex);
+      openOutcomeForm(formN);
+    } catch (err) {
+      showToast(err.message || 'Could not record the overall decision.');
     }
   }
 
@@ -710,6 +913,17 @@ const PMSHearingPortal = (() => {
     interviewSubmitGate?.sync();
     psychSubmitGate?.sync();
     voteSubmitGate?.sync();
+    renderSubmitBlocker();
+  }
+
+  /** Spell out on screen why Submit My Vote is disabled — a tooltip alone is easy to miss. */
+  function renderSubmitBlocker() {
+    const el = $('assessor-submit-blocker');
+    const btn = $('btn-record-decision');
+    if (!el || !btn) return;
+    const reason = btn.disabled ? btn.title.replace(/\s*\.$/, '') : '';
+    el.hidden = !reason;
+    el.textContent = reason ? `Before you can submit: ${reason}.` : '';
   }
 
   function refreshInterviewSaveState(app) {
@@ -929,11 +1143,32 @@ const PMSHearingPortal = (() => {
     return rated >= BEHAVIORAL_INDICATORS.length && !!psych.demeanor && !!psych.clinicalNotes;
   }
 
+  function isVotingOpen(app) {
+    if (!app) return false;
+    if (typeof PMSStorage.isHearingSessionOpen === 'function') {
+      return PMSStorage.isHearingSessionOpen(app);
+    }
+    return ['Hearing In Progress', 'Pending Board Review'].includes(app.status);
+  }
+
+  function votingClosedReason(app) {
+    const session = typeof PMSStorage.getHearingSession === 'function'
+      ? PMSStorage.getHearingSession(app)
+      : null;
+    if (session?.scheduledDate) {
+      const when = `${PMSUI.fmtDate(session.scheduledDate)}${session.scheduledTime ? ` · ${session.scheduledTime}` : ''}`;
+      return `The DJAG Secretary must start this prisoner's hearing session before votes can be recorded (scheduled ${when})`;
+    }
+    return app?.status === 'Hearing Scheduled'
+      ? 'The DJAG Secretary must start this prisoner\'s hearing session before votes can be recorded'
+      : 'Board voting is not open for this case';
+  }
+
   function canEnableSaveVoteDraft(btn) {
     if (portalMode !== 'decisions' || !canAssess) return false;
     const app = currentAppId ? PMSStorage.getApplicationById(currentAppId) : null;
     if (!app) return false;
-    return ['Hearing In Progress', 'Pending Board Review'].includes(app.status);
+    return isVotingOpen(app);
   }
 
   function getSubmitVoteValidation() {
@@ -950,7 +1185,9 @@ const PMSHearingPortal = (() => {
     if (portalMode !== 'decisions' || !canAssess) return false;
     const app = currentAppId ? PMSStorage.getApplicationById(currentAppId) : null;
     if (!app) return false;
+    if (!isVotingOpen(app)) return false;
     if (!isClaimVerificationPersisted(app)) return false;
+    if (isPsychiatristActor() && !isPsychObservationPersisted(app)) return false;
     return getSubmitVoteValidation().valid;
   }
 
@@ -960,16 +1197,18 @@ const PMSHearingPortal = (() => {
     if (!app) return 'Select a case first';
 
     if (btn?.id === 'btn-save-assessment') {
-      if (!['Hearing In Progress', 'Pending Board Review'].includes(app.status)) {
-        return app.status === 'Hearing Scheduled'
-          ? 'The hearing must be started before saving your vote'
-          : 'Board voting is not open for this case';
-      }
+      if (!isVotingOpen(app)) return votingClosedReason(app);
       return 'Enter your 6-digit PIN and Verify & Sign before saving your vote';
     }
 
     if (btn?.id === 'btn-record-decision') {
-      if (!isClaimVerificationPersisted(app)) return 'Save Form 2 verification first';
+      if (!isVotingOpen(app)) return votingClosedReason(app);
+      if (!isClaimVerificationPersisted(app)) {
+        return 'Mark all 10 Form 2 claims, sign with your PIN, then click Save Verification';
+      }
+      if (isPsychiatristActor() && !isPsychObservationPersisted(app)) {
+        return 'Complete the interview evaluation (all 1–5 ratings, demeanour, clinical notes), sign, then click Save Interview Evaluation';
+      }
       const submitCheck = getSubmitVoteValidation();
       if (!submitCheck.valid) return submitCheck.message || 'Complete your vote below';
       return 'Enter your 6-digit PIN and Verify & Sign before submitting your vote';
@@ -1357,7 +1596,7 @@ const PMSHearingPortal = (() => {
 
     if (recordBtn) recordBtn.hidden = true;
 
-    const votingOpen = ['Hearing In Progress', 'Pending Board Review'].includes(app.status);
+    const votingOpen = isVotingOpen(app);
 
     if (canAssess) {
       assessorForm.hidden = false;
@@ -1461,16 +1700,118 @@ const PMSHearingPortal = (() => {
     $('hearing-conditions').disabled = !canDecide || finalRecorded || !progress.complete;
   }
 
+  function formatSessionWhen(session) {
+    if (!session) return '';
+    if (session.startedAt) {
+      const started = PMSUI.fmtDateTime
+        ? PMSUI.fmtDateTime(session.startedAt)
+        : new Date(session.startedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+      return session.startedByName ? `${started} by ${session.startedByName}` : started;
+    }
+    if (session.scheduledDate) {
+      return `${PMSUI.fmtDate(session.scheduledDate)}${session.scheduledTime ? ` · ${session.scheduledTime}` : ''}`;
+    }
+    return '';
+  }
+
+  function renderSessionBanner(app) {
+    const el = $('hearing-session-banner');
+    if (!el) return;
+    if (portalMode !== 'decisions' || !app) {
+      el.hidden = true;
+      return;
+    }
+    const session = typeof PMSStorage.getHearingSession === 'function'
+      ? PMSStorage.getHearingSession(app)
+      : { open: isVotingOpen(app), scheduledDate: null };
+    el.hidden = false;
+    el.classList.toggle('hearing-session-banner--pending', !session.open);
+    if (session.open) {
+      const when = formatSessionWhen(session);
+      el.textContent = when
+        ? `Hearing session is live for this prisoner — started ${when}. All board members may submit their votes now.`
+        : 'Hearing session is live for this prisoner. All board members may submit their votes now.';
+    } else {
+      const when = formatSessionWhen(session);
+      el.textContent = when
+        ? `Waiting for the DJAG Secretary to start this prisoner's hearing session (scheduled ${when}).`
+        : 'Waiting for the DJAG Secretary to start this prisoner\'s hearing session. Votes unlock for every board member at the same time.';
+    }
+  }
+
+  function applyLiveSessionChrome(app) {
+    if (!app) return;
+    renderSessionBanner(app);
+    syncStartHearingButton(app);
+    const votingOpen = isVotingOpen(app);
+    const saveBtn = $('btn-save-assessment');
+    const submitBtn = $('btn-record-decision');
+    if (saveBtn) saveBtn.hidden = !votingOpen;
+    if (submitBtn) submitBtn.hidden = !votingOpen;
+    const noteEl = $('decision-area-note');
+    if (noteEl && !votingOpen) {
+      noteEl.hidden = false;
+      noteEl.textContent = votingClosedReason(app) + '.';
+    }
+    syncInterviewSubmitGate();
+  }
+
+  async function syncSharedHearingSession() {
+    if (portalMode !== 'decisions' || typeof PMSStorage.pullRemoteHearingSessions !== 'function') return;
+    try {
+      const changed = await PMSStorage.pullRemoteHearingSessions();
+      if (!currentAppId) return;
+      const app = PMSStorage.getApplicationById(currentAppId);
+      if (!app) return;
+      if (changed) {
+        renderQueue();
+        if ($('vote-tracker')) renderVotes(app);
+        renderFinalOutcome(app);
+      }
+      applyLiveSessionChrome(app);
+      updateHearingProgressBadge(app);
+    } catch (_) { /* keep the current view if sync is briefly unavailable */ }
+  }
+
+  function updateHearingProgressBadge(app) {
+    const badge = $('eligibility-badge');
+    if (!badge || !app) return;
+    if (isVotingOpen(app) && !['Parole Granted', 'Parole Refused', 'Refused'].includes(app.status)
+      && !PMSStorage.getBoardDecisionOutcome(app)) {
+      badge.className = 'eligibility-badge in-progress';
+      badge.textContent = 'Hearing in progress';
+    }
+  }
+
+  function startSessionSync() {
+    if (sessionSyncBound || portalMode !== 'decisions') return;
+    sessionSyncBound = true;
+    const tick = () => { syncSharedHearingSession(); };
+    sessionSyncTimer = window.setInterval(tick, 4000);
+    window.addEventListener('focus', tick);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') tick();
+    });
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'pms_mock_data_v5' || e.key === 'pms_mock_data_v4') tick();
+    });
+    if (typeof PMSUI?.bindLiveDataRefresh === 'function') {
+      PMSUI.bindLiveDataRefresh(() => { tick(); }, { refreshOnFocus: false });
+    }
+  }
+
   function selectCase(index) {
     if (index < 0 || index >= queue.length) return;
     destroyAllInterviewAuth();
     currentIndex = index;
     const item = queue[index];
     currentAppId = item.appId;
-    const { app, prisoner, hearing } = item;
-    const institution = prisoner ? PMSStorage.getInstitutionById(prisoner.institutionId) : null;
-
     renderQueue();
+    const live = queue[currentIndex] || item;
+    const app = PMSStorage.getApplicationById(currentAppId) || live.app;
+    const prisoner = PMSStorage.getPrisonerById(app?.prisonerId) || live.prisoner;
+    const hearing = getActiveHearing(currentAppId) || live.hearing;
+    const institution = prisoner ? PMSStorage.getInstitutionById(prisoner.institutionId) : null;
 
     const name = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'Unknown';
     const pid = prisoner?.prisonerNumber || app.caseNumber || app.id;
@@ -1491,7 +1832,7 @@ const PMSHearingPortal = (() => {
     } else if (score.complete && score.meetsThreshold) {
       badge.className = 'eligibility-badge eligible';
       badge.textContent = `Eligible · Score ${score.percent}%`;
-    } else if (app.status === 'Hearing In Progress') {
+    } else if (isVotingOpen(app)) {
       badge.className = 'eligibility-badge in-progress';
       badge.textContent = 'Hearing in progress';
     } else if (PMSStorage.isCommanderVerified(app)
@@ -1524,16 +1865,18 @@ const PMSHearingPortal = (() => {
     renderDeadline(app, hearing);
     renderScheduleForm(app, hearing);
     if ($('decision-area')) renderDecisionArea(app);
+    renderFinalOutcome(app);
     const dossierStatus = $('dossier-status');
     if (dossierStatus) {
       dossierStatus.textContent = hearing?.scheduledDate
         ? `Hearing ${PMSUI.fmtDate(hearing.scheduledDate)}${hearing.scheduledTime ? ` · ${hearing.scheduledTime}` : ''}`
-        : (app.status === 'Hearing In Progress'
+        : (isVotingOpen(app)
           ? 'Hearing session active'
           : (app.status === 'Hearing Scheduled' ? 'Hearing scheduled' : 'Pending schedule'));
     }
 
     syncStartHearingButton(app);
+    renderSessionBanner(app);
 
     const url = new URL(location.href);
     url.searchParams.set('appId', app.id);
@@ -1657,7 +2000,7 @@ const PMSHearingPortal = (() => {
   function saveAssessmentDraft() {
     if (!currentAppId || !canAssess) return;
     const app = PMSStorage.getApplicationById(currentAppId);
-    if (portalMode === 'decisions' && app && !['Hearing In Progress', 'Pending Board Review'].includes(app.status)) {
+    if (portalMode === 'decisions' && app && !isVotingOpen(app)) {
       showToast('The hearing must be started before you can save your vote.');
       return;
     }
@@ -1761,7 +2104,10 @@ const PMSHearingPortal = (() => {
         PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
         await mirrorAssessmentToApi(payload);
         showToast('Your vote has been recorded. Other members may vote when ready.');
-        refreshInterviewSaveState(PMSStorage.getApplicationById(currentAppId));
+        const updated = PMSStorage.getApplicationById(currentAppId);
+        refreshInterviewSaveState(updated);
+        if ($('vote-tracker')) renderVotes(updated);
+        renderFinalOutcome(updated);
       } catch (err) {
         showToast(err.message);
       }
@@ -1825,9 +2171,10 @@ const PMSHearingPortal = (() => {
     if (!currentAppId || !canStartHearing(PMSStorage.getApplicationById(currentAppId))) return;
     try {
       await PMSStorage.startHearing(currentAppId, actor);
-      showToast('Hearing session started.');
+      showToast('Hearing session started. All board members can submit votes for this prisoner now.');
       renderQueue();
       selectCase(currentIndex);
+      syncSharedHearingSession();
     } catch (err) {
       showToast(err.message || 'Could not start hearing session.');
     }
@@ -1893,6 +2240,18 @@ const PMSHearingPortal = (() => {
     $('btn-save-claim-verification')?.addEventListener('click', saveClaimVerification);
     $('btn-save-psych-observation')?.addEventListener('click', savePsychObservation);
     $('btn-record-final-decision')?.addEventListener('click', recordDecision);
+    $('btn-final-approve')?.addEventListener('click', () => finalizeBoardOutcome('Parole Granted'));
+    $('btn-final-reject')?.addEventListener('click', () => finalizeBoardOutcome('Parole Refused'));
+    $('btn-final-open-form')?.addEventListener('click', () => {
+      if (!currentAppId) return;
+      const app = PMSStorage.getApplicationById(currentAppId);
+      const formN = getOutcomeFormNumber(app ? PMSStorage.getBoardDecisionOutcome(app) : null);
+      if (!formN) {
+        showToast('Board decision is not finalized yet.');
+        return;
+      }
+      openOutcomeForm(formN);
+    });
 
     $('btn-open-form')?.addEventListener('click', () => {
       if (!currentAppId) return;
@@ -1962,6 +2321,9 @@ const PMSHearingPortal = (() => {
     canAssess = typeof PMSRBAC !== 'undefined'
       ? PMSRBAC.canSubmitAssessment(actor)
       : ASSESS_ROLES.includes(actor.role);
+    canGrantOutcome = typeof PMSRBAC?.canRecordBoardDecision === 'function'
+      ? PMSRBAC.canRecordBoardDecision(actor)
+      : CHAIR_ROLES.includes(actor.role);
     canUseMedicalScore = typeof PMSBoardVote !== 'undefined'
       ? PMSBoardVote.showMedicalScore(actor)
       : actor.role === 'Doctor';
@@ -1996,11 +2358,13 @@ const PMSHearingPortal = (() => {
 
     bindInterviewEvents();
     bindEvents();
+    startSessionSync();
     renderQueue();
     if (queue.length) {
       const idx = currentAppId ? queue.findIndex((q) => q.appId === currentAppId) : 0;
       selectCase(idx >= 0 ? idx : 0);
     }
+    syncSharedHearingSession();
   }
 
   return { init, schedulePortalHref, decisionsPortalHref, resolvePortalHref, getPortalMode };

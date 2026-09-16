@@ -1,7 +1,7 @@
 -- Schema v3: prisoner_documents + api_sessions
 -- Applied automatically by npm run migrate (schema-sync.js)
 
-USE pms_db;
+
 
 CREATE TABLE IF NOT EXISTS prisoner_documents (
   id VARCHAR(32) NOT NULL PRIMARY KEY,

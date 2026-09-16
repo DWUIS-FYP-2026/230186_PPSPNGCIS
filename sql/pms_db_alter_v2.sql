@@ -1,5 +1,4 @@
 -- PMS schema additions — safe to re-run (ALTER adds missing columns only)
-USE pms_db;
 
 -- Prisoner computed / enriched attributes (from eligibility-engine)
 ALTER TABLE prisoners ADD COLUMN IF NOT EXISTS parole_eligibility_date DATE NULL AFTER status;

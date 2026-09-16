@@ -9,7 +9,7 @@ const PMSWorkflow = (() => {
     { id: 2, name: 'Eligibility Calculation', status: 'Eligible for Parole Application', role: 'System (Automated)', action: 'Calculate eligibility at one-half (1/2) of sentence served' },
     { id: 3, name: 'Eligibility Notification', status: null, role: 'System (Automated)', action: 'Notify CS Parole Clerk, CS Parole Officer, and System Administrator' },
     { id: 4, name: 'Forms 1 & 2 Preparation', status: 'Draft', role: 'CS Parole Officer / PNGCS & DJAG Clerks', action: 'Complete Form 1 and Form 2 (DDR by CS, PPR by DJAG)' },
-    { id: 5, name: 'Form 3 — Institutional Report', status: 'Draft', role: 'CS Parole Clerk', action: 'Complete institutional report before commander verification' },
+    { id: 5, name: 'Form 3 — Parole Hearing Record', status: 'Hearing Scheduled', role: 'CS Parole Clerk / DJAG Secretary', action: 'Record parole hearing proceedings after the board session is scheduled' },
     { id: 6, name: 'Institutional Verification', status: 'Pending Commander Review', role: 'Jail Commander', action: 'Verify Forms 1–3 and record institutional decision' },
     { id: 7, name: 'Submit to DJAG', status: 'Submitted', role: 'CS Parole Clerk', action: 'Submit complete application package to DJAG' },
     { id: 8, name: 'DJAG Review', status: 'Under DJAG Review', role: 'DJAG Parole Clerk', action: 'Verify documentation and review application' },
@@ -117,29 +117,26 @@ const PMSWorkflow = (() => {
     if (toStatus === 'Submitted') {
       need('form1', 'Form 1 must be completed and submitted.');
       need('form2', 'Form 2 (DDR and PPR) must be completed.');
-      need('form3', 'Form 3 institutional report must be completed.');
       need('commanderVerified', 'Institutional verification must be completed.');
     }
     if (toStatus === 'Pending Commander Review') {
       need('form1', 'Form 1 must be completed.');
       need('form2', 'Form 2 must be completed.');
-      need('form3', 'Form 3 institutional report must be completed.');
     }
     if (toStatus === 'Pre-Parole Report Prepared') {
       need('form2', 'Form 2 must be completed.');
-      need('form3', 'Form 3 must be completed.');
       need('commanderVerified', 'Institutional verification must be completed.');
     }
-    if (toStatus === 'Hearing Scheduled') { need('commanderVerified', 'Institutional verification is required.'); need('form3', 'Form 3 must be completed.'); }
+    if (toStatus === 'Hearing Scheduled') { need('commanderVerified', 'Institutional verification is required.'); }
     if (toStatus === 'Hearing In Progress') {
       need('hearingScheduled', 'A hearing must be scheduled before the session can start.');
       need('commanderVerified', 'Institutional verification is required.');
-      need('form3', 'Form 3 must be completed.');
     }
     if (toStatus === 'Pending Board Review') need('hearingScheduled', 'A hearing must be scheduled before board review.');
     if (['Parole Granted', 'Parole Refused', 'Pending Approval'].includes(toStatus)) {
       need('assessmentsComplete', 'All board assessments must be submitted.');
       need('scoreCalculated', 'Final parole score must be calculated.');
+      need('form3', 'Form 3 hearing record must be completed.');
     }
     if (toStatus === 'Approved') need('approvalsComplete', 'Required approval workflow must be completed.');
     if (toStatus === 'Released') {

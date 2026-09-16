@@ -1,13 +1,7 @@
 /**
- * Form 1 — Parole Application page controller (Sections A–E).
+ * Form 1 — Simplified Parole Application (prisoner details + eligibility assessment).
  */
 const PMSForm1Parole = (() => {
-  const PNG_PROVINCES = [
-    'National Capital District', 'Central', 'East Sepik', 'East New Britain', 'Enga', 'Gulf',
-    'Hela', 'Jiwaka', 'Madang', 'Manus', 'Milne Bay', 'Morobe', 'New Ireland', 'Northern (Oro)',
-    'Southern Highlands', 'West New Britain', 'West Sepik (Sandaun)', 'Western (Fly)', 'Western Highlands',
-  ];
-
   let actor = null;
   let appId = null;
   let prisoner = null;
@@ -15,6 +9,8 @@ const PMSForm1Parole = (() => {
   let institution = null;
   let locked = false;
   let viewOnly = false;
+  let officerAuth = null;
+  let submitGate = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -32,192 +28,191 @@ const PMSForm1Parole = (() => {
     return d.toISOString().slice(0, 10);
   }
 
-  function deriveSentenceYears(p) {
-    if (p.sentenceType === 'Life' || p.sentence_type === 'Life') return null;
-    if (p.totalSentenceYears != null) return Number(p.totalSentenceYears);
-    if (p.total_sentence_years != null) return Number(p.total_sentence_years);
-    const months = typeof PMSStorage !== 'undefined' ? PMSStorage.getSentenceDurationMonths(p) : null;
-    if (months) return Math.round((months / 12) * 10) / 10;
-    return null;
+  function sentenceLengthLabel(p) {
+    if (typeof PMSFormsEngine !== 'undefined' && PMSFormsEngine.formatSentenceLength) {
+      return PMSFormsEngine.formatSentenceLength(p);
+    }
+    const months = typeof PMSStorage !== 'undefined' ? PMSStorage.getSentenceDurationMonths(p) : 0;
+    if (months > 0) {
+      const years = Math.floor(months / 12);
+      const rem = months % 12;
+      const parts = [];
+      if (years) parts.push(`${years} Year${years !== 1 ? 's' : ''}`);
+      if (rem) parts.push(`${rem} Month${rem !== 1 ? 's' : ''}`);
+      return parts.join(', ') || '0 Months';
+    }
+    if (p.sentenceType === 'Life' || p.sentence_type === 'Life') return 'Life (10 Years)';
+    return p.sentence || '—';
   }
 
-  function calculateEligibilityDates(sentenceYears, startDateStr) {
-    if (!startDateStr) return { eligibility: '—', notification: '—' };
-    const start = new Date(startDateStr);
-    if (Number.isNaN(start.getTime())) return { eligibility: '—', notification: '—' };
+  function prisonerFullName(p) {
+    return p.fullLegalName
+      || p.full_legal_name
+      || [p.lastName, p.firstName].filter(Boolean).join(', ').replace(/^, /, '')
+      || [p.firstName, p.middleName, p.lastName].filter(Boolean).join(' ')
+      || '—';
+  }
 
-    const isLife = prisoner?.sentenceType === 'Life' || prisoner?.sentence_type === 'Life';
-    const eligibility = new Date(start);
-    if (isLife) {
-      eligibility.setUTCFullYear(eligibility.getUTCFullYear() + 10);
-    } else if (sentenceYears && sentenceYears > 0) {
-      const halfDays = Math.round(sentenceYears * 0.5 * 365.25);
-      eligibility.setUTCDate(eligibility.getUTCDate() + halfDays);
-    } else {
-      return { eligibility: '—', notification: '—' };
+  function prisonerFirstName(p) {
+    if (p.firstName) return p.firstName;
+    const full = p.fullLegalName || p.full_legal_name || '';
+    if (full.includes(',')) {
+      const given = full.split(',')[1]?.trim();
+      return given?.split(/\s+/)[0] || given || '—';
     }
+    const parts = full.trim().split(/\s+/).filter(Boolean);
+    if (parts.length > 1) return parts.slice(0, -1).join(' ');
+    return parts[0] || '—';
+  }
 
-    const notification = new Date(eligibility);
-    notification.setUTCMonth(notification.getUTCMonth() - 6);
+  function prisonerLastName(p) {
+    if (p.lastName) return p.lastName;
+    const full = p.fullLegalName || p.full_legal_name || '';
+    if (full.includes(',')) return full.split(',')[0]?.trim() || '—';
+    const parts = full.trim().split(/\s+/).filter(Boolean);
+    if (parts.length > 1) return parts[parts.length - 1];
+    return '—';
+  }
 
+  function formatParoleEligibilityDate(p) {
+    if (!p || typeof PMSStorage === 'undefined') return '—';
+    const eligibility = PMSStorage.getParoleEligibilityDate(p);
+    if (!eligibility) return '—';
+    const iso = eligibility instanceof Date
+      ? eligibility.toISOString().slice(0, 10)
+      : String(eligibility).slice(0, 10);
+    return formatDisplayDate(iso);
+  }
+
+  function buildPrisonerDetails() {
+    const startDate = prisoner.sentenceStartDate || prisoner.sentence_start_date;
     return {
-      eligibility: formatDisplayDate(eligibility),
-      notification: formatDisplayDate(notification),
+      application_id: app.caseNumber || app.id,
+      prisoner_id: prisoner.prisonerNumber || prisoner.ciNumber || prisoner.ci_number || prisoner.id,
+      first_name: prisonerFirstName(prisoner),
+      last_name: prisonerLastName(prisoner),
+      full_name: prisonerFullName(prisoner),
+      gender: prisoner.gender || '—',
+      date_of_birth: prisoner.dateOfBirth || prisoner.date_of_birth || '',
+      correctional_institution: institution?.name || 'Correctional Institution',
+      offence: prisoner.offense || prisoner.offence || '—',
+      sentence_length: sentenceLengthLabel(prisoner),
+      sentence_length_months: typeof PMSStorage !== 'undefined' ? PMSStorage.getSentenceDurationMonths(prisoner) : null,
+      sentence_start_date: startDate || '',
+      eligibility_date: formatParoleEligibilityDate(prisoner),
+      current_status: prisoner.status || app.status || 'Eligible',
+      cs_parole_officer: `${actor.firstName} ${actor.lastName}`,
+      application_date: app.submittedAt || app.createdAt || new Date().toISOString(),
     };
   }
 
-  function mapStatusBadge(status) {
-    const s = (status || 'Draft').toUpperCase();
-    const badge = $('statusBadge');
-    if (!badge) return;
-    if (['ELIGIBLE', 'PENDING_ELIGIBILITY'].includes(s)) {
-      badge.textContent = s.replace(/_/g, ' ');
-      badge.className = 'status-badge eligible';
-    } else if (['AWAITING_PRISONER_CONSENT', 'REPORT_PREPARATION', 'DRAFT'].includes(s)) {
-      badge.textContent = s.replace(/_/g, ' ');
-      badge.className = 'status-badge consent';
-    } else if (['PAROLE_GRANTED', 'APPROVED'].includes(s)) {
-      badge.textContent = 'PAROLE GRANTED';
-      badge.className = 'status-badge granted';
-    } else if (['PAROLE_DENIED', 'DECLINED', 'REFUSED'].includes(s)) {
-      badge.textContent = s.replace(/_/g, ' ');
-      badge.className = 'status-badge denied';
-    } else {
-      badge.textContent = s.replace(/_/g, ' ');
-      badge.className = 'status-badge pending';
-    }
+  function setDisplayStatus(text, eligible = true) {
+    const el = $('displayStatus');
+    if (!el) return;
+    el.textContent = (text || '—').toUpperCase();
+    el.classList.toggle('is-ineligible', !eligible);
   }
 
   function populateForm() {
-    const fullName = prisoner.fullLegalName
-      || prisoner.full_legal_name
-      || [prisoner.lastName, prisoner.firstName].filter(Boolean).join(', ').replace(/^, /, '')
-      || [prisoner.firstName, prisoner.lastName].filter(Boolean).join(' ');
+    const startDate = prisoner.sentenceStartDate || prisoner.sentence_start_date;
+    const appIdText = app.caseNumber || app.id;
+    const officerName = `${actor.firstName} ${actor.lastName}`;
 
-    $('applicationId').textContent = app.caseNumber || app.id;
-    $('fullName').value = fullName;
-    $('aliases').value = prisoner.aliases || '';
-    $('ciNumber').value = prisoner.ciNumber || prisoner.ci_number || prisoner.prisonerNumber || prisoner.id;
-    $('dob').value = formatInputDate(prisoner.dateOfBirth || prisoner.date_of_birth);
-    $('gender').value = prisoner.gender || 'Male';
-    $('ciNumberDisplay').textContent = $('ciNumber').value;
+    $('applicationId').textContent = appIdText;
+    $('displayApplicationId').textContent = appIdText;
+    $('displayPrisonerId').textContent = prisoner.prisonerNumber || prisoner.ciNumber || prisoner.ci_number || prisoner.id;
+    $('displayFirstName').textContent = prisonerFirstName(prisoner);
+    $('displayLastName').textContent = prisonerLastName(prisoner);
+    $('displayGender').textContent = prisoner.gender || '—';
+    $('displayDob').textContent = formatDisplayDate(prisoner.dateOfBirth || prisoner.date_of_birth);
+    $('displayFacility').textContent = institution?.name || 'Correctional Institution';
+    $('displayOffence').textContent = prisoner.offense || prisoner.offence || '—';
+    $('displaySentenceLength').textContent = sentenceLengthLabel(prisoner);
+    $('displaySentenceStart').textContent = formatDisplayDate(startDate);
+    $('displayEligibilityDate').textContent = formatParoleEligibilityDate(prisoner);
+    $('displayOfficer').textContent = officerName;
+    $('displayApplicationDate').textContent = formatDisplayDate(app.submittedAt || app.createdAt || new Date());
 
-    $('currentOffenses').value = prisoner.offense || '';
-    const sentenceYears = deriveSentenceYears(prisoner);
-    $('sentenceLength').value = sentenceYears ?? '';
-    $('offenseCategory').value = prisoner.offenseCategory || prisoner.offense_category || 'Other';
-    $('courtOfConviction').value = prisoner.courtOfConviction || prisoner.court_of_conviction || '';
-    $('sentenceStartDate').value = formatInputDate(prisoner.sentenceStartDate || prisoner.sentence_start_date);
-
-    const facilityName = institution?.name || 'Correctional Institution';
-    $('facility').value = facilityName;
-    $('facilityCode').value = institution?.code || 'BOM-001';
-    $('cellBlock').value = prisoner.cellBlockUnit || prisoner.cell_block_unit || '';
-
-    const dates = calculateEligibilityDates(sentenceYears, $('sentenceStartDate').value);
-    $('eligibilityDate').textContent = app.eligibilityDate ? formatDisplayDate(app.eligibilityDate) : dates.eligibility;
-    $('notificationDate').textContent = app.notificationDate ? formatDisplayDate(app.notificationDate) : dates.notification;
-
-    mapStatusBadge(app.status);
+    const prog = typeof PMSStorage !== 'undefined' ? PMSStorage.getPrisonerProgress(prisoner) : { eligible: true };
+    setDisplayStatus(prog.eligible ? 'ELIGIBLE' : (prisoner.status || app.status || 'PENDING'), prog.eligible);
 
     const form1 = app.formData?.form1;
-    const saved = form1?.sections?.D || form1?.sectionD || form1;
-    if (saved) {
-      if (saved.sponsor_name || saved.sponsorName) $('sponsorName').value = saved.sponsor_name || saved.sponsorName;
-      if (saved.sponsor_relationship || saved.sponsorRelationship) $('sponsorRelationship').value = saved.sponsor_relationship || saved.sponsorRelationship;
-      if (saved.sponsor_contact || saved.sponsorContact) $('sponsorContact').value = saved.sponsor_contact || saved.sponsorContact;
-      if (saved.sponsor_address || saved.sponsorAddress) $('sponsorAddress').value = saved.sponsor_address || saved.sponsorAddress;
-      if (saved.proposed_residence || saved.proposedResidence) $('proposedResidence').value = saved.proposed_residence || saved.proposedResidence;
-      if (saved.proposed_residence_province || saved.proposedResidenceProvince) $('proposedProvince').value = saved.proposed_residence_province || saved.proposedResidenceProvince;
-      if (saved.employment_plans || saved.employmentPlans) $('employmentPlans').value = saved.employment_plans || saved.employmentPlans;
-      if (saved.community_service_plans || saved.communityPlans) $('communityPlans').value = saved.community_service_plans || saved.communityPlans;
-    }
+    const secE = form1?.sections?.E || form1?.sectionE || {};
+    const assessment = secE.eligibility_assessment
+      || (secE.prisoner_consent || secE.prisonerConsent ? 'eligible' : null)
+      || (form1?.eligibilityOutcome === 'not_eligible' ? 'not_eligible' : null);
+    if (assessment === 'eligible') $('eligibilityEligible').checked = true;
+    if (assessment === 'not_eligible') $('eligibilityNotEligible').checked = true;
 
-    const consent = form1?.sections?.E || form1?.sectionE;
-    if (consent?.prisoner_consent != null || consent?.prisonerConsent != null) {
-      $('prisonerConsent').checked = !!(consent.prisoner_consent ?? consent.prisonerConsent);
-    }
-    if (consent?.consent_date || consent?.consentDate) {
-      $('consentDate').value = formatInputDate(consent.consent_date || consent.consentDate);
-    }
-
-    updateConsentName();
-    recalcEligibilityDisplay();
-  }
-
-  function updateConsentName() {
-    const name = $('fullName').value.trim() || '[Name not entered]';
-    $('consentNameDisplay').textContent = name;
-  }
-
-  function recalcEligibilityDisplay() {
-    const years = parseFloat($('sentenceLength').value);
-    const dates = calculateEligibilityDates(years, $('sentenceStartDate').value);
-    if (!$('eligibilityDate').dataset.fromApp) {
-      $('eligibilityDate').textContent = dates.eligibility;
-      $('notificationDate').textContent = dates.notification;
+    const savedAuth = secE.digital_signature || secE.digitalSignature || form1?.digitalSignature || null;
+    if (officerAuth && savedAuth?.verified) {
+      officerAuth.restore(savedAuth);
     }
   }
 
-  function collectSectionD() {
-    return {
-      sponsor_name: $('sponsorName').value.trim(),
-      sponsor_relationship: $('sponsorRelationship').value.trim(),
-      sponsor_contact: $('sponsorContact').value.trim(),
-      sponsor_address: $('sponsorAddress').value.trim(),
-      proposed_residence: $('proposedResidence').value.trim(),
-      proposed_residence_province: $('proposedProvince').value,
-      employment_plans: $('employmentPlans').value.trim(),
-      community_service_plans: $('communityPlans').value.trim(),
-    };
+  function mountOfficerAuth() {
+    if (typeof PMSFormOfficerAuth === 'undefined') return;
+    try {
+      const form1 = app.formData?.form1;
+      const secE = form1?.sections?.E || form1?.sectionE || {};
+      const savedAuth = secE.digital_signature || secE.digitalSignature || form1?.digitalSignature || null;
+      officerAuth = PMSFormOfficerAuth.create({
+        mount: '#officer-auth-mount',
+        actor,
+        applicationId: app.id,
+        formNumber: 1,
+        readOnly: viewOnly || locked,
+        savedRecord: savedAuth,
+        onVerified: () => submitGate?.sync(),
+      });
+      submitGate = PMSFormOfficerAuth.gateSubmitButtons(officerAuth, ['btnSubmit'], {
+        canEnable: () => !locked && !viewOnly,
+      });
+      submitGate.sync();
+    } catch (err) {
+      console.error('Officer authorization failed to mount:', err);
+    }
+  }
+
+  function getEligibilityValue() {
+    return document.querySelector('input[name="eligibility"]:checked')?.value || '';
   }
 
   function collectFormData() {
+    const eligibility = getEligibilityValue();
+    const prisonerDetails = buildPrisonerDetails();
+    const digitalSignature = officerAuth?.getRecord() || null;
+    const officerSignDate = digitalSignature?.timestamp?.slice(0, 10)
+      || new Date().toISOString().slice(0, 10);
     return {
       applicationId: app.id,
       caseNumber: app.caseNumber || app.id,
-      sectionA: {
-        full_legal_name: $('fullName').value.trim(),
-        aliases: $('aliases').value.trim(),
-        ci_number: $('ciNumber').value.trim(),
-        date_of_birth: $('dob').value,
-        gender: $('gender').value,
-      },
-      sectionB: {
-        current_offenses: $('currentOffenses').value.trim(),
-        sentence_length_years: parseFloat($('sentenceLength').value) || null,
-        offense_category: $('offenseCategory').value,
-        court_of_conviction: $('courtOfConviction').value.trim(),
-        sentence_commencement_date: $('sentenceStartDate').value,
-      },
-      sectionC: {
-        facility_name: $('facility').value,
-        facility_code: $('facilityCode').value.trim(),
-        cell_block_or_unit: $('cellBlock').value.trim(),
-      },
-      sectionD: collectSectionD(),
+      prisonerDetails,
       sectionE: {
-        prisoner_consent: $('prisonerConsent').checked,
-        consent_date: $('consentDate').value,
+        eligibility_assessment: eligibility,
+        prisoner_consent: eligibility === 'eligible',
+        consent_date: eligibility === 'eligible' ? officerSignDate : '',
+        digital_signature: digitalSignature,
+        officer_signature: digitalSignature?.officerName || `${actor.firstName} ${actor.lastName}`,
+        officer_sign_date: digitalSignature ? officerSignDate : '',
         signature: 'Recorded in PMS',
       },
+      digitalSignature,
+      eligibilityOutcome: eligibility === 'eligible' ? 'eligible' : eligibility === 'not_eligible' ? 'not_eligible' : null,
     };
   }
 
-  function validateSectionD() {
-    const d = collectSectionD();
-    const required = [
-      ['sponsor_name', 'Sponsor / guarantor name'],
-      ['sponsor_relationship', 'Sponsor relationship'],
-      ['sponsor_contact', 'Sponsor contact'],
-      ['proposed_residence', 'Proposed residence'],
-      ['proposed_residence_province', 'Proposed residence province'],
-    ];
-    for (const [key, label] of required) {
-      if (!d[key]?.trim()) {
-        showToast(`${label} is required (Section D).`, 'error');
-        return false;
-      }
+  function validateAssessment() {
+    const eligibility = getEligibilityValue();
+    if (!eligibility) {
+      showToast('Select Eligible or Not Eligible before continuing.', 'error');
+      return false;
+    }
+    if (!PMSFormOfficerAuth.requireVerified(officerAuth, {
+      showToast,
+      message: 'Enter your 6-digit PIN and click Verify & Sign before submitting Form 1.',
+    })) {
+      return false;
     }
     return true;
   }
@@ -225,7 +220,7 @@ const PMSForm1Parole = (() => {
   function showToast(message, type = 'info') {
     const existing = document.querySelector('.custom-toast');
     if (existing) existing.remove();
-    const colors = { success: '#2a9d8f', error: '#e63946', info: '#1a1a2e' };
+    const colors = { success: '#2a9d8f', error: '#e63946', info: '#1a1a2e', warning: '#b8860b' };
     const toast = document.createElement('div');
     toast.className = 'custom-toast';
     toast.style.background = colors[type] || colors.info;
@@ -238,79 +233,105 @@ const PMSForm1Parole = (() => {
     }, 4000);
   }
 
-  async function saveForm() {
-    if (locked) return;
-    const payload = collectFormData();
-    const form1Bundle = {
+  function buildForm1Bundle(payload, status = 'draft') {
+    return {
       ...payload,
-      sections: { A: payload.sectionA, B: payload.sectionB, C: payload.sectionC, D: payload.sectionD, E: payload.sectionE },
-      status: 'draft',
+      prisonerDetails: payload.prisonerDetails,
+      sectionE: payload.sectionE,
+      sections: {
+        prisonerDetails: payload.prisonerDetails,
+        E: payload.sectionE,
+      },
+      status,
       savedAt: new Date().toISOString(),
+      screeningDate: new Date().toISOString().slice(0, 10),
+      eligibilityOutcome: payload.eligibilityOutcome || 'eligible',
+      recommendationReason: status === 'submitted'
+        ? 'Form 1 — Parole Application submitted.'
+        : 'Form 1 parole application saved.',
+      officerName: payload.sectionE.digital_signature?.officerName
+        || payload.sectionE.officer_signature
+        || `${actor.firstName} ${actor.lastName}`,
+      digitalSignature: payload.digitalSignature || payload.sectionE.digital_signature,
+      officerId: actor.officerId || actor.employeeNumber || actor.id,
     };
+  }
 
-    PMSStorage.saveFormData(appId, 'form1', form1Bundle, actor);
+  async function saveForm(options = {}) {
+    const { silent = false } = options;
+    if (locked) return;
+    try {
+      const payload = collectFormData();
+      const bundle = {
+        ...buildForm1Bundle(payload, 'draft'),
+        savedAt: new Date().toISOString(),
+        saveSource: silent ? 'autosave' : 'manual',
+      };
+      await PMSStorage.saveForm1Screening(appId, bundle, actor, { draft: true });
+      app = PMSStorage.getApplicationById(appId);
 
-    if (typeof PMSApi !== 'undefined' && PMSApi.getToken()) {
-      try {
-        await PMSApi.generateForm1(prisoner.id, payload.sectionD);
-      } catch (_) { /* offline/local ok */ }
+      if (!silent && typeof PMSStorage !== 'undefined' && PMSStorage.isAct1991ParoleSyncEnabled()
+        && typeof PMSApi !== 'undefined' && PMSApi.getToken()) {
+        try {
+          await PMSApi.generateForm1(prisoner.id, {});
+        } catch (_) { /* offline/local ok */ }
+      }
+
+      if (!silent) showToast(`Form 1 draft saved (${app.caseNumber || appId}).`, 'success');
+    } catch (err) {
+      if (!silent) showToast(err.message || 'Could not save Form 1 draft.', 'error');
+      throw err;
     }
-
-    showToast(`Form 1 draft saved (${app.caseNumber || appId}).`, 'success');
   }
 
   async function submitForm() {
     if (locked) return;
-    if (!$('prisonerConsent').checked) {
-      showToast('Prisoner consent is required before submission (Section E).', 'error');
-      return;
-    }
-    if (!validateSectionD()) return;
+    if (!validateAssessment()) return;
 
     const payload = collectFormData();
-    const consent = payload.sectionE.prisoner_consent;
+    if (payload.eligibilityOutcome === 'not_eligible') {
+      showToast('Detainee marked Not Eligible — Form 1 will be saved but parole workflow cannot proceed.', 'warning');
+    }
 
     try {
-      if (typeof PMSApi !== 'undefined' && PMSApi.getToken()) {
-        await PMSApi.generateForm1(prisoner.id, payload.sectionD);
-        await PMSApi.recordConsent(appId, {
-          consent,
-          consentDate: payload.sectionE.consent_date,
-          signature: payload.sectionE.signature,
-          notes: 'Form 1 submitted — prisoner consent recorded',
-        });
-      } else {
-        const form1Bundle = {
-          ...payload,
-          sections: { A: payload.sectionA, B: payload.sectionB, C: payload.sectionC, D: payload.sectionD, E: payload.sectionE },
-          status: 'submitted',
-          submittedAt: new Date().toISOString(),
-        };
-        await PMSStorage.saveForm1Screening(appId, {
-          ...form1Bundle,
-          eligibilityOutcome: 'eligible',
-          screeningDate: new Date().toISOString().slice(0, 10),
-          officerName: `${actor.firstName} ${actor.lastName}`,
-          recommendationReason: 'Form 1 — Parole Application submitted with prisoner consent.',
-        }, actor, { submit: true });
+      await PMSStorage.saveForm1Screening(appId, {
+        ...buildForm1Bundle(payload, 'submitted'),
+        submittedAt: new Date().toISOString(),
+      }, actor, { submit: payload.eligibilityOutcome === 'eligible' });
+      app = PMSStorage.getApplicationById(appId);
+
+      if (typeof PMSStorage !== 'undefined' && PMSStorage.isAct1991ParoleSyncEnabled()
+        && typeof PMSApi !== 'undefined' && PMSApi.getToken()) {
+        try {
+          await PMSApi.generateForm1(prisoner.id, {});
+          if (payload.eligibilityOutcome === 'eligible') {
+            await PMSApi.recordConsent(appId, {
+              consent: true,
+              consentDate: payload.sectionE.consent_date,
+              signature: 'Recorded in PMS',
+              notes: 'Form 1 submitted — eligibility confirmed (digital record)',
+            });
+          }
+        } catch (_) { /* local save succeeded */ }
       }
 
       locked = true;
-      document.querySelectorAll('#paroleForm input:not([type=checkbox]), #paroleForm select, #paroleForm textarea').forEach((el) => {
-        if (!el.classList.contains('readonly-input') && !el.readOnly) el.readOnly = true;
-      });
-      $('prisonerConsent').disabled = true;
+      officerAuth?.lock();
+      document.querySelectorAll('#paroleForm input').forEach((el) => { el.disabled = true; });
       $('btnSave').disabled = true;
       $('btnSubmit').disabled = true;
 
-      mapStatusBadge('REPORT_PREPARATION');
-      showToast('Form 1 submitted. Proceeding to Report Preparation phase.', 'success');
-      if (typeof PMSFormWorkflow !== 'undefined') {
-        PMSFormWorkflow.navigateAfterSubmit(1, appId);
+      if (payload.eligibilityOutcome === 'eligible') {
+        showToast('Form 1 submitted. Proceeding to Report Preparation phase.', 'success');
+        if (typeof PMSFormWorkflow !== 'undefined') {
+          PMSFormWorkflow.navigateAfterSubmit(1, appId);
+        } else {
+          setTimeout(() => {
+            window.location.href = `form2.html?appId=${encodeURIComponent(appId)}&from=form1`;
+          }, 1500);
+        }
       } else {
-        setTimeout(() => {
-          window.location.href = `form2.html?appId=${encodeURIComponent(appId)}&from=form1`;
-        }, 1500);
+        showToast('Form 1 saved — detainee recorded as Not Eligible.', 'success');
       }
     } catch (err) {
       showToast(err.message || 'Submission failed.', 'error');
@@ -318,7 +339,8 @@ const PMSForm1Parole = (() => {
   }
 
   function previewForm() {
-    if (typeof PMSApi !== 'undefined' && PMSApi.getToken() && appId) {
+    if (typeof PMSStorage !== 'undefined' && PMSStorage.isAct1991ParoleSyncEnabled()
+      && typeof PMSApi !== 'undefined' && PMSApi.getToken() && appId) {
       const url = `${PMSApi.getBaseUrl()}/api/parole/form1/${encodeURIComponent(appId)}/download`;
       window.open(url, '_blank');
       return;
@@ -333,9 +355,6 @@ const PMSForm1Parole = (() => {
   }
 
   function bindEvents() {
-    $('fullName').addEventListener('input', updateConsentName);
-    $('sentenceLength').addEventListener('input', recalcEligibilityDisplay);
-    $('sentenceStartDate').addEventListener('change', recalcEligibilityDisplay);
     $('btnSave').addEventListener('click', saveForm);
     $('btnSubmit').addEventListener('click', submitForm);
     $('btnPreview').addEventListener('click', previewForm);
@@ -345,28 +364,10 @@ const PMSForm1Parole = (() => {
     });
   }
 
-  function fillProvinceSelect() {
-    const sel = $('proposedProvince');
-    if (!sel || sel.options.length > 1) return;
-    PNG_PROVINCES.forEach((p) => {
-      const opt = document.createElement('option');
-      opt.value = p;
-      opt.textContent = p;
-      sel.appendChild(opt);
-    });
-    sel.value = institution?.province || 'National Capital District';
-  }
-
   function applyViewOnlyLock() {
     locked = true;
-    document.querySelectorAll('#paroleForm input:not([type=hidden]), #paroleForm select, #paroleForm textarea').forEach((el) => {
-      if (el.type === 'checkbox' || el.type === 'radio') el.disabled = true;
-      else if (!el.classList.contains('readonly-input')) {
-        el.readOnly = true;
-        el.classList.add('readonly-field');
-      }
-    });
-    $('prisonerConsent') && ($('prisonerConsent').disabled = true);
+    officerAuth?.lock();
+    document.querySelectorAll('#paroleForm input').forEach((el) => { el.disabled = true; });
     $('btnSave') && ($('btnSave').style.display = 'none');
     $('btnSubmit') && ($('btnSubmit').style.display = 'none');
     $('btnReset') && ($('btnReset').style.display = 'none');
@@ -374,7 +375,7 @@ const PMSForm1Parole = (() => {
       const banner = document.createElement('div');
       banner.id = 'form1-view-banner';
       banner.className = 'wf-readonly-banner';
-      banner.innerHTML = '🔒 <strong>View only</strong> — Reviewing Form 1 submitted by PNGCS.';
+      banner.innerHTML = 'View only — reviewing Form 1 submitted by PNGCS.';
       $('form1-root')?.insertBefore(banner, $('form1-root').firstChild);
     }
   }
@@ -393,12 +394,7 @@ const PMSForm1Parole = (() => {
     }
 
     institution = PMSStorage.getInstitutionById(prisoner.institutionId);
-    if (app.eligibilityDate) {
-      $('eligibilityDate').dataset.fromApp = '1';
-      $('notificationDate').dataset.fromApp = '1';
-    }
-
-    fillProvinceSelect();
+    mountOfficerAuth();
     populateForm();
     bindEvents();
 
@@ -408,11 +404,21 @@ const PMSForm1Parole = (() => {
 
     if (app.formData?.form1?.status === 'submitted' || app.status === 'REPORT_PREPARATION') {
       locked = true;
+      officerAuth?.lock();
       $('btnSave').disabled = true;
       $('btnSubmit').disabled = true;
     }
+    submitGate?.sync();
 
     if (viewOnly) applyViewOnlyLock();
+
+    if (typeof PMSFormAutosave !== 'undefined' && !locked && !viewOnly) {
+      PMSFormAutosave.create({
+        root: '#paroleForm',
+        onSave: ({ silent }) => saveForm({ silent }),
+        enabled: () => !locked && !viewOnly && !!appId,
+      });
+    }
 
     $('form1-root').classList.remove('hidden');
     $('selection-panel').classList.add('hidden');
@@ -481,5 +487,5 @@ const PMSForm1Parole = (() => {
     });
   }
 
-  return { init, collectFormData, PNG_PROVINCES };
+  return { init, collectFormData };
 })();

@@ -14,7 +14,7 @@ const PMSPrisonerUI = (() => {
   }
 
   function getParoleHistory(prisonerId) {
-    return PMSStorage.getParoleApplications()
+    return PMSStorage.getParoleApplications({ includeArchived: true })
       .filter((a) => a.prisonerId === prisonerId)
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }
@@ -88,14 +88,16 @@ const PMSPrisonerUI = (() => {
 
     const historyHtml = apps.length ? apps.map((a) => {
       const dec = a.boardDecision;
+      const archivedTag = a.archived ? ' <span class="meta">(Archived)</span>' : '';
       return `<tr>
-        <td>${esc(a.caseNumber || a.id)}</td>
+        <td>${esc(a.caseNumber || a.id)}${archivedTag}</td>
         <td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${esc(a.status)}</span></td>
         <td>${fmtDate(a.submittedAt)}</td>
         <td>${dec ? esc(dec.outcome || a.status) : '—'}</td>
         <td>${fmtDate(dec?.decidedAt || a.createdAt)}</td>
+        <td>${actor ? PMSUI.renderApplicationActionButtons(a, actor) : '—'}</td>
       </tr>`;
-    }).join('') : '<tr><td colspan="5" class="empty-state">No parole applications on record.</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="empty-state">No parole applications on record.</td></tr>';
 
     const hearings = PMSStorage.getHearings().filter((h) => h.prisonerId === prisoner.id);
 
@@ -182,7 +184,7 @@ const PMSPrisonerUI = (() => {
 
       <section class="case-section case-section--wide">
         <h2><i class="fi fi-rr-time-past"></i> Parole History</h2>
-        <div class="table-wrap"><table class="data-table"><thead><tr><th>Case No.</th><th>Status</th><th>Submitted</th><th>Decision</th><th>Date</th></tr></thead><tbody>${historyHtml}</tbody></table></div>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>Case No.</th><th>Status</th><th>Submitted</th><th>Decision</th><th>Date</th><th>Actions</th></tr></thead><tbody>${historyHtml}</tbody></table></div>
       </section>
 
       <section class="case-section case-section--wide">

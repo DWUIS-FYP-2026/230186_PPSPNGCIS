@@ -21,13 +21,14 @@ const PMSAuth = (() => {
     'Jail Commander': 'Jail Commander Dashboard',
     'DJAG Parole Clerk': 'DJAG Dashboard',
     'DJAG Secretary': 'Board Dashboard',
-    'Doctor': 'Medical Board Dashboard',
-    'CS Commissioner': 'Board Dashboard',
+    'Doctor': 'Psychiatrist — Parole Board',
+    'CS Commissioner': 'PNGCS Commissioner — Parole Board',
     Admin: 'Admin Dashboard',
     Secretariat: 'DJAG Dashboard',
   };
 
-  const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
+  /** Client sessions stay active while the browser tab is open (no idle timeout). */
+  const SESSION_TIMEOUT_MS = 0;
 
   function normalizeRole(role) {
     const map = {
@@ -96,20 +97,13 @@ const PMSAuth = (() => {
   }
 
   function isSessionExpired() {
-    try {
-      const raw = sessionStorage.getItem('pms_session_meta');
-      if (!raw) return false;
-      const meta = JSON.parse(raw);
-      return meta.expiresAt && Date.now() > meta.expiresAt;
-    } catch (_) {
-      return false;
-    }
+    return false;
   }
 
   function touchSession() {
     try {
       sessionStorage.setItem('pms_session_meta', JSON.stringify({
-        expiresAt: Date.now() + SESSION_TIMEOUT_MS,
+        expiresAt: null,
         lastActivity: Date.now(),
       }));
     } catch (_) { /* ignore */ }

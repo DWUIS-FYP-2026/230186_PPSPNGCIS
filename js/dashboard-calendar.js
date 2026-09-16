@@ -7,7 +7,7 @@ const PMSCalendar = (() => {
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
   const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const LOAD_TIMEOUT_MS = 8000;
+  const API_TIMEOUT_MS = 2500;
 
   const instances = new Map();
 
@@ -41,14 +41,40 @@ const PMSCalendar = (() => {
     return key;
   }
 
-  async function fetchEvents(user) {
-    if (typeof PMSApi !== 'undefined' && typeof PMSApi.getCalendarEvents === 'function') {
-      try {
-        const payload = await PMSApi.getCalendarEvents();
-        if (payload?.events?.length) return payload.events;
-      } catch (_) { /* fall through to local store */ }
+  function readLocalEvents(user) {
+    if (typeof PMSStorage === 'undefined' || typeof PMSStorage.getCalendarEventsForUser !== 'function') {
+      return [];
     }
-    return PMSStorage.getCalendarEventsForUser(user);
+    try {
+      return PMSStorage.getCalendarEventsForUser(user) || [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async function fetchRemoteEvents() {
+    if (typeof PMSApi === 'undefined' || typeof PMSApi.getCalendarEvents !== 'function') {
+      return null;
+    }
+    if (typeof PMSApi.getToken === 'function' && !PMSApi.getToken()) {
+      return null;
+    }
+    const payload = await Promise.race([
+      PMSApi.getCalendarEvents(),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('timeout')), API_TIMEOUT_MS);
+      }),
+    ]);
+    return Array.isArray(payload?.events) ? payload.events : null;
+  }
+
+  async function fetchEvents(user) {
+    const localEvents = readLocalEvents(user);
+    try {
+      const remoteEvents = await fetchRemoteEvents();
+      if (remoteEvents?.length) return remoteEvents;
+    } catch (_) { /* local store is authoritative for the dashboard calendar */ }
+    return localEvents;
   }
 
   function eventsForDay(events, key) {
@@ -213,25 +239,15 @@ const PMSCalendar = (() => {
 
   async function loadEvents(state) {
     state.loading = true;
+    state.error = null;
     render(state);
     try {
-      const result = await Promise.race([
-        fetchEvents(state.user),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('timeout')), LOAD_TIMEOUT_MS);
-        }),
-      ]);
+      const result = await fetchEvents(state.user);
       state.events = Array.isArray(result) ? result : [];
-      state.error = null;
-    } catch (err) {
-      try {
-        state.events = PMSStorage.getCalendarEventsForUser(state.user);
-        state.error = state.events.length ? null : (err.message === 'timeout' ? 'Unable to load events — request timed out.' : 'Unable to load events.');
-      } catch (_) {
-        state.events = [];
-        state.error = 'Unable to load events.';
-      }
+    } catch (_) {
+      state.events = readLocalEvents(state.user);
     }
+    state.error = null;
     state.loading = false;
 
     if (!state.selectedDate && state.events.length) {

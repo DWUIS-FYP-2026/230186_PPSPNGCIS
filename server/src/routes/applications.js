@@ -23,8 +23,8 @@ async function loadSettings() {
   const rows = await query('SELECT settings FROM system_settings WHERE id = 1 LIMIT 1');
   const settings = jsonParse(rows[0]?.settings, {});
   return {
-    paroleEligibilityFraction: settings.paroleEligibilityFraction ?? 1 / 3,
-    paroleEligibilityLabel: settings.paroleEligibilityLabel ?? 'One-third (1/3) of total sentence',
+    paroleEligibilityFraction: settings.paroleEligibilityFraction ?? 1 / 2,
+    paroleEligibilityLabel: settings.paroleEligibilityLabel ?? 'One-half (1/2) of total sentence',
     ...settings,
   };
 }

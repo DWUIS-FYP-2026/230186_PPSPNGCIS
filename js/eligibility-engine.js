@@ -12,7 +12,7 @@ const PMSEligibility = (() => {
   const ASSESSMENT_APP_STATUSES = [
     'Draft', 'Submitted', 'Under DJAG Review', 'Returned for Correction', 'Pre-Parole Report Prepared',
   ];
-  const HEARING_APP_STATUSES = ['Hearing Scheduled', 'Pending Board Review'];
+  const HEARING_APP_STATUSES = ['Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review'];
 
   function normalizeStatus(status) {
     return LEGACY_STATUS_MAP[status] || status;

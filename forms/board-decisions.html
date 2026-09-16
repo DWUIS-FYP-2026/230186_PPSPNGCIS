@@ -74,6 +74,7 @@
           </div>
           <div class="eligibility-badge" id="eligibility-badge">Awaiting selection</div>
         </div>
+        <p class="hearing-session-banner" id="hearing-session-banner" hidden></p>
 
         <div class="board-interview-sections" id="board-interview-sections">
           <details class="dossier-viewer dossier-viewer--collapsible board-interview-details" id="claim-verification-section">
@@ -180,6 +181,7 @@
               <p class="board-interview-note assessor-vote-auth__note">Verify with your PIN here to save your vote draft at any time. Submit requires all steps complete (Form 2 verification and interview evaluation for the psychiatrist).</p>
               <div id="vote-officer-auth-mount"></div>
             </div>
+            <p class="assessor-submit-blocker" id="assessor-submit-blocker" role="status" hidden></p>
             <div class="action-buttons assessor-form-actions">
               <button type="button" class="btn btn-secondary" id="btn-save-assessment" disabled title="Verify PIN to save your vote draft">Save Decision</button>
               <button type="button" class="btn btn-success" id="btn-record-decision" disabled title="Complete all required steps and verify PIN to submit">Submit My Vote</button>
@@ -216,6 +218,30 @@
           <div class="vote-item abstain"><span class="count" id="vote-abstain">0</span><span>Defer</span></div>
           <div class="vote-meta" id="vote-meta">0 of 0 recorded</div>
         </div>
+
+        <section class="panel-tally" id="panel-tally" aria-labelledby="panel-tally-title" hidden>
+          <h3 class="panel-tally__title" id="panel-tally-title">Board Panel Votes</h3>
+          <div class="panel-tally__list" id="panel-tally-list"></div>
+          <p class="panel-tally__summary" id="panel-tally-summary"></p>
+        </section>
+
+        <section class="final-outcome" id="final-outcome" aria-labelledby="final-outcome-title" hidden>
+          <h3 class="final-outcome__title" id="final-outcome-title">Overall Board Decision</h3>
+          <p class="final-outcome__note" id="final-outcome-note"></p>
+          <div class="final-outcome__actions">
+            <button type="button" class="btn btn-success final-outcome__btn" id="btn-final-approve" disabled>
+              <span class="final-outcome__btn-title">Approve</span>
+              <span class="final-outcome__btn-hint">Grant parole — issue Form 4</span>
+            </button>
+            <button type="button" class="btn btn-danger final-outcome__btn" id="btn-final-reject" disabled>
+              <span class="final-outcome__btn-title">Reject</span>
+              <span class="final-outcome__btn-hint">Refuse parole — issue Form 5</span>
+            </button>
+          </div>
+          <div class="final-outcome__footer">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-final-open-form" hidden>Open Outcome Form</button>
+          </div>
+        </section>
 
         <details class="dossier-viewer dossier-viewer--collapsible">
           <summary class="dossier-head">

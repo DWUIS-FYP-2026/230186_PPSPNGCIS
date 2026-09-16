@@ -3,7 +3,7 @@
  */
 const PMSForm1Validation = (() => {
   const CRITERIA = [
-    { id: 'sentence_threshold', label: 'Minimum sentence served (one-third / 1/3 of total sentence)', auto: true },
+    { id: 'sentence_threshold', label: 'Minimum sentence served (one-half / 1/2 of total sentence)', auto: true },
     { id: 'sentence_dates_valid', label: 'Valid sentence dates (SSD before SED)', auto: true },
     { id: 'prisoner_status', label: 'Prisoner status permits parole eligibility screening', auto: true },
     { id: 'no_active_detainers', label: 'No active detainers or holds preventing parole consideration', auto: false },
@@ -41,11 +41,18 @@ const PMSForm1Validation = (() => {
     const errors = [];
     const secE = form1.sections?.E || form1.sectionE;
     if (submit) {
-      if (!secE?.prisoner_consent && !secE?.prisonerConsent) {
-        errors.push('Prisoner consent is required (Section E).');
+      const assessment = secE?.eligibility_assessment
+        || (secE?.prisoner_consent || secE?.prisonerConsent ? 'eligible' : null);
+      if (!assessment) {
+        errors.push('Eligibility assessment is required.');
       }
-      if (!secE?.consent_date && !secE?.consentDate) {
-        errors.push('Consent date is required (Section E).');
+      const digitalSig = secE?.digital_signature || secE?.digitalSignature || form1?.digitalSignature;
+      if (!digitalSig?.verified) {
+        errors.push('Officer PIN verification is required.');
+      }
+      if (assessment === 'eligible' && !secE?.consent_date && !secE?.consentDate
+        && !digitalSig?.timestamp && !secE?.officer_sign_date && !secE?.officerSignDate) {
+        errors.push('Assessment date is required.');
       }
     }
     return errors;
@@ -68,7 +75,19 @@ const PMSForm1Validation = (() => {
       errors.push(...validateSectionsForm(form1, { submit }));
       if (draft) return { valid: !errors.length, errors, checklist };
       if (submit && errors.length) return { valid: false, errors, checklist };
-      if (submit) return { valid: true, errors: [], checklist };
+      if (submit) {
+        CRITERIA.filter((c) => !c.auto).forEach((c) => {
+          if (!checklist[c.id]?.result) {
+            checklist[c.id] = {
+              result: 'pass',
+              verification: 'Recorded with Form 1 parole application',
+              criterion: c.label,
+              source: 'form1',
+            };
+          }
+        });
+        return { valid: true, errors: [], checklist };
+      }
     }
 
     if (!draft) {
@@ -99,8 +118,18 @@ const PMSForm1Validation = (() => {
 
   function isForm1Complete(form1) {
     if (!form1) return false;
-    if (form1.status === 'submitted' || form1.status === 'verified') return true;
     const secE = form1.sections?.E || form1.sectionE;
+    const hasParoleSections = !!(form1.sections?.E || form1.sectionE || form1.prisonerDetails);
+    if (hasParoleSections) {
+      const assessment = secE?.eligibility_assessment
+        || (secE?.prisoner_consent || secE?.prisonerConsent ? 'eligible' : null);
+      const digitalSig = secE?.digital_signature || secE?.digitalSignature || form1?.digitalSignature;
+      const consentDate = !!(secE?.consent_date || secE?.consentDate || digitalSig?.timestamp);
+      const verified = !!(digitalSig?.verified || form1.status === 'submitted' || form1.status === 'verified');
+      return (form1.status === 'submitted' || form1.status === 'verified')
+        && !!assessment && consentDate && verified;
+    }
+    if (form1.status === 'submitted' || form1.status === 'verified') return true;
     if ((secE?.prisoner_consent || secE?.prisonerConsent) && (form1.submittedAt || form1.status === 'submitted')) {
       return true;
     }

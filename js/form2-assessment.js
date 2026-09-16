@@ -23,6 +23,8 @@ const PMSForm2Assessment = (() => {
   let pprLocked = false;
   let darLocked = false;
   let activeReportSection = null;
+  let officerAuth = null;
+  let submitGate = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -44,11 +46,19 @@ const PMSForm2Assessment = (() => {
   }
 
   function sentenceDisplay(p) {
-    if (p.sentenceType === 'Life' || p.sentence_type === 'Life') return 'Life (10-year eligibility)';
-    const years = p.totalSentenceYears ?? p.total_sentence_years;
-    if (years != null) return `${years} year(s)`;
-    const months = typeof PMSStorage !== 'undefined' ? PMSStorage.getSentenceDurationMonths(p) : null;
-    if (months) return `${Math.round(months / 12 * 10) / 10} year(s)`;
+    if (typeof PMSFormsEngine !== 'undefined' && PMSFormsEngine.formatSentenceLength) {
+      return PMSFormsEngine.formatSentenceLength(p);
+    }
+    if (p.sentenceType === 'Life' || p.sentence_type === 'Life') return 'Life (10 Years)';
+    const months = typeof PMSStorage !== 'undefined' ? PMSStorage.getSentenceDurationMonths(p) : 0;
+    if (months > 0) {
+      const years = Math.floor(months / 12);
+      const rem = months % 12;
+      const parts = [];
+      if (years) parts.push(`${years} Year${years !== 1 ? 's' : ''}`);
+      if (rem) parts.push(`${rem} Month${rem !== 1 ? 's' : ''}`);
+      return parts.join(', ');
+    }
     return '—';
   }
 
@@ -128,6 +138,31 @@ const PMSForm2Assessment = (() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function normalizeStoredAttachment(entry) {
+    if (!entry) return null;
+    if (typeof entry === 'string') return { fileName: entry, dataUrl: null };
+    return entry;
+  }
+
+  function renderAttachmentChip(file, { pending = false } = {}) {
+    const name = typeof file === 'string' ? file : file.fileName;
+    const size = file?.fileSize ? ` (${(file.fileSize / 1024).toFixed(1)} KB)` : '';
+    const pendingLabel = pending ? ' · pending save' : '';
+    const downloadBtn = !pending && file?.dataUrl && file?.id
+      ? ` <button type="button" class="file-chip__download" data-f2-local-download="${file.id}">Download</button>`
+      : (!pending && !file?.dataUrl ? ' (name only)' : '');
+    return `<span class="file-chip">${name}${size}${pendingLabel}${downloadBtn}</span>`;
+  }
+
   function setupFileUpload(inputId, previewId) {
     const input = $(inputId);
     const preview = $(previewId);
@@ -135,27 +170,40 @@ const PMSForm2Assessment = (() => {
 
     input.addEventListener('change', () => {
       const files = input.files;
-      if (!files?.length) {
-        preview.innerHTML = '';
-        const container = input.closest('.field-with-attachment');
-        if (container) container.classList.remove('has-attachment');
-        return;
-      }
-      preview.innerHTML = Array.from(files).map((f) => {
-        const size = (f.size / 1024).toFixed(1);
-        return `<span class="file-chip">${f.name} (${size} KB)</span>`;
-      }).join('');
-      const container = input.closest('.field-with-attachment');
-      if (container) container.classList.add('has-attachment');
+      if (!files?.length) return;
+      preview.innerHTML = Array.from(files).map((f) => renderAttachmentChip({
+        fileName: f.name,
+        fileSize: f.size,
+      }, { pending: true })).join('');
+      input.closest('.field-with-attachment')?.classList.add('has-attachment');
     });
   }
 
-  function collectFileNames(ids) {
+  async function collectAttachmentFiles(ids, existingSection = {}) {
+    const existing = existingSection.attachments || {};
     const result = {};
-    ids.forEach((id) => {
+    for (const id of ids) {
       const input = $(id);
-      result[id] = input?.files?.length ? Array.from(input.files).map((f) => f.name) : [];
-    });
+      const previous = (existing[id] || []).map(normalizeStoredAttachment).filter(Boolean);
+      if (input?.files?.length) {
+        const uploaded = [];
+        for (const file of input.files) {
+          uploaded.push({
+            id: `F2A-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+            dataUrl: await readFileAsDataUrl(file),
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: actor.id,
+            uploadedByName: `${actor.firstName} ${actor.lastName}`,
+          });
+        }
+        result[id] = uploaded;
+      } else {
+        result[id] = previous;
+      }
+    }
     return result;
   }
 
@@ -229,7 +277,6 @@ const PMSForm2Assessment = (() => {
       restorativeAssessment: $('restorativeAssessment')?.value || '',
       pprOfficer: $('pprOfficer')?.value.trim() || '',
       pprDate: $('pprDate')?.value || '',
-      attachments: collectFileNames(PPR_FILE_IDS),
     };
   }
 
@@ -248,8 +295,13 @@ const PMSForm2Assessment = (() => {
       recidivismNotes: $('recidivismNotes')?.value.trim() || '',
       darOfficer: $('darOfficer')?.value.trim() || '',
       darDate: $('darDate')?.value || '',
-      attachments: collectFileNames(DAR_FILE_IDS),
     };
+  }
+
+  async function attachSectionFiles(data, sectionKey, fileIds) {
+    const existing = app.formData?.form2?.sections?.[sectionKey] || {};
+    data.attachments = await collectAttachmentFiles(fileIds, existing);
+    return data;
   }
 
   function mapPprForStorage(data, { submit = false } = {}) {
@@ -355,28 +407,106 @@ const PMSForm2Assessment = (() => {
     return pool.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0];
   }
 
-  async function saveDraft(sectionKey) {
+  async function saveDraft(sectionKey, options = {}) {
+    const { silent = false } = options;
     const isPpr = sectionKey === 'ppr';
     if (isPpr && !canEditPpr) {
-      showToast('Only DJAG Parole Clerk may edit the PPR section.', 'error');
+      if (!silent) showToast('Only DJAG Parole Clerk may edit the PPR section.', 'error');
       return;
     }
     if (!isPpr && !canEditDar) {
-      showToast('Only CS Parole Clerk may edit the DAR section.', 'error');
+      if (!silent) showToast('Only CS Parole Clerk may edit the DAR section.', 'error');
       return;
     }
     try {
       const raw = isPpr ? collectPPR() : collectDAR();
+      await attachSectionFiles(raw, sectionKey, isPpr ? PPR_FILE_IDS : DAR_FILE_IDS);
       const mapped = isPpr ? mapPprForStorage(raw) : mapDarForStorage(raw);
       const form2 = app.formData?.form2 || { sections: {} };
-      form2.sections = { ...(form2.sections || {}), [sectionKey]: { ...mapped, savedAt: new Date().toISOString() } };
-      PMSStorage.saveFormData(appId, 'form2', form2, actor);
+      form2.sections = {
+        ...(form2.sections || {}),
+        [sectionKey]: {
+          ...mapped,
+          savedAt: new Date().toISOString(),
+          saveSource: silent ? 'autosave' : 'manual',
+        },
+      };
+      PMSStorage.saveFormData(appId, 'form2', { ...form2, saveSource: silent ? 'autosave' : 'manual' }, actor);
       app = PMSStorage.getApplicationById(appId);
       updateStatus(isPpr ? 'pprStatus' : 'darStatus', 'IN PROGRESS', 'in-progress');
-      showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} draft saved.`, 'success');
+      if (!silent) {
+        showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} draft saved.`, 'success');
+      }
     } catch (err) {
-      showToast(err.message || 'Could not save draft.', 'error');
+      if (!silent) showToast(err.message || 'Could not save draft.', 'error');
+      throw err;
     }
+  }
+
+  function getActiveSectionKey() {
+    if (activeReportSection === 'ppr') return 'ppr';
+    if (activeReportSection === 'dar') return 'ddr';
+    return null;
+  }
+
+  function canAutosaveActiveSection() {
+    const key = getActiveSectionKey();
+    if (!key || !appId) return false;
+    if (key === 'ppr') return canEditPpr && !pprLocked;
+    return canEditDar && !darLocked;
+  }
+
+  function shouldAutosaveForm2Event(e) {
+    const el = e.target;
+    if (!el?.closest) return false;
+    const card = el.closest('#pprCard, #darCard');
+    if (!card || card.classList.contains('hidden')) return false;
+    if (card.id === 'pprCard') return activeReportSection === 'ppr' && canEditPpr && !pprLocked;
+    return activeReportSection === 'dar' && canEditDar && !darLocked;
+  }
+
+  function mountOfficerAuth() {
+    if (typeof PMSFormOfficerAuth === 'undefined') return;
+    try {
+      const savedAuth = app?.formData?.form2?.digitalSignature
+        || app?.formData?.form2?.sections?.ppr?.digitalSignature
+        || app?.formData?.form2?.sections?.ddr?.digitalSignature
+        || null;
+      officerAuth = PMSFormOfficerAuth.create({
+        mount: '#officer-auth-mount',
+        actor,
+        applicationId: app?.id || '',
+        formNumber: 2,
+        readOnly: false,
+        savedRecord: savedAuth,
+        onVerified: () => submitGate?.sync(),
+      });
+      submitGate = PMSFormOfficerAuth.gateSubmitButtons(
+        officerAuth,
+        ['btnSubmitDar', 'btnSubmitPpr', 'btnSubmitBoth'],
+        {
+          canEnable: (btn) => {
+            if (btn.id === 'btnSubmitPpr') return canEditPpr && !pprLocked;
+            if (btn.id === 'btnSubmitDar') return canEditDar && !darLocked;
+            if (btn.id === 'btnSubmitBoth') {
+              return typeof PMSStorage !== 'undefined'
+                && !PMSStorage.isForm2Complete(app?.formData?.form2);
+            }
+            return true;
+          },
+        },
+      );
+      submitGate.sync();
+    } catch (err) {
+      console.error('Officer authorization failed to mount:', err);
+    }
+  }
+
+  function requirePinForSubmit() {
+    return PMSFormOfficerAuth.requireVerified(officerAuth, {
+      showToast,
+      message: 'Enter your 6-digit PIN and click Verify & Sign before submitting.',
+    });
   }
 
   async function submitSection(sectionKey) {
@@ -389,16 +519,30 @@ const PMSForm2Assessment = (() => {
       showToast('Only CS Parole Clerk may submit the DAR section.', 'error');
       return;
     }
+    if (!requirePinForSubmit()) return;
 
     const raw = isPpr ? collectPPR() : collectDAR();
     if (isPpr ? !validatePPR(raw) : !validateDAR(raw)) return;
 
-    const mapped = isPpr ? mapPprForStorage(raw, { submit: true }) : mapDarForStorage(raw, { submit: true });
+    await attachSectionFiles(raw, sectionKey, isPpr ? PPR_FILE_IDS : DAR_FILE_IDS);
+    const digitalSignature = officerAuth?.getRecord();
+    const mapped = {
+      ...(isPpr ? mapPprForStorage(raw, { submit: true }) : mapDarForStorage(raw, { submit: true })),
+      digitalSignature,
+    };
 
     try {
       await PMSStorage.saveForm2Section(appId, sectionKey, mapped, actor);
+      app = PMSStorage.getApplicationById(appId);
+      if (digitalSignature && app?.formData?.form2) {
+        PMSStorage.saveFormData(appId, 'form2', {
+          ...app.formData.form2,
+          digitalSignature,
+        }, actor);
+      }
 
-      if (typeof PMSApi !== 'undefined' && PMSApi.getToken()) {
+      if (typeof PMSStorage !== 'undefined' && PMSStorage.isAct1991ParoleSyncEnabled()
+        && typeof PMSApi !== 'undefined' && PMSApi.getToken()) {
         try {
           if (isPpr) await PMSApi.submitPreParoleReport(appId, mapped);
           else await PMSApi.submitDetaineeReport(appId, mapped);
@@ -417,10 +561,14 @@ const PMSForm2Assessment = (() => {
       }
       updateSectionControls();
       updatePprProgress();
-      checkBothSubmitted();
-      if (!PMSStorage.isForm2Complete(app.formData?.form2)) {
-        showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} submitted successfully.`, 'success');
-        showReportsHub();
+      submitGate?.sync();
+      if (PMSStorage.isForm2Complete(app.formData?.form2)) {
+        finalizeForm2Submission();
+      } else {
+        showToast(
+          `${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} submitted successfully. The report stays open for review.`,
+          'success',
+        );
       }
     } catch (err) {
       showToast(err.message || 'Submission failed.', 'error');
@@ -483,6 +631,7 @@ const PMSForm2Assessment = (() => {
     $('btnEditDar')?.classList.toggle('hidden', !showDarEdit);
     document.querySelector('[data-section-actions="ppr"]')?.classList.toggle('hidden', !canEditPpr || pprLocked);
     document.querySelector('[data-section-actions="dar"]')?.classList.toggle('hidden', !canEditDar || darLocked);
+    submitGate?.sync();
   }
 
   function unlockSection(sectionKey) {
@@ -528,35 +677,47 @@ const PMSForm2Assessment = (() => {
     showToast(`${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} unlocked for editing.`, 'info');
   }
 
-  function dashboardHref() {
-    if (typeof PMSPageChrome !== 'undefined') return PMSPageChrome.getDashboardHref('../');
-    if (typeof PMSAuth !== 'undefined' && actor?.role) return `../${PMSAuth.getDashboardForRole(actor.role)}`;
-    return '../dashboard.html';
-  }
-
-  function redirectToDashboard(delay = 1500) {
-    setTimeout(() => {
-      window.location.href = dashboardHref();
-    }, delay);
-  }
-
-  function handleForm2Complete() {
-    updateStatus('reportStatus', 'READY FOR BOARD HEARING', 'completed');
-    showToast('PPR and DAR submitted to the board workflow.', 'success');
-    if (typeof PMSFormWorkflow !== 'undefined') {
-      PMSFormWorkflow.markComplete(2, appId, { submitted: true });
-    }
-    redirectToDashboard();
-  }
-
-  function checkBothSubmitted() {
+  function applyForm2CompleteUi() {
     app = PMSStorage.getApplicationById(appId);
     const f2 = app?.formData?.form2;
     const complete = typeof PMSStorage !== 'undefined' && PMSStorage.isForm2Complete(f2);
-    if (complete) handleForm2Complete();
+    if (!complete) return;
+    updateStatus('reportStatus', 'READY FOR BOARD HEARING', 'completed');
+    updatePprProgress();
+    showForm2CompleteNotice();
+  }
+
+  function showForm2CompleteNotice() {
+    const hubIntro = $('reportsHub')?.querySelector('.reports-hub__intro');
+    if (hubIntro && !hubIntro.dataset.completeNotice) {
+      hubIntro.dataset.completeNotice = 'true';
+      hubIntro.textContent = 'Both DAR and PPR are complete. Open either report to review submitted assessments. Leave this page when you are finished.';
+    }
+    const workspaceBar = document.querySelector('.reports-workspace__bar');
+    if (workspaceBar && !workspaceBar.querySelector('.form2-complete-notice')) {
+      const notice = document.createElement('p');
+      notice.className = 'form2-complete-notice';
+      notice.setAttribute('role', 'status');
+      notice.textContent = 'Assessments complete — reports remain available for review until you close this page.';
+      workspaceBar.appendChild(notice);
+    }
+  }
+
+  function finalizeForm2Submission() {
+    updateStatus('reportStatus', 'READY FOR BOARD HEARING', 'completed');
+    showToast(
+      'PPR and DAR submitted to the board workflow. Reports stay open for review until you leave this page.',
+      'success',
+    );
+    if (typeof PMSFormWorkflow !== 'undefined') {
+      PMSFormWorkflow.markComplete(2, appId, { submitted: true });
+    }
+    updatePprProgress();
+    showForm2CompleteNotice();
   }
 
   async function submitBothReports() {
+    if (!requirePinForSubmit()) return;
     const ppr = app?.formData?.form2?.sections?.ppr;
     const ddr = app?.formData?.form2?.sections?.ddr;
     if (!ppr?.submitted || !ddr?.submitted) {
@@ -565,7 +726,7 @@ const PMSForm2Assessment = (() => {
       return;
     }
     if (typeof PMSStorage !== 'undefined' && PMSStorage.isForm2Complete(app.formData.form2)) {
-      handleForm2Complete();
+      finalizeForm2Submission();
     }
   }
 
@@ -656,11 +817,11 @@ const PMSForm2Assessment = (() => {
 
   function restoreSavedAttachments(section, idMap = {}) {
     const attachments = section?.attachments || {};
-    Object.entries(attachments).forEach(([key, names]) => {
+    Object.entries(attachments).forEach(([key, entries]) => {
       const targetId = idMap[key] || key;
       const preview = $(`${targetId}Preview`);
-      if (!preview || !Array.isArray(names) || !names.length) return;
-      preview.innerHTML = names.map((n) => `<span class="file-chip">${n} (saved)</span>`).join('');
+      if (!preview || !Array.isArray(entries) || !entries.length) return;
+      preview.innerHTML = entries.map((entry) => renderAttachmentChip(normalizeStoredAttachment(entry))).join('');
       preview.closest('.field-with-attachment')?.classList.add('has-attachment');
     });
   }
@@ -768,8 +929,9 @@ const PMSForm2Assessment = (() => {
       updateStatus('darStatus', 'IN PROGRESS', 'in-progress');
     }
 
-    checkBothSubmitted();
+    applyForm2CompleteUi();
     updateSectionControls();
+    submitGate?.sync();
   }
 
   function applyRoleLocks() {
@@ -818,6 +980,16 @@ const PMSForm2Assessment = (() => {
     $('btnNextForm3')?.addEventListener('click', () => {
       if (typeof PMSFormWorkflow !== 'undefined' && appId) PMSFormWorkflow.openForm(3, appId);
     });
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-f2-local-download]');
+      if (!btn || !appId) return;
+      try {
+        PMSStorage.downloadForm2Attachment(appId, btn.dataset.f2LocalDownload);
+      } catch (err) {
+        showToast(err.message || 'Could not download file.', 'error');
+      }
+    });
   }
 
   async function boot(resolvedAppId) {
@@ -848,10 +1020,25 @@ const PMSForm2Assessment = (() => {
 
     if (typeof mountForm2PprSection === 'function') mountForm2PprSection();
 
+    mountOfficerAuth();
     populateSummary();
     fillFormFromStorage();
     bindEvents();
     applyRoleLocks();
+    submitGate?.sync();
+
+    if (typeof PMSFormAutosave !== 'undefined') {
+      PMSFormAutosave.create({
+        root: '#form2-root',
+        debounceMs: 1500,
+        enabled: () => canAutosaveActiveSection(),
+        shouldHandleEvent: shouldAutosaveForm2Event,
+        onSave: async ({ silent }) => {
+          const key = getActiveSectionKey();
+          if (key) await saveDraft(key, { silent });
+        },
+      });
+    }
 
     if (typeof PMSFormWorkflow !== 'undefined') {
       PMSFormWorkflow.mountFormChrome(2, appId);

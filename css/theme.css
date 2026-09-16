@@ -43,7 +43,7 @@
 
   /* ── Surfaces & backgrounds ── */
   --color-white: #ffffff;
-  --color-bg: #f0f4f8;
+  --color-bg: #d8e6f4;
   --color-bg-subtle: #e2e8f0;
   --color-surface: #ffffff;
   --color-surface-elevated: #f8fafc;
@@ -63,15 +63,16 @@
   --color-link: var(--pngcs-navy-mid);
   --color-link-hover: var(--pngcs-navy-deep);
 
-  /* ── Sidebar (dark nav — light text) ── */
-  --sidebar-bg: linear-gradient(180deg, var(--pngcs-navy-deep) 0%, var(--pngcs-navy) 55%, var(--pngcs-navy-mid) 100%);
-  --sidebar-border: rgb(26 107 60 / 0.25);
-  --sidebar-text: #f8fafc;
-  --sidebar-text-muted: #cbd5e1;
-  --sidebar-label: #7dd4a0;
-  --sidebar-hover: rgb(255 255 255 / 0.08);
-  --sidebar-active: rgb(255 255 255 / 0.12);
-  --sidebar-accent: var(--lp-secondary);
+  /* ── Sidebar (light nav) ── */
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-text: var(--color-text-muted);
+  --sidebar-text-muted: var(--color-text-subtle);
+  --sidebar-label: var(--color-text-subtle);
+  --sidebar-hover: rgb(13 43 78 / 0.06);
+  --sidebar-active: rgb(13 43 78 / 0.08);
+  --sidebar-accent: var(--color-primary);
+  --sidebar-logo-size: 2.5rem;
 
   /* ── Legacy aliases (keep dashboards working) ── */
   --color-navy: var(--pngcs-navy);
@@ -126,9 +127,11 @@
   --font-weight-bold: 700;
 
   /* ── Layout & spacing ── */
-  --sidebar-width: 272px;
+  --sidebar-width: 260px;
   --sidebar-collapsed-width: 80px;
-  --workspace-header-height: auto;
+  --workspace-header-height: 80px;
+  --header-badge-size: 18px;
+  --header-shadow: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;

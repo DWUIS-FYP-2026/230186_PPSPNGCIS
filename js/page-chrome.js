@@ -61,17 +61,28 @@ const PMSPageChrome = (() => {
   function renderButton(href, label, options = {}) {
     const compact = options.compact ? ' pms-dashboard-btn--compact' : '';
     const variant = options.variant ? ` pms-dashboard-btn--${options.variant}` : '';
+    if (options.variant === 'structured') {
+      return `<a href="${href}" class="pms-dashboard-btn pms-dashboard-btn--structured${compact}" aria-label="Return to ${label}">
+        <span class="pms-dashboard-btn__icon-box" aria-hidden="true"><i class="fi fi-rr-dashboard"></i></span>
+        <span class="pms-dashboard-btn__label">${label}</span>
+      </a>`;
+    }
     return `<a href="${href}" class="pms-dashboard-btn${compact}${variant}" aria-label="Return to ${label}">
       <i class="fi fi-rr-dashboard" aria-hidden="true"></i>
       <span>${label}</span>
     </a>`;
   }
 
-  function upgradeLink(el, href, label) {
+  function upgradeLink(el, href, label, options = {}) {
     el.href = href;
     el.classList.add('pms-dashboard-btn');
     el.setAttribute('aria-label', `Return to ${label}`);
-    const textEl = el.querySelector('[data-pms-dashboard-label]') || el.querySelector('span:not(.sr-only)');
+    if (options.variant === 'structured') {
+      el.classList.add('pms-dashboard-btn--structured');
+      el.innerHTML = `<span class="pms-dashboard-btn__icon-box" aria-hidden="true"><i class="fi fi-rr-dashboard"></i></span><span class="pms-dashboard-btn__label" data-pms-dashboard-label>${label}</span>`;
+      return;
+    }
+    const textEl = el.querySelector('[data-pms-dashboard-label]') || el.querySelector('span:not(.sr-only):not(.pms-dashboard-btn__icon-box)');
     if (textEl) textEl.textContent = label;
     else if (!el.querySelector('.fi-rr-dashboard')) {
       el.innerHTML = `<i class="fi fi-rr-dashboard" aria-hidden="true"></i><span data-pms-dashboard-label>${label}</span>`;
@@ -89,15 +100,16 @@ const PMSPageChrome = (() => {
     const href = resolveDashboardHref(basePath, panel);
     const compact = el.dataset.pmsDashboardCompact === 'true';
     const variant = el.dataset.pmsDashboardVariant || '';
+    const displayLabel = variant === 'structured' ? 'Dashboard' : label;
 
     if (el.tagName === 'A') {
-      upgradeLink(el, href, label);
+      upgradeLink(el, href, displayLabel, { variant });
       if (compact) el.classList.add('pms-dashboard-btn--compact');
-      if (variant) el.classList.add(`pms-dashboard-btn--${variant}`);
+      if (variant && variant !== 'structured') el.classList.add(`pms-dashboard-btn--${variant}`);
       return;
     }
 
-    el.innerHTML = renderButton(href, label, { compact, variant });
+    el.innerHTML = renderButton(href, displayLabel, { compact, variant });
   }
 
   function wireLegacy(basePath, label) {

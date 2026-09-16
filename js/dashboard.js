@@ -10,21 +10,23 @@
   const usersPager = PMSUI.createPaginator({ pageSize: 12, onPageChange: () => renderUsers(usersOfficersOnly) });
   const prisonersPager = PMSUI.createPaginator({ pageSize: 15, onPageChange: renderPrisoners });
 
+  const adminViewOnly = typeof PMSRBAC !== 'undefined' && PMSRBAC.isAdminViewOnly(actor);
+
   const panelTitles = {
-    overview: ['Dashboard Overview', 'Central administration panel for the Parole Management System'],
-    users: ['User Management', 'Create and manage user accounts and officer roles'],
-    institutions: ['Correctional Institutions', 'Manage institutions and officer assignments'],
-    prisoners: ['Prisoner Records', 'View prisoner records (read-only — maintained by PNGCS)'],
+    overview: ['Dashboard Overview', adminViewOnly ? 'Read-only oversight of parole operations and prisoner progress' : 'Central administration panel for the Parole Management System'],
+    users: ['User Management', adminViewOnly ? 'View user accounts (read-only)' : 'Create and manage user accounts and officer roles'],
+    institutions: ['Correctional Institutions', adminViewOnly ? 'View institutions (read-only)' : 'Manage institutions and officer assignments'],
+    prisoners: ['Prisoner Records', 'View prisoner records and parole process stage (read-only)'],
     notifications: ['Eligibility Notifications', 'Automated parole eligibility alerts'],
     audit: ['System Activity', 'Administrative audit log — user actions, modules, and access outcomes'],
-    settings: ['System Settings', 'Configure parole eligibility rules and system preferences'],
+    settings: ['System Settings', adminViewOnly ? 'View system configuration (read-only)' : 'Configure parole eligibility rules and system preferences'],
     profile: ['Profile', 'Your account information'],
     reports: ['System Reports', 'Operational and administrative reports'],
     officers: ['Officer Management', 'Manage correctional officers and role assignments'],
   };
 
   const navTitles = {
-    cases: ['Parole Cases', 'Prisoners with active or historical parole applications'],
+    cases: ['Parole Process Track', 'Live workflow stage for each prisoner in the parole process'],
     eligibility: ['Eligibility Queue', 'Prisoners eligible for parole application'],
     'release-pending': ['Pending Release', 'Approved cases awaiting release authorization'],
     'release-done': ['Released Prisoners', 'Prisoners released on parole or discharged'],
@@ -204,8 +206,8 @@
 
     const statusGroups = [
       { label: 'Submitted', value: apps.filter((a) => a.status === 'Submitted').length },
-      { label: 'Under Review', value: apps.filter((a) => ['Under DJAG Review', 'Pending Board Review', 'Hearing Scheduled', 'Pending Commander Review'].includes(a.status)).length },
-      { label: 'Granted / Approved', value: apps.filter((a) => ['Approved', 'Parole Granted', 'Pending Approval'].includes(a.status)).length },
+      { label: 'Under Review', value: apps.filter((a) => ['Under DJAG Review', 'Pending Board Review', 'Hearing Scheduled', 'Hearing In Progress', 'Pending Commander Review'].includes(a.status)).length },
+      { label: 'Parole Granted (Form 4)', value: stats.grantedParole },
       { label: 'Refused / Deferred', value: apps.filter((a) => ['Refused', 'Parole Refused', 'Deferred'].includes(a.status)).length },
     ];
     renderBarChart('chart-applications', statusGroups, 'var(--pngcs-navy)');
@@ -255,7 +257,7 @@
         }).join('');
     }
 
-    const eligible = prisoners.filter((p) => PMSStorage.getPrisonerProgress(p).eligible);
+    const eligible = PMSStorage.getEligibleParoleApplicants();
     const eligibleEl = document.getElementById('inbox-eligible');
     if (eligibleEl) {
       document.getElementById('inbox-eligible-count').textContent = eligible.length;
@@ -447,10 +449,7 @@
       const caseIds = new Set(apps.map((a) => a.prisonerId));
       prisoners = prisoners.filter((p) => caseIds.has(p.id));
     } else if (activeNavId === 'eligibility') {
-      prisoners = prisoners.filter((p) => {
-        const prog = PMSStorage.getPrisonerProgress(p);
-        return prog.eligible || p.status === 'Eligible for Parole Application';
-      });
+      prisoners = PMSStorage.getEligibleParoleApplicants();
     } else if (activeNavId === 'release-pending') {
       prisoners = prisoners.filter((p) => {
         const app = appByPrisoner.get(p.id);
@@ -486,6 +485,13 @@
     tbody.innerHTML = pageRows.map((p) => {
       const prog = PMSStorage.getPrisonerProgress(p);
       const months = PMSStorage.getSentenceDurationMonths(p);
+      const app = appByPrisoner.get(p.id);
+      const paroleStage = app?.paroleProgress?.currentStage
+        || (app ? PMSStorage.getCaseTracker(app.id).find((s) => s.status === 'current')?.label : null)
+        || (app ? app.status : '—');
+      const stageMeta = app?.paroleProgress
+        ? `<span class="meta">${app.paroleProgress.completedStages}/${app.paroleProgress.totalStages} stages</span>`
+        : '';
       const rowClass = prog.eligible ? 'row-eligible' : '';
       return `<tr class="${rowClass}">
         <td><strong>${esc(p.prisonerNumber)}</strong></td>
@@ -499,6 +505,7 @@
           <span class="progress-label">${prog.percent.toFixed(0)}% served</span>
         </td>
         <td>${fmtDate(prog.eligibilityDate)}${prog.eligible ? ' <span class="eligible-tag">ELIGIBLE</span>' : ''}</td>
+        <td><strong>${esc(paroleStage)}</strong>${stageMeta ? `<br>${stageMeta}` : ''}</td>
         <td><span class="status-pill status-pill--${statusClass(p.status)}">${esc(p.status)}</span></td>
         <td class="actions-cell">
           <a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">View Case File</a>
@@ -549,7 +556,7 @@
     const ruleNote = document.getElementById('eligibility-rule-note');
     if (ruleNote) {
       ruleNote.textContent =
-        `Eligibility rule: ${settings.paroleEligibilityLabel}. Notifications are sent to System Administrator and CS Parole Clerk.`;
+        `Eligibility rule: ${settings.paroleEligibilityLabel}. Alerts are limited to eligibility, overdue schedules, parolee record changes, and board decisions.`;
     }
 
     const notifs = PMSStorage.getNotificationsForUser(actor);
@@ -646,6 +653,7 @@
     activePanel: 'overview',
     onNavigate: (panel, meta) => switchPanel(panel, meta?.navId),
   });
+  PMSUI.setPanelNavigator((panel, navId) => switchPanel(panel, navId));
   PMSUI.bindNotificationPanel('notification-list', actor, () => refreshAll());
 
   document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => {
@@ -668,7 +676,15 @@
   document.getElementById('audit-entity-filter')?.addEventListener('change', renderAudit);
 
   // Buttons
-  document.getElementById('add-user-btn')?.addEventListener('click', () => openUserModal());
+  if (adminViewOnly) {
+    document.getElementById('add-user-btn')?.remove();
+    document.querySelectorAll('#user-form input, #user-form select, #user-form button[type="submit"], #settings-form input, #settings-form select, #settings-form button[type="submit"]').forEach((el) => {
+      el.disabled = true;
+    });
+    document.querySelectorAll('[data-edit-user], [data-reset-password], [data-toggle-user]').forEach((el) => el.remove());
+  } else {
+    document.getElementById('add-user-btn')?.addEventListener('click', () => openUserModal());
+  }
   document.getElementById('add-prisoner-btn')?.remove();
   document.getElementById('mark-all-read-btn')?.addEventListener('click', () => { PMSStorage.markAllNotificationsRead(actor, actor); refreshAll(); });
   document.getElementById('logout-btn')?.addEventListener('click', async () => { await PMSStorage.clearSession(); window.location.href = 'index.html'; });
@@ -723,7 +739,7 @@
   document.getElementById('settings-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fraction = parseFloat(document.getElementById('eligibility-fraction').value);
-    const labels = { 0.333333: 'One-third (1/3) of total sentence', 0.5: 'One-half (1/2) of total sentence', 0.666667: 'Two-thirds (2/3) of total sentence' };
+    const labels = { 0.333333: 'One-third (1/3) of total sentence', 0.5: 'One-half (1/2) of total sentence — legal default', 0.666667: 'Two-thirds (2/3) of total sentence' };
     await PMSStorage.saveSettings({
       paroleEligibilityFraction: fraction,
       paroleEligibilityLabel: labels[fraction] || `${fraction * 100}% of total sentence`,
@@ -791,4 +807,6 @@
     expiryEl.value = d.toISOString().slice(0, 10);
   });
   if (!PMSUI.applyDeepLinkNav((panel, navId) => switchPanel(panel, navId))) switchPanel('overview');
+
+  PMSUI.bindLiveDataRefresh(refreshAll);
 })();

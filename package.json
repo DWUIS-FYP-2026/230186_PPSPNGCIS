@@ -5,5 +5,8 @@
   "scripts": {
     "start": "npm start --prefix server",
     "dev": "npm run dev --prefix server"
+  },
+  "dependencies": {
+    "firebase": "^12.18.0"
   }
 }

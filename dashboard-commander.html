@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/forms.css">
 </head>
 <body>
   <div class="dashboard">
@@ -37,20 +38,70 @@
         </div>
         <div class="overview-grid overview-grid--single">
           <div class="card"><div class="card-header"><h2>Awaiting Verification</h2></div><div class="card-body" id="overview-verification-queue"></div></div>
+          <div class="card"><div class="card-header"><h2>Recently Verified</h2></div><div class="card-body" id="overview-verified-record"></div></div>
           <div class="card"><div class="card-header"><h2>Recent Notifications</h2></div><div class="card-body" id="overview-notifications"></div></div>
         </div>
       </section>
 
       <section class="panel" id="panel-verification">
-        <div class="panel-toolbar">
-          <p class="toolbar-note">Review completed Forms 1–3 and record institutional verification before cases proceed to DJAG.</p>
+        <div class="panel-toolbar panel-toolbar--split">
+          <p class="toolbar-note">Prisoners below require your institutional verification after Forms 1–3 are complete.</p>
+          <p class="verification-summary" id="verification-summary" aria-live="polite"></p>
         </div>
-        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Case</th><th>Prisoner</th><th>Status</th><th>Forms</th><th>Submitted</th><th></th></tr></thead><tbody id="verification-tbody"></tbody></table></div></div>
+        <div id="verification-focus" class="verification-focus hidden" aria-live="polite"></div>
+        <div class="card">
+          <div class="card-header card-header--split">
+            <h2>Awaiting Commander Verification</h2>
+            <input type="search" class="search-input search-input--compact" id="verification-search" placeholder="Search prisoner or case…" aria-label="Search verification queue">
+          </div>
+          <div class="table-wrap">
+            <table class="data-table data-table--verification">
+              <thead>
+                <tr>
+                  <th>Prisoner</th>
+                  <th>Prisoner ID</th>
+                  <th>Case</th>
+                  <th>Forms 1–3</th>
+                  <th>Case Status</th>
+                  <th>Submitted</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="verification-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card verification-record-card">
+          <div class="card-header card-header--split">
+            <div>
+              <h2>Verification Record</h2>
+              <p class="card-subtitle">Prisoners you have already verified — each case is recorded once and saved permanently.</p>
+            </div>
+            <input type="search" class="search-input search-input--compact" id="verified-search" placeholder="Search verified prisoners…" aria-label="Search verification record">
+          </div>
+          <p class="verification-summary" id="verified-summary" aria-live="polite"></p>
+          <div class="table-wrap">
+            <table class="data-table data-table--verified">
+              <thead>
+                <tr>
+                  <th>Prisoner</th>
+                  <th>Prisoner ID</th>
+                  <th>Case</th>
+                  <th>Decision</th>
+                  <th>Verified On</th>
+                  <th>Verified By</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="verified-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section class="panel" id="panel-release">
         <div class="panel-toolbar">
-          <p class="toolbar-note">Authorize prisoner release after the Parole Board has completed full interviews (Doctor, CS Commissioner, and DJAG Secretary assessments) and parole is granted.</p>
+          <p class="toolbar-note">Authorize prisoner release after the Parole Board has completed full interviews (Psychiatrist, PNGCS Commissioner, and DJAG Secretary assessments) and parole is granted.</p>
         </div>
         <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Case</th><th>Prisoner</th><th>Status</th><th>Board Interviews</th><th>Release Readiness</th><th></th></tr></thead><tbody id="release-tbody"></tbody></table></div></div>
       </section>
@@ -133,6 +184,7 @@
           <textarea id="verify-comments" rows="4" placeholder="Verification notes, conditions observed, or correction instructions…"></textarea>
           <p class="field-hint" id="verify-comments-hint">Required when returning a case for correction.</p>
         </div>
+        <div id="verify-officer-auth-mount" class="verify-officer-auth-mount" hidden></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" data-close="verify-modal">Cancel</button>
@@ -143,6 +195,6 @@
   </dialog>
 
   <script src="js/pms-core.js"></script>
-  <script>PMSCore.bootDashboard('dashboard-commander.js');</script>
+  <script>PMSCore.bootDashboard('dashboard-commander.js', ['form-officer-auth.js']);</script>
 </body>
 </html>

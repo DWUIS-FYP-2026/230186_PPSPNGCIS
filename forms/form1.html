@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
@@ -15,258 +15,159 @@
 </head>
 <body class="pms-form-page pms-form-page--form1">
 
-  <header class="page-header no-print">
-    <div class="header-top">
-      <div data-pms-dashboard-btn></div>
+  <div class="pms-page-header no-print">
+    <header class="form-top-nav" role="banner">
+      <div data-pms-dashboard-btn data-pms-dashboard-variant="structured"></div>
+      <span class="form-badge" aria-label="Current form">Form 1</span>
+    </header>
+
+    <section class="form-letterhead" aria-labelledby="form-title">
+    <div class="form-letterhead__logo">
+      <img class="form-letterhead__emblem" src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service emblem" data-pms-logo-fallback="../images/NationalEmblem.jpg">
     </div>
-    <div class="header-main">
-      <div class="header-brand pms-brand-logos" aria-hidden="true">
-        <span class="pms-logo-badge pms-logo-badge--pngcs">
-          <img src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service" data-pms-logo-fallback="../images/NationalEmblem.jpg">
-        </span>
-        <span class="pms-logo-divider" aria-hidden="true"></span>
-        <span class="pms-logo-badge pms-logo-badge--djag">
-          <img src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General">
-        </span>
-      </div>
-      <div class="header-title-block">
-        <div class="header-title">
-          <span class="gov-badge">Department of Justice &amp; Attorney General · PNGCS</span>
-          <h1>Form 1 — Parole Application</h1>
-          <p>Particulars of detainee eligible for parole</p>
-          <p class="form-meta">
-            <strong>Application ID:</strong> <span id="applicationId">—</span>
-            &nbsp;|&nbsp; <strong>Version:</strong> 2.0 (Parole Act 1991)
-          </p>
-        </div>
-      </div>
-      <span class="role-badge">Form 1</span>
+    <div class="form-letterhead__center">
+      <h1 class="form-letterhead__title" id="form-title">Form 1 — Parole Application</h1>
+      <p class="form-letterhead__subtitle">Eligibility screening for parole consideration</p>
+      <p class="form-letterhead__meta-pill">Application ID: <span id="applicationId">—</span></p>
     </div>
-  </header>
+    <div class="form-letterhead__logo form-letterhead__logo--right">
+      <img class="form-letterhead__emblem" src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General emblem">
+    </div>
+    </section>
+  </div>
 
   <main class="page-main">
-  <div id="selection-panel" class="selection-panel hidden">
-    <h2>Select Eligible Detainee</h2>
-    <p>Choose a detainee to generate Form 1 — Particulars of detainee eligible for parole.</p>
-    <div class="prisoner-combobox" id="prisoner-combobox">
-      <label for="prisoner-combobox-input">Detainee</label>
-      <input type="hidden" id="prisoner-combobox-value">
-      <div class="prisoner-combobox__control">
-        <input type="text" id="prisoner-combobox-input" placeholder="Search by name or prisoner ID…" autocomplete="off">
-        <button type="button" class="prisoner-combobox__clear hidden" id="prisoner-combobox-clear" aria-label="Clear">&times;</button>
-      </div>
-      <ul class="prisoner-combobox__list hidden" id="prisoner-combobox-listbox" role="listbox"></ul>
-    </div>
-  </div>
-
-  <div id="form1-root" class="hidden">
-    <div id="form-workflow-nav" class="no-print"></div>
-
-    <div class="status-bar no-print">
-      <div class="status-item">
-        <span class="label">Application Status:</span>
-        <span class="status-badge eligible" id="statusBadge">ELIGIBLE</span>
-      </div>
-      <div class="status-item">
-        <span class="label">Eligibility Date:</span>
-        <span class="value" id="eligibilityDate">—</span>
-      </div>
-      <div class="status-item">
-        <span class="label">Notification Date:</span>
-        <span class="value" id="notificationDate">—</span>
-      </div>
-      <div class="status-item">
-        <span class="label">CI #:</span>
-        <span class="value" id="ciNumberDisplay">—</span>
+    <div id="selection-panel" class="selection-panel hidden">
+      <h2>Select Eligible Detainee</h2>
+      <p>Choose a detainee to open Form 1 — Parole Application.</p>
+      <div class="prisoner-combobox" id="prisoner-combobox">
+        <label for="prisoner-combobox-input">Detainee</label>
+        <input type="hidden" id="prisoner-combobox-value">
+        <div class="prisoner-combobox__control">
+          <input type="text" id="prisoner-combobox-input" placeholder="Search by name or prisoner ID…" autocomplete="off">
+          <button type="button" class="prisoner-combobox__clear hidden" id="prisoner-combobox-clear" aria-label="Clear">&times;</button>
+        </div>
+        <ul class="prisoner-combobox__list hidden" id="prisoner-combobox-listbox" role="listbox"></ul>
       </div>
     </div>
 
-    <form id="paroleForm" onsubmit="return false;">
-      <!-- SECTION A -->
-      <div class="section">
-        <div class="section-title">
-          <span class="badge-letter">A</span>
-          Detainee Identifiers &amp; Demographics
-        </div>
-        <p class="section-desc">Official identification details as per PNG Correctional Service records.</p>
-        <div class="form-grid">
-          <div class="form-group full-width">
-            <label>Full Legal Name <span class="required">*</span></label>
-            <input type="text" id="fullName" class="readonly-input" readonly placeholder="Surname, Given Names">
-          </div>
-          <div class="form-group full-width">
-            <label>Aliases / Other Names</label>
-            <input type="text" id="aliases" placeholder="Any known aliases">
-          </div>
-          <div class="form-group">
-            <label>CI Number <span class="required">*</span></label>
-            <input type="text" id="ciNumber" class="readonly-input" readonly>
-          </div>
-          <div class="form-group">
-            <label>Date of Birth <span class="required">*</span></label>
-            <input type="date" id="dob" class="readonly-input" readonly>
-          </div>
-          <div class="form-group">
-            <label>Gender <span class="required">*</span></label>
-            <select id="gender" class="readonly-input" disabled>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-        </div>
-      </div>
+    <div id="form1-root" class="hidden">
+      <div id="form-workflow-nav" class="no-print"></div>
 
-      <!-- SECTION B -->
-      <div class="section">
-        <div class="section-title">
-          <span class="badge-letter">B</span>
-          Sentencing and Conviction Particulars
-        </div>
-        <p class="section-desc">Court-ordered sentencing details used to calculate parole eligibility (one-half rule; Life: 10 years).</p>
-        <div class="form-grid">
-          <div class="form-group full-width">
-            <label>Current Offense(s) <span class="required">*</span></label>
-            <textarea id="currentOffenses" rows="2" class="readonly-input" readonly></textarea>
-          </div>
-          <div class="form-group">
-            <label>Sentence Length (Years) <span class="required">*</span></label>
-            <input type="number" id="sentenceLength" class="readonly-input" readonly step="0.5" min="0.5">
-            <span class="text-muted">Half of this period determines eligibility</span>
-          </div>
-          <div class="form-group">
-            <label>Offense Category <span class="required">*</span></label>
-            <select id="offenseCategory" class="readonly-input" disabled>
-              <option value="Violent">Violent</option>
-              <option value="Property">Property</option>
-              <option value="Drug-related">Drug-related</option>
-              <option value="Sexual">Sexual</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Court of Conviction</label>
-            <input type="text" id="courtOfConviction" placeholder="National or District Court location">
-          </div>
-          <div class="form-group">
-            <label>Sentence Commencement Date <span class="required">*</span></label>
-            <input type="date" id="sentenceStartDate" class="readonly-input" readonly>
-          </div>
-        </div>
-      </div>
+      <form id="paroleForm" class="form1-simple" onsubmit="return false;">
+        <header class="form1-simple__masthead">PNG CORRECTIONAL SERVICE</header>
 
-      <!-- SECTION C -->
-      <div class="section">
-        <div class="section-title">
-          <span class="badge-letter">C</span>
-          Current Custodial Location
-        </div>
-        <p class="section-desc">Correctional institution assignment (per detainee record).</p>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Correctional Facility <span class="required">*</span></label>
-            <input type="text" id="facility" class="readonly-input" readonly value="Correctional Institution">
+        <section class="form1-simple__section" aria-labelledby="form1-prisoner-heading">
+          <h2 class="form1-simple__section-title" id="form1-prisoner-heading">PRISONER DETAILS</h2>
+          <div class="form1-details" role="group" aria-label="Prisoner details">
+            <div class="form1-details__row">
+              <div class="form1-details__field">
+                <span class="form1-details__label">Application ID</span>
+                <span class="form1-details__value" id="displayApplicationId">—</span>
+              </div>
+              <div class="form1-details__field">
+                <span class="form1-details__label">Prisoner ID</span>
+                <span class="form1-details__value" id="displayPrisonerId">—</span>
+              </div>
+            </div>
+            <div class="form1-details__row">
+              <div class="form1-details__field">
+                <span class="form1-details__label">First Name</span>
+                <span class="form1-details__value" id="displayFirstName">—</span>
+              </div>
+              <div class="form1-details__field">
+                <span class="form1-details__label">Last Name</span>
+                <span class="form1-details__value" id="displayLastName">—</span>
+              </div>
+            </div>
+            <div class="form1-details__row">
+              <div class="form1-details__field">
+                <span class="form1-details__label">Gender</span>
+                <span class="form1-details__value" id="displayGender">—</span>
+              </div>
+              <div class="form1-details__field">
+                <span class="form1-details__label">Date of Birth</span>
+                <span class="form1-details__value" id="displayDob">—</span>
+              </div>
+            </div>
+            <div class="form1-details__row form1-details__row--full">
+              <div class="form1-details__field">
+                <span class="form1-details__label">Institution</span>
+                <span class="form1-details__value" id="displayFacility">—</span>
+              </div>
+            </div>
+            <div class="form1-details__row form1-details__row--full">
+              <div class="form1-details__field">
+                <span class="form1-details__label">Offence</span>
+                <span class="form1-details__value" id="displayOffence">—</span>
+              </div>
+            </div>
+            <div class="form1-details__row">
+              <div class="form1-details__field">
+                <span class="form1-details__label">Sentence Length</span>
+                <span class="form1-details__value" id="displaySentenceLength">—</span>
+              </div>
+              <div class="form1-details__field">
+                <span class="form1-details__label">Sentence Start</span>
+                <span class="form1-details__value" id="displaySentenceStart">—</span>
+              </div>
+            </div>
+            <div class="form1-details__row">
+              <div class="form1-details__field">
+                <span class="form1-details__label">Eligibility Date</span>
+                <span class="form1-details__value" id="displayEligibilityDate">—</span>
+              </div>
+              <div class="form1-details__field">
+                <span class="form1-details__label">Current Status</span>
+                <span class="form1-details__value"><span class="form1-simple__status" id="displayStatus">—</span></span>
+              </div>
+            </div>
+            <div class="form1-details__row">
+              <div class="form1-details__field">
+                <span class="form1-details__label">Parole Officer</span>
+                <span class="form1-details__value" id="displayOfficer">—</span>
+              </div>
+              <div class="form1-details__field">
+                <span class="form1-details__label">Application Date</span>
+                <span class="form1-details__value" id="displayApplicationDate">—</span>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Facility Code</label>
-            <input type="text" id="facilityCode" class="readonly-input" readonly placeholder="Standardized code">
-          </div>
-          <div class="form-group">
-            <label>Cell Block / Unit</label>
-            <input type="text" id="cellBlock" placeholder="e.g., Block A, Unit 2">
-          </div>
-        </div>
-      </div>
+        </section>
 
-      <!-- SECTION D -->
-      <div class="section">
-        <div class="section-title">
-          <span class="badge-letter">D</span>
-          Proposed Post-Release &amp; Reintegration Details
-        </div>
-        <p class="section-desc">Information about the parolee's support network and reintegration plan.</p>
-        <div class="form-grid">
-          <div class="form-group full-width">
-            <label>Sponsor / Guarantor Name <span class="required">*</span></label>
-            <input type="text" id="sponsorName" placeholder="Family member, elder, or church leader">
-          </div>
-          <div class="form-group">
-            <label>Relationship <span class="required">*</span></label>
-            <input type="text" id="sponsorRelationship" placeholder="e.g., Father, Uncle, Pastor">
-          </div>
-          <div class="form-group">
-            <label>Sponsor Contact <span class="required">*</span></label>
-            <input type="text" id="sponsorContact" placeholder="Phone / Email">
-          </div>
-          <div class="form-group full-width">
-            <label>Sponsor Address</label>
-            <input type="text" id="sponsorAddress" placeholder="Physical address">
-          </div>
-          <div class="form-group">
-            <label>Proposed Residence <span class="required">*</span></label>
-            <input type="text" id="proposedResidence" placeholder="Village, Ward, or District">
-          </div>
-          <div class="form-group">
-            <label>Province <span class="required">*</span></label>
-            <select id="proposedProvince">
-              <option value="">Select province…</option>
-            </select>
-          </div>
-          <div class="form-group full-width">
-            <label>Employment or Business Plans</label>
-            <textarea id="employmentPlans" rows="2" placeholder="Work, farming, or business plans upon release"></textarea>
-          </div>
-          <div class="form-group full-width">
-            <label>Community Service Obligations</label>
-            <textarea id="communityPlans" rows="2" placeholder="Community obligations supporting rehabilitation"></textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- SECTION E -->
-      <div class="section">
-        <div class="section-title">
-          <span class="badge-letter">E</span>
-          Declaration &amp; Consent
-        </div>
-        <p class="section-desc">Formal acknowledgment by the detainee to be considered for parole.</p>
-        <div class="consent-box">
-          <div class="consent-text">
-            <input type="checkbox" id="prisonerConsent">
-            <label for="prisonerConsent">
-              I, <span id="consentNameDisplay">[Name]</span>, hereby formally acknowledge that I wish to be considered for parole.
-              <span class="required">*</span>
+        <section class="form1-simple__section" aria-labelledby="form1-eligibility-heading">
+          <h2 class="form1-simple__section-title" id="form1-eligibility-heading">ELIGIBILITY ASSESSMENT</h2>
+          <div class="form1-simple__choices" role="radiogroup" aria-label="Eligibility assessment">
+            <label class="form1-simple__choice">
+              <input type="radio" name="eligibility" id="eligibilityEligible" value="eligible">
+              <span>Eligible to Apply for Parole</span>
+            </label>
+            <label class="form1-simple__choice">
+              <input type="radio" name="eligibility" id="eligibilityNotEligible" value="not_eligible">
+              <span>Not Eligible</span>
             </label>
           </div>
-          <div class="consent-signature">
-            <label for="consentDate">Consent Date:</label>
-            <input type="date" id="consentDate">
-            <span class="text-muted">(Prisoner's signature recorded in system)</span>
+        </section>
+
+        <div id="officer-auth-mount"></div>
+
+        <div class="actions no-print form-actions-row">
+          <div class="left-btns">
+            <button type="button" class="btn btn-primary" id="btnSave">Save Draft</button>
+            <button type="button" class="btn btn-success" id="btnSubmit">Submit Form 1</button>
+            <button type="button" class="btn btn-outline" id="btnPreview">Preview / Print</button>
+            <button type="button" class="btn btn-outline" id="btnNextForm2">Continue to Form 2 →</button>
+          </div>
+          <div>
+            <button type="button" class="btn btn-danger" id="btnReset">Reset Form</button>
           </div>
         </div>
-        <p class="mt-8 text-muted">
-          By providing consent, the detainee agrees to Parole Board conditions. Community Safety and Protection is the paramount consideration.
-        </p>
-      </div>
 
-      <div class="actions no-print form-actions-row">
-        <div class="left-btns">
-          <button type="button" class="btn btn-primary" id="btnSave">Save Draft</button>
-          <button type="button" class="btn btn-success" id="btnSubmit">Submit &amp; Record Consent</button>
-          <button type="button" class="btn btn-outline" id="btnPreview">Preview / Print PDF</button>
-          <button type="button" class="btn btn-outline" id="btnNextForm2">Continue to Form 2 →</button>
+        <div class="print-footer">
+          <p>Generated by PMS — Papua New Guinea Parole Management System · Form 1 · Parole Act 1991</p>
         </div>
-        <div>
-          <button type="button" class="btn btn-danger" id="btnReset">Reset Form</button>
-        </div>
-      </div>
-
-      <div class="print-footer">
-        <p>Generated by PMS — Papua New Guinea Parole Management System · Form 1 v2.0 · Parole Act 1991</p>
-        <p>This is an official document. Any alteration or forgery is a criminal offense.</p>
-      </div>
-    </form>
-  </div>
+      </form>
+    </div>
   </main>
 
   <footer class="page-footer">
@@ -277,7 +178,6 @@
   <script>
     PMSCore.bootForm(['api-client.js', 'prisoner-combobox.js', 'form1-validation.js', 'form1-parole.js']).then(function () {
       PMSForm1Parole.init();
-      document.getElementById('consentDate').value = new Date().toISOString().slice(0, 10);
     });
   </script>
 </body>

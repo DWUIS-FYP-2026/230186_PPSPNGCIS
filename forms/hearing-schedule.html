@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
+  <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
+  <script src="../js/auth-guard.js"></script>
+  <script src="../js/page-zoom.js"></script>
+  <title>Schedule Parole Hearings | PNG Parole System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/forms.css">
+  <link rel="stylesheet" href="../css/hearing-portal.css">
+  <link rel="stylesheet" href="../css/page-chrome.css">
+  <link rel="stylesheet" href="../css/mobile.css">
+</head>
+<body class="pms-portal-page portal--schedule">
+  <div class="pms-page-header pms-page-header--portal no-print">
+    <header class="form-top-nav" role="banner">
+      <div data-pms-dashboard-btn data-pms-dashboard-variant="structured"></div>
+      <span class="form-badge" id="portal-form-badge">Schedule</span>
+    </header>
+    <section class="form-letterhead" aria-labelledby="portal-page-title">
+      <div class="form-letterhead__logo">
+        <img class="form-letterhead__emblem" src="../images/PNG CS Logo.jpg" alt="PNG Correctional Service emblem" data-pms-logo-fallback="../images/NationalEmblem.jpg">
+      </div>
+      <div class="form-letterhead__center">
+        <h1 class="form-letterhead__title" id="portal-page-title">Hearing Schedule</h1>
+        <p class="form-letterhead__subtitle" id="portal-page-sub">DJAG Secretary — set parole hearing dates after Form 3 verification</p>
+        <p class="form-letterhead__meta-pill" id="session-badge">Scheduling · Active</p>
+        <p class="form-letterhead__meta-extra"><span id="user-label">DJAG Secretary</span></p>
+      </div>
+      <div class="form-letterhead__logo form-letterhead__logo--right">
+        <img class="form-letterhead__emblem" src="../images/djag_logo.jpg" alt="Department of Justice and Attorney General emblem">
+      </div>
+    </section>
+  </div>
+
+  <div class="portal">
+    <div class="session-bar">
+      <div class="session-info">
+        <span><span class="label">Queue:</span> <span class="value" id="session-docket">0 cases</span></span>
+        <span><span class="label">Current:</span> <span class="value" id="session-current">—</span></span>
+      </div>
+      <div class="session-controls">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-prev">Previous</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-next">Next</button>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-print">Print</button>
+      </div>
+    </div>
+
+    <div id="deadline-alert" class="deadline-alert" hidden></div>
+
+    <div class="hearing-grid hearing-grid--schedule">
+      <div class="queue-panel">
+        <h4>Hearing Queue <span class="count" id="queue-count">0</span></h4>
+        <div id="queue-list"></div>
+        <div class="queue-footer" id="queue-footer"><span id="queue-remaining">0 remaining</span></div>
+      </div>
+
+      <div class="hearing-panel">
+        <div class="offender-header">
+          <div class="main-info">
+            <h2 id="offender-name">Select a case</h2>
+            <div class="sub" id="offender-sub">
+              <span>ID: <span id="offender-id">—</span></span>
+              <span>Offense: <span id="offender-offense">—</span></span>
+              <span>Facility: <span id="offender-facility">—</span></span>
+            </div>
+          </div>
+          <div class="eligibility-badge" id="eligibility-badge">Awaiting selection</div>
+        </div>
+
+        <div class="dossier-viewer">
+          <div class="dossier-head">
+            <strong>Case Dossier</strong>
+            <span class="dossier-status" id="dossier-status">Pending</span>
+          </div>
+          <div class="doc-list" id="doc-list"></div>
+          <div class="dossier-note">Read-only · verify Forms 1–3 before scheduling</div>
+        </div>
+
+        <div class="schedule-area" id="schedule-area">
+          <label class="section-title">Schedule Hearing <span class="hint">(within 14 days of Form 3 verification)</span></label>
+          <div class="schedule-grid">
+            <div>
+              <label class="field-label" for="hearing-date">Date *</label>
+              <input type="date" id="hearing-date">
+            </div>
+            <div>
+              <label class="field-label" for="hearing-time">Time</label>
+              <input type="time" id="hearing-time" value="09:00">
+            </div>
+            <div class="schedule-full">
+              <label class="field-label" for="hearing-venue">Venue *</label>
+              <input type="text" id="hearing-venue" placeholder="Parole Board hearing venue">
+            </div>
+            <div class="schedule-full">
+              <label class="field-label" for="hearing-notes">Notes</label>
+              <textarea id="hearing-notes" rows="2" placeholder="Special arrangements, security notes…"></textarea>
+            </div>
+            <div class="schedule-full">
+              <label class="schedule-check"><input type="checkbox" id="deadline-exception"> Authorized exception — beyond 14-day deadline</label>
+              <textarea id="exception-reason" rows="2" placeholder="Exception justification…" hidden></textarea>
+            </div>
+          </div>
+          <div class="action-buttons">
+            <button type="button" class="btn btn-success" id="btn-schedule">Schedule &amp; Notify</button>
+            <button type="button" class="btn btn-secondary" id="btn-save-draft">Save Draft</button>
+            <button type="button" class="btn btn-danger" id="btn-cancel" hidden>Cancel Hearing</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="schedule-success-modal" id="schedule-success-modal" hidden role="dialog" aria-modal="true" aria-labelledby="schedule-success-title">
+    <div class="schedule-success-modal__panel">
+      <div class="schedule-success-modal__icon" aria-hidden="true">✓</div>
+      <h2 id="schedule-success-title">Hearing Scheduled</h2>
+      <p id="schedule-success-message">The parole hearing has been saved successfully.</p>
+      <div class="schedule-success-modal__actions">
+        <button type="button" class="btn btn-secondary" id="btn-schedule-success-close">Close</button>
+        <a href="#" class="btn btn-primary" id="btn-schedule-success-dashboard" data-pms-dashboard-btn>Return to Dashboard</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/pms-core.js"></script>
+  <script>
+    PMSCore.bootForm(['workflow.js', 'hearing-portal.js']).then(function () { PMSHearingPortal.init(); });
+  </script>
+</body>
+</html>
