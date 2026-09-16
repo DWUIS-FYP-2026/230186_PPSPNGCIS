@@ -27,7 +27,10 @@
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { scroll-behavior: smooth; }
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: calc(var(--lp-header-h) + 0.75rem);
+    }
 
     body {
       font-family: 'Inter Variable', 'Inter', sans-serif;
@@ -487,7 +490,7 @@
     /* ---- Contact ---- */
     .lp-contact-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 1.25rem;
     }
 
@@ -495,8 +498,8 @@
       background: var(--lp-card);
       border: 1px solid var(--lp-border-soft);
       border-radius: var(--lp-radius);
-      padding: 1.35rem;
-      text-align: center;
+      padding: 1.5rem;
+      text-align: left;
       transition: box-shadow var(--lp-transition), background var(--lp-transition);
     }
 
@@ -505,26 +508,51 @@
       background: #fafbfc;
     }
 
-    .lp-contact-card svg {
+    .lp-contact-card__head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .lp-contact-card__head svg {
       color: var(--lp-secondary);
-      margin-bottom: 0.65rem;
+      flex-shrink: 0;
+      margin-top: 2px;
     }
 
     .lp-contact-card h3 {
-      font-size: 0.8125rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--lp-text-light);
-      margin-bottom: 0.35rem;
+      font-size: 1.0625rem;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      text-transform: none;
+      color: var(--lp-primary);
+      margin-bottom: 0.3rem;
     }
 
-    .lp-contact-card p,
+    .lp-contact-card dl {
+      display: grid;
+      grid-template-columns: 6.5rem 1fr;
+      gap: 0.45rem 0.75rem;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .lp-contact-card dt {
+      font-weight: 700;
+      color: var(--lp-text-light);
+    }
+
+    .lp-contact-card dd {
+      margin: 0;
+      color: var(--lp-text-md);
+      font-weight: 500;
+    }
+
     .lp-contact-card a {
-      font-size: 0.9375rem;
-      font-weight: 600;
       color: var(--lp-primary);
       text-decoration: none;
+      font-weight: 600;
     }
 
     .lp-contact-card a:hover { text-decoration: underline; }
@@ -865,6 +893,13 @@
       .lp-workflow,
       .lp-contact-grid { grid-template-columns: 1fr; }
 
+      .lp-contact-card dl {
+        grid-template-columns: 1fr;
+        gap: 0.15rem 0;
+      }
+
+      .lp-contact-card dt { margin-top: 0.45rem; }
+
       .lp-hero {
         min-height: auto;
         padding-top: 3rem;
@@ -935,9 +970,9 @@
           </p>
           <p>
             The Parole Management System (PMS) digitizes the end-to-end parole workflow — from
-            eligibility screening and application submission through institutional reporting, legal
-            review, board hearings, and final decisions. It provides role-based access for PNGCS,
-            DJAG, and Parole Board staff at every stage of the process.
+            eligibility screening and assessment reports through commander verification, legal
+            review, parole hearings, and grant or refusal orders. It provides role-based access for
+            PNGCS, DJAG, and Parole Board staff at every stage of the process.
           </p>
         </div>
         <ul class="lp-features">
@@ -968,13 +1003,14 @@
             </div>
             <p>
               PNGCS manages correctional institutions across Papua New Guinea, overseeing custody,
-              welfare, and rehabilitation. Parole clerks initiate eligibility screening, manage detainee
-              records, and prepare institutional reports that inform parole decisions.
+              welfare, and rehabilitation. Parole clerks screen eligibility, record detainee
+              assessments, and the Jail Commander verifies the institutional package before a case
+              proceeds to hearing.
             </p>
             <ul>
               <li>Parole eligibility screening (Form 1)</li>
-              <li>Offender particulars and applications (Form 2)</li>
-              <li>Institutional conduct reports (Form 3)</li>
+              <li>Detainee assessment records — DDR (Form 2)</li>
+              <li>Jail Commander institutional verification</li>
               <li>Nationwide detainee and case management</li>
             </ul>
           </article>
@@ -989,13 +1025,14 @@
             <p>
               DJAG provides legal oversight of the parole process, ensuring applications meet
               statutory requirements before they proceed to the Parole Board. DJAG parole clerks
-              review submissions, coordinate investigations, and support hearing administration.
+              complete the pre-parole report, and the DJAG Secretary (Board Chairman) schedules
+              hearings and issues the grant or refusal order.
             </p>
             <ul>
               <li>Legal review of submitted applications</li>
-              <li>Pre-parole investigation reports (Form 4)</li>
-              <li>Hearing scheduling and case coordination</li>
-              <li>Parole Board decision records (Form 5)</li>
+              <li>Pre-parole reports — PPR (Form 2)</li>
+              <li>Hearing scheduling and Form 3 hearing records</li>
+              <li>Parole granted (Form 4) or refused (Form 5) orders</li>
             </ul>
           </article>
         </div>
@@ -1008,35 +1045,35 @@
         <p class="lp-section__intro">
           From the moment an offender becomes eligible for parole, PNGCS and DJAG collaborate
           through a defined workflow — each agency contributing its expertise until the Parole
-          Board reaches a final decision.
+          Board records its votes and the Chairman issues Form 4 or Form 5.
         </p>
         <ol class="lp-workflow">
           <li>
             <span class="lp-step-num" aria-hidden="true">1</span>
             <div>
-              <strong>PNGCS — Eligibility &amp; Application</strong>
-              <p>Screen detainees, notify stakeholders, and submit parole applications with offender particulars.</p>
+              <strong>PNGCS — Eligibility &amp; Detainee Assessment</strong>
+              <p>Screen detainees (Form 1), complete the DDR section of Form 2, and obtain Jail Commander verification.</p>
             </div>
           </li>
           <li>
             <span class="lp-step-num" aria-hidden="true">2</span>
             <div>
-              <strong>PNGCS — Institutional Report</strong>
-              <p>Parole clerks provide conduct, program participation, and institutional recommendations.</p>
+              <strong>DJAG — Pre-Parole Report &amp; Legal Review</strong>
+              <p>Review the application for compliance and complete the PPR section of Form 2.</p>
             </div>
           </li>
           <li>
             <span class="lp-step-num" aria-hidden="true">3</span>
             <div>
-              <strong>DJAG — Legal Review &amp; Investigation</strong>
-              <p>Review applications for compliance and prepare pre-parole investigation reports.</p>
+              <strong>Parole Board — Hearing</strong>
+              <p>The DJAG Secretary schedules the hearing. The panel records the live hearing on Form 3.</p>
             </div>
           </li>
           <li>
             <span class="lp-step-num" aria-hidden="true">4</span>
             <div>
-              <strong>Parole Board — Hearing &amp; Decision</strong>
-              <p>The DJAG Secretary, CS Commissioner, and Doctor evaluate the parolee and record approved, deferred, or refused outcomes.</p>
+              <strong>Parole Board — Decision</strong>
+              <p>The Psychiatrist, PNGCS Commissioner, and DJAG Secretary (Chairman) each vote. The Chairman issues Form 4 (parole granted) or Form 5 (parole refused).</p>
             </div>
           </li>
         </ol>
@@ -1046,22 +1083,46 @@
     <section class="lp-section" id="contact" aria-labelledby="contact-heading">
       <div class="lp-section__inner">
         <h2 class="lp-section__title" id="contact-heading"><i data-lucide="mail" aria-hidden="true"></i> Contact</h2>
+        <p class="lp-section__intro">For parole enquiries, please reach out to the relevant agency below.</p>
         <div class="lp-contact-grid">
-          <div class="lp-contact-card">
-            <i data-lucide="mail" aria-hidden="true"></i>
-            <h3>Email</h3>
-            <a href="mailto:parole@cs.gov.pg">parole@cs.gov.pg</a>
-          </div>
-          <div class="lp-contact-card">
-            <i data-lucide="phone" aria-hidden="true"></i>
-            <h3>Phone</h3>
-            <p>+675 325 0000</p>
-          </div>
-          <div class="lp-contact-card">
-            <i data-lucide="map-pin" aria-hidden="true"></i>
-            <h3>Location</h3>
-            <p>Papua New Guinea</p>
-          </div>
+          <article class="lp-contact-card">
+            <div class="lp-contact-card__head">
+              <i data-lucide="building-2" aria-hidden="true"></i>
+              <div>
+                <h3>PNG Correctional Service</h3>
+                <span class="lp-tag lp-tag--pngcs">PNGCS</span>
+              </div>
+            </div>
+            <dl>
+              <dt>Phone</dt>
+              <dd><a href="tel:+6753121700">+675 312 1700</a></dd>
+              <dt>Fax</dt>
+              <dd>+675 323 0407</dd>
+              <dt>Email</dt>
+              <dd><a href="mailto:infodesk@cs.gov.pg">infodesk@cs.gov.pg</a></dd>
+              <dt>Address</dt>
+              <dd>(ex) Kinhill Kramer Building, Wards Rd, Hohola, PO Box 6889, Boroko, NCD 121</dd>
+            </dl>
+          </article>
+          <article class="lp-contact-card">
+            <div class="lp-contact-card__head">
+              <i data-lucide="scale" aria-hidden="true"></i>
+              <div>
+                <h3>Department of Justice &amp; Attorney General</h3>
+                <span class="lp-tag lp-tag--djag">DJAG</span>
+              </div>
+            </div>
+            <dl>
+              <dt>Phone</dt>
+              <dd><a href="tel:+6753012800">+675 301 2800</a></dd>
+              <dt>Email</dt>
+              <dd><a href="mailto:contact@justice.gov.pg">contact@justice.gov.pg</a></dd>
+              <dt>Hours</dt>
+              <dd>Monday – Friday, 8:00am – 4:00pm</dd>
+              <dt>Location</dt>
+              <dd>Papua New Guinea</dd>
+            </dl>
+          </article>
         </div>
       </div>
     </section>
