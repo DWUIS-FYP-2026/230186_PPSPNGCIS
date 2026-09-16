@@ -1663,7 +1663,7 @@ const PMSStorage = (() => {
     return [
       { label: 'Form 1 — Eligibility Screening', met: s.checks.form1 },
       { label: 'Form 2 — DDR & PPR', met: s.checks.form2 },
-      { label: 'Form 3 — Institutional Report', met: s.checks.form3 },
+      { label: 'Form 3 — Parole Hearing Record', met: s.checks.form3 },
       { label: 'Institutional Verification', met: isCommanderVerified(app) },
       { label: 'Hearing Scheduled / Completed', met: getHearingsByApplication(app.id).some((h) => !['Cancelled'].includes(h.status)) },
       { label: 'Board Votes Complete (4 members)', met: requiredBoardAssessmentsComplete(app) },
@@ -4694,7 +4694,6 @@ const PMSStorage = (() => {
     if (!app) throw new Error('Application not found');
     const s = getFormCompletionSummary(app);
     if (!s.checks.form1 || !s.checks.form2) throw new Error('Forms 1 and 2 must be completed before submission to DJAG.');
-    if (!s.checks.form3) throw new Error('Form 3 (Institutional Report) must be completed before submission.');
     if (!isCommanderVerified(app)) throw new Error('Institutional verification must be completed before submission to DJAG.');
     if (app.status === 'Pre-Parole Report Prepared') {
       return transitionApplication(appId, 'Under DJAG Review', actor, 'Submitted to DJAG for review');
@@ -4757,6 +4756,24 @@ const PMSStorage = (() => {
   }
   function getHearingsByApplication(applicationId) {
     return data.hearings.filter((h) => h.applicationId === applicationId);
+  }
+
+  /** Decode schedule notes so Form 3 and the Secretary page show the same fields. */
+  function splitHearingScheduleNotes(hearing) {
+    const raw = String(hearing?.notes || hearing?.meetingNotes || '');
+    const match = raw.match(/\n?\[Deadline exception:\s*([\s\S]*?)\]\s*$/i);
+    if (match) {
+      return {
+        notes: raw.slice(0, match.index).trim(),
+        exceptionReason: match[1].trim(),
+        deadlineException: true,
+      };
+    }
+    return {
+      notes: raw,
+      exceptionReason: String(hearing?.exceptionReason || '').trim(),
+      deadlineException: !!hearing?.deadlineException,
+    };
   }
 
   function saveHearing(hearing, actor) {
@@ -5392,7 +5409,7 @@ const PMSStorage = (() => {
     saveApprovalStep, getGuarantors, saveGuarantor, deleteGuarantor, requiredApprovalsComplete,
     generateCaseNumber, syncBoardContracts, isCommanderVerified, isCommanderVerificationLocked,
     getCommanderVerificationRecord, getCommanderVerifiedApplications, isForm1Verified, isVerificationReady,
-    getHearings, getHearingById, getHearingsByPrisoner, getHearingsByApplication, getScheduledHearings, saveHearing, HEARING_STATUSES,
+    getHearings, getHearingById, getHearingsByPrisoner, getHearingsByApplication, splitHearingScheduleNotes, getScheduledHearings, saveHearing, HEARING_STATUSES,
     getReports, createReport, previewNextId,
     getNotifications, getNotificationsForUser, getCalendarEventsForUser, syncParoleNotifications,
     markNotificationRead, resolveNotification, markAllNotificationsRead,

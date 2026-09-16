@@ -1,10 +1,8 @@
 /** Form 3 — Parole Hearing Record (hearing phase) */
 const PMSForm3Institutional = (() => {
   const FIELD_IDS = [
-    'dateOfAdmission', 'sentenceReviewDate', 'conductDuringSentence', 'disciplinaryRecord',
-    'programParticipation', 'workAssignment', 'mentalHealthAssessment', 'medicalAssessment',
-    'institutionalRecommendation', 'recommendationNotes', 'officerName', 'commanderName', 'preparedDate',
-    'hearingProceedings', 'boardMembersPresent', 'detaineePresent', 'legalRepresentative', 'hearingOutcomeNotes',
+    'hearingProceedings', 'boardMembersPresent', 'detaineePresent', 'legalRepresentative',
+    'hearingOutcomeNotes', 'officerName', 'preparedDate',
   ];
 
   function esc(str) {
@@ -26,6 +24,42 @@ const PMSForm3Institutional = (() => {
     setTimeout(() => toast.classList.remove('show'), 3500);
   }
 
+  function getActiveHearing(appId) {
+    if (!appId || typeof PMSStorage === 'undefined') return null;
+    return PMSStorage.getHearingsByApplication(appId)
+      .find((h) => !['Cancelled'].includes(h.status)) || null;
+  }
+
+  function fmtDate(value) {
+    if (!value) return '—';
+    if (typeof PMSUI !== 'undefined' && PMSUI.fmtDate) return PMSUI.fmtDate(value);
+    try {
+      return new Date(value).toLocaleDateString('en-GB');
+    } catch (_) {
+      return String(value);
+    }
+  }
+
+  function splitHearingNotes(hearing) {
+    if (typeof PMSStorage !== 'undefined' && typeof PMSStorage.splitHearingScheduleNotes === 'function') {
+      return PMSStorage.splitHearingScheduleNotes(hearing);
+    }
+    const raw = String(hearing?.notes || hearing?.meetingNotes || '');
+    const match = raw.match(/\n?\[Deadline exception:\s*([\s\S]*?)\]\s*$/i);
+    if (match) {
+      return {
+        notes: raw.slice(0, match.index).trim(),
+        exceptionReason: match[1].trim(),
+        deadlineException: true,
+      };
+    }
+    return {
+      notes: raw,
+      exceptionReason: hearing?.exceptionReason || '',
+      deadlineException: !!hearing?.deadlineException,
+    };
+  }
+
   function mountOfficerAuth(actor, app, viewOnly) {
     if (typeof PMSFormOfficerAuth === 'undefined') return;
     try {
@@ -41,7 +75,9 @@ const PMSForm3Institutional = (() => {
         onVerified: () => submitGate?.sync(),
       });
       submitGate = PMSFormOfficerAuth.gateSubmitButtons(officerAuth, ['btn-submit-form3'], {
-        canEnable: () => !viewOnly && !PMSStorage.isForm3Complete(app?.formData?.form3),
+        canEnable: () => !viewOnly
+          && !PMSStorage.isForm3Complete(app?.formData?.form3)
+          && !!getActiveHearing(app?.id),
       });
       submitGate.sync();
     } catch (err) {
@@ -55,13 +91,6 @@ const PMSForm3Institutional = (() => {
       const el = $(id);
       if (el) data[id] = el.value.trim();
     });
-    data.commanderRecommendation = data.institutionalRecommendation;
-    data.institutionalReport = [
-      data.conductDuringSentence,
-      data.programParticipation,
-      data.disciplinaryRecord,
-    ].filter(Boolean).join('\n\n');
-    data.recommendation = data.institutionalRecommendation;
     return data;
   }
 
@@ -71,29 +100,36 @@ const PMSForm3Institutional = (() => {
       if (!el || data[id] == null) return;
       el.value = data[id];
     });
-    const rec = data.institutionalRecommendation || data.commanderRecommendation || data.recommendation;
-    if (rec && $('institutionalRecommendation')) $('institutionalRecommendation').value = rec;
-    if (data.officerName && $('officerName')) $('officerName').value = data.officerName;
-    else if (data.commanderName && $('officerName') && !$('officerName').value) {
-      /* officerName takes precedence */
-    }
-    if (data.commanderName && $('commanderName')) $('commanderName').value = data.commanderName;
     if (data.preparedDate && $('preparedDate')) $('preparedDate').value = String(data.preparedDate).slice(0, 10);
-    else if (data.submittedAt && $('preparedDate')) $('preparedDate').value = String(data.submittedAt).slice(0, 10);
+    else if (data.submittedAt && $('preparedDate') && !$('preparedDate').value) {
+      $('preparedDate').value = String(data.submittedAt).slice(0, 10);
+    }
+  }
+
+  function setHearingRecordEnabled(enabled) {
+    const section = $('hearing-record-section');
+    section?.classList.toggle('form3-record--locked', !enabled);
+    FIELD_IDS.forEach((id) => {
+      const el = $(id);
+      if (el) el.disabled = !enabled;
+    });
+    $('btn-save-draft')?.style.setProperty('display', enabled ? '' : 'none');
+    $('btn-submit-form3')?.style.setProperty('display', enabled ? '' : 'none');
   }
 
   function setReadOnly(viewOnly) {
+    if (!viewOnly) return;
     FIELD_IDS.forEach((id) => {
       const el = $(id);
-      if (el) el.disabled = viewOnly;
+      if (el) el.disabled = true;
     });
-    $('btn-save-draft')?.style.setProperty('display', viewOnly ? 'none' : '');
-    $('btn-submit-form3')?.style.setProperty('display', viewOnly ? 'none' : '');
-    if (viewOnly && !$('form3-view-banner')) {
+    $('btn-save-draft')?.style.setProperty('display', 'none');
+    $('btn-submit-form3')?.style.setProperty('display', 'none');
+    if (!$('form3-view-banner')) {
       const banner = document.createElement('div');
       banner.id = 'form3-view-banner';
       banner.className = 'wf-readonly-banner';
-      banner.textContent = 'View only — Form 3 is maintained by CS Parole Clerk.';
+      banner.textContent = 'View only — Form 3 shows the hearing date set by the DJAG Secretary.';
       document.querySelector('.page-main')?.insertBefore(banner, document.querySelector('.page-main')?.firstChild);
     }
   }
@@ -113,20 +149,64 @@ const PMSForm3Institutional = (() => {
     return false;
   }
 
-  function renderHearingSummary(app) {
-    const host = $('hearing-summary');
-    if (!host || !app) return;
-    const hearing = PMSStorage.getHearingsByApplication(app.id).find((h) => !['Cancelled'].includes(h.status));
-    if (!hearing) {
-      host.innerHTML = '<p class="form3-hearing-summary__empty">No hearing scheduled yet. After commander verification, the DJAG Secretary schedules the parole hearing — then complete this Form 3 hearing record.</p>';
+  function renderDeadlineAlert(app, hearing) {
+    const alert = $('deadline-alert');
+    if (!alert || typeof PMSStorage.getHearingDeadlineInfo !== 'function') return;
+    const info = PMSStorage.getHearingDeadlineInfo(app);
+    if (!info) {
+      alert.hidden = true;
       return;
     }
-    host.innerHTML = `<dl class="form3-hearing-summary__grid">
-      <div><dt>Scheduled date</dt><dd>${esc(PMSUI?.fmtDate?.(hearing.scheduledDate) || hearing.scheduledDate || '—')}${hearing.scheduledTime ? ` · ${esc(hearing.scheduledTime)}` : ''}</dd></div>
-      <div><dt>Venue</dt><dd>${esc(hearing.location || '—')}</dd></div>
-      <div><dt>Status</dt><dd><span class="status-badge eligible">${esc(hearing.status || 'Scheduled')}</span></dd></div>
-      ${hearing.notes ? `<div class="form3-hearing-summary__notes"><dt>Notes</dt><dd>${esc(hearing.notes)}</dd></div>` : ''}
-    </dl>`;
+    alert.hidden = false;
+    alert.className = 'form3-deadline-alert no-print';
+    if (hearing?.scheduledDate) {
+      alert.classList.add('scheduled');
+      alert.textContent = `Hearing scheduled ${fmtDate(hearing.scheduledDate)}${hearing.scheduledTime ? ` at ${hearing.scheduledTime}` : ''} · Deadline ${fmtDate(info.deadlineAt)}`;
+      return;
+    }
+    if (info.overdue) {
+      alert.classList.add('overdue');
+      alert.textContent = `Hearing deadline exceeded (${Math.abs(info.daysRemaining)} days overdue). Awaiting DJAG Secretary to schedule.`;
+      return;
+    }
+    alert.textContent = `${info.daysRemaining} day(s) remaining to schedule within the 14-day requirement (deadline: ${fmtDate(info.deadlineAt)}).`;
+  }
+
+  function fillScheduleFields(app) {
+    const hearing = getActiveHearing(app?.id);
+    const whenEl = $('hearingWhen');
+    const pending = $('schedule-pending');
+    const split = splitHearingNotes(hearing);
+    const dateLabel = hearing?.scheduledDate ? fmtDate(hearing.scheduledDate) : '';
+    const timeLabel = hearing?.scheduledTime || '';
+
+    if (whenEl) {
+      whenEl.textContent = hearing?.scheduledDate
+        ? `${dateLabel}${timeLabel ? ` · ${timeLabel}` : ''}`
+        : 'Not scheduled';
+    }
+    if (pending) pending.hidden = !!hearing?.scheduledDate;
+
+    if ($('hearing-date')) $('hearing-date').value = hearing?.scheduledDate || '';
+    if ($('hearing-time')) $('hearing-time').value = hearing?.scheduledTime || '';
+    if ($('hearing-venue')) $('hearing-venue').value = hearing?.location || '';
+    if ($('hearing-notes')) $('hearing-notes').value = split.notes;
+    if ($('deadline-exception')) $('deadline-exception').checked = split.deadlineException;
+    if ($('exception-reason')) {
+      $('exception-reason').hidden = !split.deadlineException;
+      $('exception-reason').value = split.exceptionReason;
+    }
+
+    ['hearing-date', 'hearing-time', 'hearing-venue', 'hearing-notes', 'deadline-exception', 'exception-reason']
+      .forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        el.disabled = true;
+        if (el.type !== 'checkbox') el.readOnly = true;
+      });
+
+    renderDeadlineAlert(app, hearing);
+    return hearing;
   }
 
   function updateStatusBadge(app) {
@@ -145,7 +225,7 @@ const PMSForm3Institutional = (() => {
     }
   }
 
-  function updateNavButtons(app, wf) {
+  function updateNavButtons(app) {
     const hearingBtn = $('btn-open-hearing');
     const nextBtn = $('btn-next-form');
     const canHearing = typeof PMSFormWorkflow !== 'undefined'
@@ -191,16 +271,8 @@ const PMSForm3Institutional = (() => {
       if ($('detaineeName')) $('detaineeName').textContent = prisonerName;
       if ($('ciNumber')) $('ciNumber').textContent = prisoner.prisonerNumber || prisoner.id;
       if ($('facilityName')) $('facilityName').textContent = institution?.name || '—';
-      if ($('applicationDate')) {
-        $('applicationDate').textContent = app.submittedAt
-          ? new Date(app.submittedAt).toLocaleDateString('en-GB')
-          : '—';
-      }
       if ($('applicationId')) $('applicationId').textContent = app.caseNumber || app.id;
       if ($('case-status')) $('case-status').textContent = app.status || '—';
-      if ($('dateOfAdmission') && prisoner.dateOfAdmission && !$('dateOfAdmission').value) {
-        $('dateOfAdmission').value = String(prisoner.dateOfAdmission).slice(0, 10);
-      }
       PMSFormWorkflow.mountFormChrome(3, app.id);
     }
 
@@ -210,15 +282,18 @@ const PMSForm3Institutional = (() => {
     }
     if (!$('preparedDate')?.value) $('preparedDate').value = new Date().toISOString().slice(0, 10);
 
+    const hearing = fillScheduleFields(app);
+    const hearingSet = !!hearing?.scheduledDate;
+    const formComplete = PMSStorage.isForm3Complete(app?.formData?.form3);
+    setHearingRecordEnabled(!viewOnly && hearingSet && !formComplete);
     mountOfficerAuth(actor, app, viewOnly);
-    setReadOnly(viewOnly);
+    if (viewOnly || formComplete) setReadOnly(true);
     renderReadinessAlert(app);
-    renderHearingSummary(app);
     updateStatusBadge(app);
-    updateNavButtons(app, wf);
+    updateNavButtons(app);
     submitGate?.sync();
 
-    if (app?.formData?.form3 && PMSStorage.isForm3Complete(app.formData.form3)) {
+    if (app?.formData?.form3 && formComplete) {
       PMSFormWorkflow.showContinueBanner(3, app.id);
     }
 
@@ -229,6 +304,10 @@ const PMSForm3Institutional = (() => {
         return;
       }
       if (viewOnly || PMSStorage.isForm3Complete(app?.formData?.form3)) return;
+      if (!getActiveHearing(app.id)?.scheduledDate) {
+        if (!silent) showToast('The DJAG Secretary must set the hearing date before this record can be saved.');
+        return;
+      }
       const payload = {
         ...collectPayload(),
         status: 'draft',
@@ -256,13 +335,20 @@ const PMSForm3Institutional = (() => {
         onSave: ({ silent }) => {
           saveDraft({ silent });
         },
-        enabled: () => !!app?.id && !viewOnly && !PMSStorage.isForm3Complete(app?.formData?.form3),
+        enabled: () => !!app?.id
+          && !viewOnly
+          && !PMSStorage.isForm3Complete(app?.formData?.form3)
+          && !!getActiveHearing(app.id)?.scheduledDate,
       });
     }
 
     $('btn-submit-form3')?.addEventListener('click', async () => {
       if (!app || !prisoner) {
         showToast('Application context is required.');
+        return;
+      }
+      if (!getActiveHearing(app.id)?.scheduledDate) {
+        showToast('The DJAG Secretary must set the hearing date before Form 3 can be submitted.');
         return;
       }
       if (!PMSFormOfficerAuth.requireVerified(officerAuth, {
@@ -298,9 +384,10 @@ const PMSForm3Institutional = (() => {
         app = PMSStorage.getApplicationById(app.id);
         populateForm(app.formData.form3);
         updateStatusBadge(app);
-        updateNavButtons(app, wf);
+        updateNavButtons(app);
         submitGate?.sync();
-        renderHearingSummary(app);
+        fillScheduleFields(app);
+        setHearingRecordEnabled(false);
         showToast('Form 3 hearing record submitted.');
         PMSFormWorkflow.showContinueBanner(3, app.id);
       } catch (err) {
@@ -328,6 +415,23 @@ const PMSForm3Institutional = (() => {
     });
 
     $('btn-print')?.addEventListener('click', () => window.print());
+
+    async function syncScheduleFromSecretary() {
+      if (!app?.id) return;
+      try {
+        if (typeof PMSStorage.pullRemoteHearingSessions === 'function') {
+          await PMSStorage.pullRemoteHearingSessions();
+        }
+        app = PMSStorage.getApplicationById(app.id) || app;
+        const live = fillScheduleFields(app);
+        const canRecord = !viewOnly && !!live?.scheduledDate && !PMSStorage.isForm3Complete(app?.formData?.form3);
+        setHearingRecordEnabled(canRecord);
+        if ($('case-status')) $('case-status').textContent = app.status || '—';
+        submitGate?.sync();
+      } catch (_) { /* keep current schedule view */ }
+    }
+
+    window.setInterval(syncScheduleFromSecretary, 4000);
   }
 
   return { init };

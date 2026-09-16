@@ -204,7 +204,6 @@ const PMSHearingPortal = (() => {
       return true;
     }
     return PMSStorage.isCommanderVerified(app)
-      && PMSStorage.isForm3Complete(app.formData?.form3)
       && PMSStorage.isForm2Complete(app.formData?.form2)
       && !getActiveHearing(app.id);
   }
@@ -323,10 +322,10 @@ const PMSHearingPortal = (() => {
 
     if (!queue.length) {
       const emptyMsg = portalMode === 'schedule'
-        ? 'No cases awaiting hearing schedule. Complete Form 3 verification first.'
+        ? 'No cases awaiting hearing schedule. Complete Forms 1–2 and commander verification first.'
         : (portalMode === 'decisions'
           ? 'No cases ready for board decision. Hearings must be scheduled first.'
-          : 'No cases in the hearing docket. Complete Form 3 verification, then schedule a hearing here.');
+          : 'No cases in the hearing docket. After commander verification, schedule a hearing here.');
       $('queue-list').innerHTML = `<div class="log-item empty">${emptyMsg}</div>`;
       $('queue-remaining').textContent = '0 remaining';
       return;
@@ -372,7 +371,7 @@ const PMSHearingPortal = (() => {
     const docs = [
       { label: 'Form 1', ok: summary.checks.form1 },
       { label: 'Form 2 DDR/PPR', ok: summary.checks.form2 },
-      { label: 'Form 3 — Institutional Report', ok: summary.checks.form3 },
+      { label: 'Form 3 — Hearing Record', ok: summary.checks.form3 },
       { label: 'Commander Verified', ok: PMSStorage.isCommanderVerified(app) },
       { label: 'Form 4', ok: summary.checks.form4 },
       { label: 'Form 5', ok: summary.checks.form5 },
@@ -523,7 +522,7 @@ const PMSHearingPortal = (() => {
           <div><dt>Venue</dt><dd>${esc(hearing.location || '—')}</dd></div>
           <div><dt>Status</dt><dd>${esc(hearing.status || 'Scheduled')}</dd></div>
         </dl>` : pending
-        ? '<p class="schedule-readonly-pending">Awaiting DJAG Secretary to schedule this hearing (within 14 days of Form 3 verification).</p>'
+        ? '<p class="schedule-readonly-pending">Awaiting DJAG Secretary to schedule this hearing (within 14 days of commander verification).</p>'
         : '<p class="schedule-readonly-pending">No hearing date set for this case.</p>'}`;
   }
 
@@ -539,13 +538,16 @@ const PMSHearingPortal = (() => {
     area.style.display = showForm ? 'block' : 'none';
 
     const draft = JSON.parse(localStorage.getItem(draftKey(app.id)) || 'null');
+    const split = typeof PMSStorage.splitHearingScheduleNotes === 'function'
+      ? PMSStorage.splitHearingScheduleNotes(hearing)
+      : { notes: hearing?.notes || hearing?.meetingNotes || '', exceptionReason: hearing?.exceptionReason || '', deadlineException: !!hearing?.deadlineException };
     $('hearing-date').value = hearing?.scheduledDate || draft?.scheduledDate || '';
-    $('hearing-time').value = hearing?.scheduledTime || draft?.scheduledTime || '09:00';
+    $('hearing-time').value = hearing?.scheduledTime || draft?.scheduledTime || (hearing ? '' : '09:00');
     $('hearing-venue').value = hearing?.location || draft?.location || '';
-    $('hearing-notes').value = hearing?.notes || hearing?.meetingNotes || draft?.notes || '';
-    $('deadline-exception').checked = !!(draft?.deadlineException || hearing?.deadlineException);
+    $('hearing-notes').value = hearing ? split.notes : (draft?.notes || '');
+    $('deadline-exception').checked = hearing ? split.deadlineException : !!(draft?.deadlineException);
     $('exception-reason').hidden = !$('deadline-exception').checked;
-    $('exception-reason').value = draft?.exceptionReason || '';
+    $('exception-reason').value = hearing ? split.exceptionReason : (draft?.exceptionReason || '');
 
     const minDate = new Date();
     minDate.setHours(0, 0, 0, 0);
@@ -1897,7 +1899,7 @@ const PMSHearingPortal = (() => {
     if (!forUpdate && !SCHEDULABLE_STATUSES.includes(app.status)
       && typeof PMSWorkflow !== 'undefined'
       && !PMSWorkflow.canTransition(actor, app.status, 'Hearing Scheduled')
-      && !(PMSStorage.isCommanderVerified(app) && PMSStorage.isForm3Complete(app.formData?.form3))) {
+      && !(PMSStorage.isCommanderVerified(app) && PMSStorage.isForm2Complete(app.formData?.form2))) {
       blockers.push(`Case must be ready for hearing scheduling (current status: ${app.status}).`);
     }
     return blockers;
@@ -1954,6 +1956,7 @@ const PMSHearingPortal = (() => {
           .filter((u) => PANEL_ROLES.includes(u.role) && u.status === 'Active')
           .map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName}` })),
         deadlineException,
+        exceptionReason: deadlineException ? exceptionReason : '',
       };
       if (hearing) payload.id = hearing.id;
 

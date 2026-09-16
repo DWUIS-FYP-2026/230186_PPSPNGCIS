@@ -34,7 +34,7 @@
   const FORM_WORKFLOW = [
     { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', prereqs: [] },
     { n: 2, key: 'form2', label: 'Form 2 — Assessment (PPR)', prereqs: ['form1'] },
-    { n: 3, key: 'form3', label: 'Form 3 — Institutional Report', prereqs: ['form1', 'form2'] },
+    { n: 3, key: 'form3', label: 'Form 3 — Parole Hearing Record', prereqs: ['form1', 'form2'] },
     { n: 4, key: 'form4', label: 'Form 4 — Pre-Parole Report', prereqs: ['form1', 'form2', 'form3'] },
     { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', prereqs: ['form1', 'form2', 'form3'] },
   ];
@@ -276,7 +276,7 @@
     const note = toolbar?.querySelector('.toolbar-note');
     if (note) {
       note.textContent = canScheduleHearings
-        ? 'Set parole board hearing dates in the Hearing Portal (after Form 3 verification).'
+        ? 'Set parole board hearing dates in the Hearing Portal. Form 3 then shows those details to parole clerks.'
         : 'View scheduled hearings. Only the DJAG Secretary may set hearing dates — stakeholders are notified automatically.';
     }
     if (btn) {

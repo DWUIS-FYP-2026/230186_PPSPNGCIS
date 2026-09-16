@@ -267,7 +267,7 @@ const PMSFormWorkflow = (() => {
     if (!appId || appId === '_default' || typeof PMSStorage === 'undefined') return true;
     const app = PMSStorage.getApplicationById(appId);
     if (!app) return false;
-    if (formN === 3) return PMSStorage.isForm3HearingPhaseOpen?.(app) ?? true;
+    if (formN === 3) return true;
     if (formN === 4) return PMSStorage.canProceedToForm4(app);
     if (formN === 5) return PMSStorage.canProceedToForm5(app);
     return true;

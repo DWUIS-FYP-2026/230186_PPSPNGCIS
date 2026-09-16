@@ -639,48 +639,127 @@ body.pms-portal-page {
 }
 
 .pms-form-page--form3 .form3-hearing-panel {
-  border-top: 1px dashed var(--color-border);
-  padding-top: 0.5rem;
+  padding-top: 0;
 }
 
-.pms-form-page--form3 .form3-hearing-summary {
-  margin-bottom: 1.25rem;
-  padding: 1rem 1.1rem;
-  background: #f8fafc;
-  border: 1px solid var(--color-border);
+.pms-form-page--form3 .form3-deadline-alert {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
   border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: #fff8e6;
+  color: #8a6d00;
+  border: 1px solid #f0d56a;
 }
 
-.pms-form-page--form3 .form3-hearing-summary__empty {
-  margin: 0;
+.pms-form-page--form3 .form3-deadline-alert.overdue {
+  background: #fff5f5;
+  color: #c53030;
+  border-color: #feb2b2;
+}
+
+.pms-form-page--form3 .form3-deadline-alert.scheduled {
+  background: #edf4fb;
+  color: #1a4a7a;
+  border-color: #c5d8ee;
+}
+
+.pms-form-page--form3 .section > .form3-schedule-area {
+  margin: 0 1.375rem 1.375rem;
+  padding: 1rem 1.1rem;
+  background: #f4f6f8;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.pms-form-page--form3 .form3-schedule-title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-navy);
+  margin-bottom: 0.35rem;
+}
+
+.pms-form-page--form3 .form3-schedule-title .hint {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.pms-form-page--form3 .form3-schedule-note {
+  margin: 0 0 0.65rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.pms-form-page--form3 .form3-schedule-pending {
+  margin: 0 0 0.75rem;
   font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
-.pms-form-page--form3 .form3-hearing-summary__grid {
+.pms-form-page--form3 .form3-schedule-pending[hidden] { display: none; }
+
+.pms-form-page--form3 .form3-schedule-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem 1rem;
-  margin: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
 }
 
-.pms-form-page--form3 .form3-hearing-summary__grid dt {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.pms-form-page--form3 .form3-schedule-full { grid-column: 1 / -1; }
+
+.pms-form-page--form3 .form3-schedule-area .field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--color-text-muted);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.25rem;
 }
 
-.pms-form-page--form3 .form3-hearing-summary__grid dd {
-  margin: 0;
-  font-size: 0.9375rem;
+.pms-form-page--form3 .form3-schedule-area input,
+.pms-form-page--form3 .form3-schedule-area textarea {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  background: #fff;
+  font-family: inherit;
   color: var(--color-navy);
 }
 
-.pms-form-page--form3 .form3-hearing-summary__notes {
-  grid-column: 1 / -1;
+.pms-form-page--form3 .form3-schedule-area input:disabled,
+.pms-form-page--form3 .form3-schedule-area textarea:disabled {
+  background: #f8fafc;
+  color: var(--color-navy);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.pms-form-page--form3 .form3-schedule-area textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.pms-form-page--form3 .form3-schedule-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.pms-form-page--form3 .form3-schedule-check input { width: auto; }
+
+.pms-form-page--form3 .form3-record--locked {
+  opacity: 0.72;
+}
+
+@media (max-width: 600px) {
+  .pms-form-page--form3 .form3-schedule-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Buttons & actions ── */

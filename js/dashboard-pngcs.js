@@ -582,7 +582,7 @@
 
         </div>
 
-        <p class="field-hint" style="margin-bottom:0.75rem">Complete Forms 1 and 2, then Form 3 (institutional report) before DJAG submission.</p>
+        <p class="field-hint" style="margin-bottom:0.75rem">Complete Forms 1 and 2, then open Form 3 to view the hearing date set by the DJAG Secretary.</p>
 
         <div class="form-workflow-list">${rows}</div>
 

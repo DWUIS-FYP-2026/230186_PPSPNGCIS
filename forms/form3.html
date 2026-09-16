@@ -25,7 +25,7 @@
     </div>
     <div class="form-letterhead__center">
       <h1 class="form-letterhead__title" id="form-title">Form 3 — Parole Hearing Record</h1>
-      <p class="form-letterhead__subtitle">Record parole board hearing proceedings after the session is scheduled</p>
+      <p class="form-letterhead__subtitle">Hearing date, time, and venue set by the DJAG Secretary</p>
       <p class="form-letterhead__meta-pill">Application ID: <span id="applicationId">—</span></p>
       <p class="form-letterhead__meta-extra"><strong>Case status:</strong> <span id="case-status">—</span></p>
     </div>
@@ -42,99 +42,56 @@
       <div class="status-item"><span class="label">Detainee:</span> <span class="value" id="detaineeName">—</span></div>
       <div class="status-item"><span class="label">CI #:</span> <span class="value" id="ciNumber">—</span></div>
       <div class="status-item"><span class="label">Facility:</span> <span class="value" id="facilityName">—</span></div>
-      <div class="status-item"><span class="label">Application Date:</span> <span class="value" id="applicationDate">—</span></div>
+      <div class="status-item"><span class="label">Hearing:</span> <span class="value" id="hearingWhen">Not scheduled</span></div>
       <div class="status-item"><span class="label">Form 3:</span> <span class="status-badge pending" id="form3Status">DRAFT</span></div>
     </div>
 
     <div class="form3-readiness no-print hidden" id="readiness-alert" role="alert"></div>
+    <div id="deadline-alert" class="form3-deadline-alert no-print" hidden></div>
 
     <form id="form3-form" novalidate>
-      <section class="section" aria-labelledby="sec-institutional">
-        <h2 class="section-header" id="sec-institutional">A. Institutional Record</h2>
-        <p class="section-intro">Document the detainee's conduct, discipline, and rehabilitation programs while in custody. This report supports the parole hearing dossier.</p>
-        <div class="field-grid field-grid--2">
-          <div class="field">
-            <label for="dateOfAdmission">Date of Admission</label>
-            <input type="date" id="dateOfAdmission" name="dateOfAdmission">
-          </div>
-          <div class="field">
-            <label for="sentenceReviewDate">Sentence Review Date</label>
-            <input type="date" id="sentenceReviewDate" name="sentenceReviewDate">
-          </div>
-          <div class="field field--full">
-            <label for="conductDuringSentence">Conduct During Sentence *</label>
-            <textarea id="conductDuringSentence" name="conductDuringSentence" rows="4" placeholder="Summarize behaviour, compliance with institution rules, and engagement with staff…"></textarea>
-          </div>
-          <div class="field field--full">
-            <label for="disciplinaryRecord">Disciplinary Record</label>
-            <textarea id="disciplinaryRecord" name="disciplinaryRecord" rows="3" placeholder="List any major or minor disciplinary incidents, or state none recorded…"></textarea>
-          </div>
-          <div class="field field--full">
-            <label for="programParticipation">Program Participation &amp; Rehabilitation *</label>
-            <textarea id="programParticipation" name="programParticipation" rows="4" placeholder="Education, vocational training, counselling, faith-based programs, and other rehabilitation activities…"></textarea>
-          </div>
-          <div class="field field--full">
-            <label for="workAssignment">Work Assignment</label>
-            <textarea id="workAssignment" name="workAssignment" rows="2" placeholder="Current or recent work detail within the institution…"></textarea>
-          </div>
-          <div class="field field--full">
-            <label for="mentalHealthAssessment">Mental Health Assessment</label>
-            <textarea id="mentalHealthAssessment" name="mentalHealthAssessment" rows="3" placeholder="Summary of mental health observations or assessments, if available…"></textarea>
-          </div>
-          <div class="field field--full">
-            <label for="medicalAssessment">Medical Assessment</label>
-            <textarea id="medicalAssessment" name="medicalAssessment" rows="3" placeholder="Summary of relevant medical conditions or treatment…"></textarea>
+      <section class="section form3-hearing-panel" aria-labelledby="sec-hearing-details">
+        <h2 class="section-header" id="sec-hearing-details">A. Hearing Schedule</h2>
+        <p class="section-intro">Same hearing details as the DJAG Secretary schedule page. Clerks can view them here; only the Secretary may set or change the date, time, or venue.</p>
+        <div class="form3-schedule-area" id="schedule-area">
+          <label class="form3-schedule-title">Schedule Hearing <span class="hint">(within 14 days of commander verification)</span></label>
+          <p class="form3-schedule-note" id="schedule-permission-note">View only — set by the DJAG Secretary.</p>
+          <p class="form3-schedule-pending" id="schedule-pending">No hearing has been scheduled yet. Waiting for the DJAG Secretary.</p>
+          <div class="form3-schedule-grid">
+            <div>
+              <label class="field-label" for="hearing-date">Date *</label>
+              <input type="date" id="hearing-date" readonly disabled tabindex="-1">
+            </div>
+            <div>
+              <label class="field-label" for="hearing-time">Time</label>
+              <input type="time" id="hearing-time" readonly disabled tabindex="-1">
+            </div>
+            <div class="form3-schedule-full">
+              <label class="field-label" for="hearing-venue">Venue *</label>
+              <input type="text" id="hearing-venue" placeholder="Parole Board hearing venue" readonly disabled tabindex="-1">
+            </div>
+            <div class="form3-schedule-full">
+              <label class="field-label" for="hearing-notes">Notes</label>
+              <textarea id="hearing-notes" rows="2" placeholder="Special arrangements, security notes…" readonly disabled tabindex="-1"></textarea>
+            </div>
+            <div class="form3-schedule-full">
+              <label class="form3-schedule-check"><input type="checkbox" id="deadline-exception" disabled tabindex="-1"> Authorized exception — beyond 14-day deadline</label>
+              <textarea id="exception-reason" rows="2" placeholder="Exception justification…" hidden readonly disabled tabindex="-1"></textarea>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="section" aria-labelledby="sec-recommendation">
-        <h2 class="section-header" id="sec-recommendation">B. Institutional Recommendation</h2>
+      <section class="section" id="hearing-record-section" aria-labelledby="sec-hearing-record">
+        <h2 class="section-header" id="sec-hearing-record">B. Hearing Record</h2>
+        <p class="section-intro">Record proceedings after the DJAG Secretary has scheduled the session. Fields stay locked until a hearing date is set.</p>
         <div class="field-grid field-grid--2">
           <div class="field field--full">
-            <label for="institutionalRecommendation">Institutional Recommendation *</label>
-            <select id="institutionalRecommendation" name="institutionalRecommendation">
-              <option value="">Select recommendation…</option>
-              <option value="Recommended">Recommended for parole hearing</option>
-              <option value="Recommended with conditions">Recommended with conditions</option>
-              <option value="Not recommended">Not recommended at this time</option>
-              <option value="Defer">Defer — further observation required</option>
-            </select>
-          </div>
-          <div class="field field--full">
-            <label for="recommendationNotes">Recommendation Notes</label>
-            <textarea id="recommendationNotes" name="recommendationNotes" rows="4" placeholder="Provide supporting reasons for the institutional recommendation…"></textarea>
-          </div>
-          <div class="field">
-            <label for="officerName">Preparing Officer *</label>
-            <input type="text" id="officerName" name="officerName" placeholder="CS Parole Clerk / Officer name">
-          </div>
-          <div class="field">
-            <label for="commanderName">Jail Commander</label>
-            <input type="text" id="commanderName" name="commanderName" placeholder="Commander endorsing this report">
-          </div>
-          <div class="field">
-            <label for="preparedDate">Report Date</label>
-            <input type="date" id="preparedDate" name="preparedDate">
-          </div>
-        </div>
-      </section>
-
-      <section class="section form3-hearing-panel" aria-labelledby="sec-hearing">
-        <h2 class="section-header" id="sec-hearing">C. Parole Hearing Record</h2>
-        <p class="section-intro">Form 3 is the hearing phase — record minutes and attendance once the DJAG Secretary has scheduled the parole board session.</p>
-
-        <div class="form3-hearing-summary" id="hearing-summary">
-          <p class="form3-hearing-summary__empty">No hearing scheduled yet. After Form 3 is submitted and commander verification is complete, the DJAG Secretary will schedule the parole hearing.</p>
-        </div>
-
-        <div class="field-grid field-grid--2">
-          <div class="field field--full">
-            <label for="hearingProceedings">Hearing Proceedings Summary</label>
+            <label for="hearingProceedings">Hearing Proceedings Summary *</label>
             <textarea id="hearingProceedings" name="hearingProceedings" rows="5" placeholder="Record hearing minutes: attendees, presentations, detainee statement, and matters raised…"></textarea>
           </div>
           <div class="field field--full">
-            <label for="boardMembersPresent">Board Members Present</label>
+            <label for="boardMembersPresent">Board Members Present *</label>
             <textarea id="boardMembersPresent" name="boardMembersPresent" rows="2" placeholder="DJAG Secretary, PNGCS Commissioner, Psychiatrist, and other attendees…"></textarea>
           </div>
           <div class="field">
@@ -153,6 +110,14 @@
           <div class="field field--full">
             <label for="hearingOutcomeNotes">Hearing Outcome Notes</label>
             <textarea id="hearingOutcomeNotes" name="hearingOutcomeNotes" rows="3" placeholder="Preliminary hearing observations before formal Form 4 / Form 5 decision…"></textarea>
+          </div>
+          <div class="field">
+            <label for="officerName">Recording Officer *</label>
+            <input type="text" id="officerName" name="officerName" placeholder="CS Parole Clerk name">
+          </div>
+          <div class="field">
+            <label for="preparedDate">Record Date</label>
+            <input type="date" id="preparedDate" name="preparedDate">
           </div>
         </div>
       </section>
@@ -175,12 +140,12 @@
 
     <div class="print-footer">
       <p>Generated by PMS — Papua New Guinea Parole Management System · Form 3 v2.0 · Parole Act 1991</p>
-      <p>Institutional report and hearing record — retain for audit purposes.</p>
+      <p>Parole hearing record — retain for audit purposes.</p>
     </div>
   </main>
 
   <footer class="page-footer">
-    PNG Parole Regulation — Form 3 (Institutional Report &amp; Hearing Record) · Parole Act 1991
+    PNG Parole Regulation — Form 3 (Parole Hearing Record) · Parole Act 1991
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

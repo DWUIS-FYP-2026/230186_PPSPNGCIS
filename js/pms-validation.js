@@ -115,19 +115,9 @@ const PMSValidation = (() => {
   function validateForm3(data) {
     if (data?.checkpointPassed && data?.submitted) return { valid: true, errors: [] };
     const errors = [];
-    const hasInstitutional = !!(data.conductDuringSentence || data.programParticipation);
-    const hasHearing = !!(data.hearingProceedings || data.boardMembersPresent || data.hearingOutcomeNotes);
-    if (hasHearing || !hasInstitutional) {
-      errors.push(required(data.hearingProceedings, 'Hearing proceedings summary'));
-      errors.push(required(data.boardMembersPresent, 'Board members present'));
-      errors.push(required(data.officerName || data.commanderName, 'Recording officer name'));
-      return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
-    }
-    errors.push(required(data.conductDuringSentence, 'Conduct during sentence'));
-    errors.push(required(data.programParticipation, 'Program participation and rehabilitation'));
-    const recommendation = data.institutionalRecommendation || data.commanderRecommendation || data.recommendation;
-    errors.push(required(recommendation, 'Institutional recommendation'));
-    errors.push(required(data.officerName || data.commanderName, 'Preparing officer name'));
+    errors.push(required(data.hearingProceedings, 'Hearing proceedings summary'));
+    errors.push(required(data.boardMembersPresent, 'Board members present'));
+    errors.push(required(data.officerName || data.commanderName, 'Recording officer name'));
     return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
   }
 
