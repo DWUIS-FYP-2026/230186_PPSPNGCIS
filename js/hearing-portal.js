@@ -1749,9 +1749,13 @@ const PMSHearingPortal = (() => {
     if (saveBtn) saveBtn.hidden = !votingOpen;
     if (submitBtn) submitBtn.hidden = !votingOpen;
     const noteEl = $('decision-area-note');
-    if (noteEl && !votingOpen) {
-      noteEl.hidden = false;
-      noteEl.textContent = votingClosedReason(app) + '.';
+    if (noteEl) {
+      if (!votingOpen) {
+        noteEl.hidden = false;
+        noteEl.textContent = `${votingClosedReason(app)}.`;
+      } else if (/must start this prisoner's hearing session|must start the hearing session|Board voting is not open/i.test(noteEl.textContent || '')) {
+        noteEl.textContent = 'Hearing session is live. Complete the required steps below and submit your vote.';
+      }
     }
     syncInterviewSubmitGate();
   }

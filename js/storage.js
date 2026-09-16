@@ -3203,6 +3203,16 @@ const PMSStorage = (() => {
       if (!app.hearingSession && fd.__pmsHearingSession) {
         app.hearingSession = fd.__pmsHearingSession;
       }
+      const packed = app.hearingSession;
+      if (!packed?.hearingId || packed.status !== 'In Progress') return;
+      const hearing = (store.hearings || []).find((h) => h.id === packed.hearingId);
+      if (!hearing || ['Cancelled', 'Completed'].includes(hearing.status)) return;
+      if ((HEARING_RECORD_RANK[hearing.status] || 0) < HEARING_RECORD_RANK['In Progress']) {
+        hearing.status = 'In Progress';
+      }
+      hearing.startedAt = hearing.startedAt || packed.startedAt || null;
+      hearing.startedBy = hearing.startedBy || packed.startedBy || null;
+      hearing.startedByName = hearing.startedByName || packed.startedByName || null;
     });
     return store;
   }
@@ -3305,7 +3315,7 @@ const PMSStorage = (() => {
         if (mergeRemoteHearingSessions(incoming)) changed = true;
       }
     } catch (_) { /* ignore malformed local snapshots */ }
-    if (changed) persist({ localOnly: true, type: 'hearing-session-sync' });
+    if (changed) persist({ localOnly: true, silent: true, type: 'hearing-session-sync' });
     return changed;
   }
 
