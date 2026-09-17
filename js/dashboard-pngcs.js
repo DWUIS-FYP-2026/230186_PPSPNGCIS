@@ -26,6 +26,10 @@
 
     profile: ['Profile', 'Your account information'],
 
+    approvals: ['Grant Approvals', 'DJAG Secretary and CS Parole Clerk must both approve after Form 4'],
+
+    guarantors: ['Guarantors', 'Community guarantors registered against parole cases'],
+
   };
 
 
@@ -208,6 +212,22 @@
     if (done) {
       return { state: 'completed', badge: 'Completed', icon: 'fi fi-rr-check-circle', clickable: canView || canEdit, reason: 'View completed form' };
     }
+    if (formDef.n === 2 && app) {
+      const ddr = PMSStorage.isForm2SectionVerified?.(app.formData?.form2?.sections?.ddr);
+      const ppr = PMSStorage.isForm2SectionVerified?.(app.formData?.form2?.sections?.ppr);
+      if (ddr || ppr) {
+        const badge = ddr && ppr ? 'Completed' : (ddr ? 'DDR verified' : 'PPR verified');
+        return {
+          state: canEdit ? 'active' : 'review',
+          badge,
+          icon: 'fi fi-rr-check',
+          clickable: canView || canEdit,
+          reason: ddr && ppr
+            ? 'Both Form 2 reports verified'
+            : (ddr ? 'DDR verified · PPR still pending' : 'PPR verified · DDR still pending'),
+        };
+      }
+    }
     if (!prereqsOk && hasData) {
       return {
         state: 'review',
@@ -308,8 +328,12 @@
     const p = PMSStorage.getPrisonerById(prisonerId);
     if (app) {
       banner.classList.remove('hidden');
+      const verification = typeof PMSStorage.describeFormVerification === 'function'
+        ? PMSStorage.describeFormVerification(app)
+        : '';
+      const commander = PMSStorage.isCommanderVerified?.(app) ? ' · Commander verified' : '';
       banner.innerHTML = `<i class="fi fi-rr-document" aria-hidden="true"></i>
-        <span>Application <strong>${PMSUI.esc(app.id)}</strong> · Status: <strong>${PMSUI.esc(app.status)}</strong>${p ? ` · ${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : ''}</span>`;
+        <span>Application <strong>${PMSUI.esc(app.id)}</strong> · Status: <strong>${PMSUI.esc(app.status)}</strong>${commander}${p ? ` · ${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : ''}${verification ? ` · ${PMSUI.esc(verification)}` : ''}</span>`;
       return;
     }
     banner.classList.remove('hidden');
@@ -380,11 +404,35 @@
 
     ({ overview: renderOverview, prisoners: renderPrisoners, eligibility: renderEligibility,
 
-       applications: renderApplications, notifications: renderNotifications, reports: renderReports })[panel]?.();
+       applications: renderApplications, notifications: renderNotifications, reports: renderReports,
+       approvals: renderApprovals, guarantors: renderGuarantors })[panel]?.();
 
   }
 
 
+
+  function outcomeStatRows(kind) {
+    const granted = kind === 'granted';
+    const list = granted
+      ? PMSStorage.getGrantedParoleCases({ institutionId: actor.institutionId })
+      : PMSStorage.getRefusedParoleCases({ institutionId: actor.institutionId });
+    return list.map((a) => {
+      const p = PMSStorage.getPrisonerById(a.prisonerId);
+      const when = granted
+        ? a.formData?.form4?.issuedAt
+        : (a.formData?.form5?.issuedAt || a.formData?.form5?.recordedAt);
+      const href = granted
+        ? `forms/form4.html?appId=${encodeURIComponent(a.id)}`
+        : `forms/form5.html?appId=${encodeURIComponent(a.id)}`;
+      return `<tr>
+        <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
+        <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+        <td>${PMSUI.instName(a.institutionId)}</td>
+        <td>${PMSUI.fmtDate(when)}</td>
+        <td><a href="${href}" class="btn-icon">${granted ? 'Form 4' : 'Form 5'}</a></td>
+      </tr>`;
+    });
+  }
 
   function renderOverview() {
     const prisoners = scopePrisoners();
@@ -397,12 +445,16 @@
     PMSUI.setStat('stat-prisoners', prisoners.length);
     PMSUI.setStat('stat-eligible', eligible);
     PMSUI.setStat('stat-drafts', form1Pending);
+    PMSUI.setStat('stat-granted', PMSStorage.countGrantedParole(actor.institutionId));
+    PMSUI.setStat('stat-refused', PMSStorage.countRefusedParole(actor.institutionId));
     PMSUI.setStat('stat-notifications', unread);
 
     PMSUI.syncOverviewNotifHeader(unread);
     const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = `
       <div class="overview-row"><strong>Form 1 completed</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => PMSStorage.isForm1Complete(a.formData?.form1)).length)} cases</span></div>
+      <div class="overview-row"><strong>Parole granted</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countGrantedParole(actor.institutionId))} Form 4 issued</span></div>
+      <div class="overview-row"><strong>Parole refused</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countRefusedParole(actor.institutionId))} Form 5 / refused</span></div>
       <div class="overview-row"><strong>Active cases</strong><span class="meta">${PMSUI.formatStat(activeCases)}</span></div>
       <div class="overview-row"><strong>Requiring action</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => ['Draft', 'Returned for Correction', 'Pending Commander Review'].includes(a.status)).length)}</span></div>
       ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n, actor)).join('') : ''}`;
@@ -434,6 +486,18 @@
         getRows: () => scopeApps()
           .filter((a) => PMSStorage.isActiveParoleApplication(a) && !PMSStorage.isForm1Complete(a.formData?.form1))
           .map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-granted',
+        title: 'Parole Granted',
+        columns: ['Case', 'Name', 'Institution', 'Granted', ''],
+        getRows: () => outcomeStatRows('granted'),
+      },
+      {
+        statId: 'stat-refused',
+        title: 'Parole Refused',
+        columns: ['Case', 'Name', 'Institution', 'Refused', ''],
+        getRows: () => outcomeStatRows('refused'),
       },
     ], {
       notificationsStatId: 'stat-notifications',
@@ -499,11 +563,11 @@
 
 
   function formsSummary(app) {
-
     const s = PMSStorage.getFormCompletionSummary(app);
-
-    return `${s.completed}/5 forms complete`;
-
+    const detail = typeof PMSStorage.describeFormVerification === 'function'
+      ? PMSStorage.describeFormVerification(app)
+      : '';
+    return `${s.completed}/5 forms complete${detail ? ` · ${detail}` : ''}`;
   }
 
 
@@ -578,7 +642,7 @@
 
           <h3>Forms 1–5 Workflow</h3>
 
-          <span class="form-workflow-panel__summary">${summary.completed}/${summary.total} complete</span>
+          <span class="form-workflow-panel__summary">${summary.completed}/${summary.total} complete${app && PMSStorage.describeFormVerification ? ` · ${PMSUI.esc(PMSStorage.describeFormVerification(app))}` : ''}</span>
 
         </div>
 
@@ -683,7 +747,85 @@
 
   }
 
+  const canEditGuarantors = actor.role === 'CS Parole Clerk';
+  const canApproveGrant = actor.role === 'CS Parole Clerk';
 
+  function approvalCell(app, role) {
+    return PMSStorage.roleHasApprovedGrant(app, role)
+      ? '<span class="status-pill status-pill--active">Approved</span>'
+      : '<span class="status-pill status-pill--pending">Pending</span>';
+  }
+
+  function renderApprovals() {
+    const tbody = document.getElementById('approvals-tbody');
+    if (!tbody) return;
+    const queue = PMSStorage.getGrantApprovalQueue(actor);
+    tbody.innerHTML = queue.length
+      ? queue.map((a) => {
+        const p = PMSStorage.getPrisonerById(a.prisonerId);
+        const mine = PMSStorage.roleHasApprovedGrant(a, actor.role);
+        const action = !canApproveGrant || mine
+          ? '—'
+          : `<button type="button" class="btn-primary btn-sm" data-approve-grant="${a.id}">Approve</button>`;
+        return `<tr>
+          <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
+          <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+          <td>${approvalCell(a, 'DJAG Secretary')}</td>
+          <td>${approvalCell(a, 'CS Parole Clerk')}</td>
+          <td>${action}</td>
+        </tr>`;
+      }).join('')
+      : '<tr><td colspan="5" class="empty-state">No grants waiting for your approval.</td></tr>';
+  }
+
+  function renderGuarantors() {
+    const tbody = document.getElementById('guarantors-tbody');
+    if (!tbody) return;
+    const rows = [];
+    scopeApps().forEach((app) => {
+      const p = PMSStorage.getPrisonerById(app.prisonerId);
+      (app.guarantors || []).forEach((g) => {
+        const actions = canEditGuarantors
+          ? `<button type="button" class="btn-icon" data-edit-guarantor="${app.id}" data-guarantor-id="${g.id}">Edit</button>
+             <button type="button" class="btn-icon btn-icon--danger" data-delete-guarantor="${app.id}" data-guarantor-id="${g.id}">Remove</button>`
+          : '';
+        rows.push(`<tr>
+          <td>${PMSUI.esc(app.caseNumber || app.id)}</td>
+          <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+          <td>${PMSUI.esc(g.name)}</td>
+          <td>${PMSUI.esc(g.relationship || '—')}</td>
+          <td>${PMSUI.esc(g.contact || '—')}</td>
+          <td>${actions}</td>
+        </tr>`);
+      });
+    });
+    tbody.innerHTML = rows.length
+      ? rows.join('')
+      : '<tr><td colspan="6" class="empty-state">No guarantors registered yet.</td></tr>';
+  }
+
+  function fillGuarantorCaseSelect(selectedId) {
+    const sel = document.getElementById('guarantor-case');
+    if (!sel) return;
+    const apps = scopeApps().filter((a) => !['Released', 'Refused', 'Parole Refused'].includes(a.status));
+    sel.innerHTML = apps.map((a) => {
+      const p = PMSStorage.getPrisonerById(a.prisonerId);
+      const label = `${a.caseNumber || a.id} — ${p ? `${p.firstName} ${p.lastName}` : 'Unknown'}`;
+      return `<option value="${PMSUI.esc(a.id)}"${a.id === selectedId ? ' selected' : ''}>${PMSUI.esc(label)}</option>`;
+    }).join('');
+  }
+
+  function openGuarantorModal(appId, guarantor) {
+    document.getElementById('guarantor-modal-title').textContent = guarantor ? 'Edit Guarantor' : 'Register Guarantor';
+    document.getElementById('guarantor-id').value = guarantor?.id || '';
+    fillGuarantorCaseSelect(appId || guarantor?.applicationId || '');
+    document.getElementById('guarantor-name').value = guarantor?.name || '';
+    document.getElementById('guarantor-relationship').value = guarantor?.relationship || '';
+    document.getElementById('guarantor-contact').value = guarantor?.contact || '';
+    document.getElementById('guarantor-village').value = guarantor?.village || '';
+    document.getElementById('guarantor-notes').value = guarantor?.notes || '';
+    document.getElementById('guarantor-modal').showModal();
+  }
 
   PMSSidebar.init({
 
@@ -711,6 +853,8 @@
   });
 
   document.getElementById('btn-new-app').addEventListener('click', () => openNewApplication());
+  if (!canEditGuarantors) document.getElementById('btn-add-guarantor')?.remove();
+  document.getElementById('btn-add-guarantor')?.addEventListener('click', () => openGuarantorModal());
   document.getElementById('btn-start-form1')?.addEventListener('click', startForm1);
   document.getElementById('btn-start-form1-footer')?.addEventListener('click', startForm1);
 
@@ -775,6 +919,34 @@
 
     if (e.target.closest('[data-edit-app]')) openAppModal(PMSStorage.getApplicationById(e.target.closest('[data-edit-app]').dataset.editApp));
 
+    const approveBtn = e.target.closest('[data-approve-grant]');
+    if (approveBtn) {
+      if (!confirm('Approve this parole grant? The Jail Commander can release after both you and the DJAG Secretary have approved.')) return;
+      try {
+        PMSStorage.saveApprovalStep(approveBtn.dataset.approveGrant, { decision: 'Approved' }, actor);
+        refresh('approvals');
+        PMSUI.showSuccess('Grant approval recorded.');
+      } catch (err) {
+        PMSUI.showError(err.message || 'Could not record approval.');
+      }
+      return;
+    }
+
+    const editG = e.target.closest('[data-edit-guarantor]');
+    if (editG) {
+      const app = PMSStorage.getApplicationById(editG.dataset.editGuarantor);
+      const g = (app?.guarantors || []).find((x) => x.id === editG.dataset.guarantorId);
+      openGuarantorModal(app?.id, g);
+      return;
+    }
+
+    const delG = e.target.closest('[data-delete-guarantor]');
+    if (delG && confirm('Remove this guarantor from the case?')) {
+      PMSStorage.deleteGuarantor(delG.dataset.deleteGuarantor, delG.dataset.guarantorId, actor);
+      refresh('guarantors');
+      return;
+    }
+
     const formRow = e.target.closest('[data-form-row][data-clickable="true"]');
 
     if (formRow) {
@@ -826,6 +998,25 @@
   });
 
 
+
+  document.getElementById('guarantor-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    try {
+      PMSStorage.saveGuarantor(document.getElementById('guarantor-case').value, {
+        id: document.getElementById('guarantor-id').value || undefined,
+        name: document.getElementById('guarantor-name').value,
+        relationship: document.getElementById('guarantor-relationship').value,
+        contact: document.getElementById('guarantor-contact').value,
+        village: document.getElementById('guarantor-village').value,
+        notes: document.getElementById('guarantor-notes').value,
+      }, actor);
+      document.getElementById('guarantor-modal').close();
+      refresh('guarantors');
+      PMSUI.showSuccess('Guarantor saved.');
+    } catch (err) {
+      PMSUI.showError(err.message || 'Could not save guarantor.');
+    }
+  });
 
   PMSUI.bindOverviewNotifications('overview-notifications', actor, () => refresh('overview'));
 

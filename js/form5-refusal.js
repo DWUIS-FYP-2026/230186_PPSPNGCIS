@@ -269,6 +269,22 @@ const PMSForm5Refusal = (() => {
     updateSummaryBanner();
     submitGate?.sync();
 
+    if (typeof PMSUI?.bindLiveDataRefresh === 'function' && app?.id) {
+      PMSUI.bindLiveDataRefresh(() => {
+        const next = PMSStorage.getApplicationById(app.id);
+        if (!next) return;
+        const f5 = next.formData?.form5;
+        if (!PMSStorage.isForm5Complete(f5) && !f5?.issued) return;
+        applyState(f5);
+        if (f5?.digitalSignature?.verified) officerAuth?.restore(f5.digitalSignature);
+        officerAuth?.lock();
+        issuedBanner.classList.add('show');
+        updateSummaryBanner();
+        submitGate?.sync();
+        wf.refreshProgress();
+      }, { refreshOnFocus: true });
+    }
+
     if (typeof PMSFormAutosave !== 'undefined') {
       PMSFormAutosave.create({
         root: '#form5-refusal',

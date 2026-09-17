@@ -479,8 +479,15 @@ const PMSFormWorkflow = (() => {
         const current = f.n === currentFormN;
         const accessible = canAccess(appId, f.n) || done || current;
         const locked = !accessible;
+        let extra = '';
+        if (f.n === 2 && !done && typeof PMSStorage !== 'undefined') {
+          const app = PMSStorage.getApplicationById(appId);
+          const ddr = PMSStorage.isForm2SectionVerified?.(app?.formData?.form2?.sections?.ddr);
+          const ppr = PMSStorage.isForm2SectionVerified?.(app?.formData?.form2?.sections?.ppr);
+          if (ddr || ppr) extra = ` (${ddr ? 'DDR✓' : 'DDR—'}${ppr ? ' PPR✓' : ' PPR—'})`;
+        }
         const cls = ['wf-step', done ? 'wf-step--done' : '', current ? 'wf-step--current' : '', locked ? 'wf-step--locked' : ''].filter(Boolean).join(' ');
-        return `<div class="${cls}" data-form-n="${f.n}" title="${f.title}">Form ${f.n}${done ? ' ✓' : ''}</div>`;
+        return `<div class="${cls}" data-form-n="${f.n}" title="${f.title}">Form ${f.n}${done ? ' ✓' : extra}</div>`;
       }).join('')}</div>`;
 
     const mount = getProgressMountParent();
@@ -540,8 +547,29 @@ const PMSFormWorkflow = (() => {
     });
   }
 
+  function syncMirroredCompletions(appId) {
+    const id = appId || getAppId();
+    if (!id || id === '_default' || typeof PMSStorage === 'undefined') return false;
+    const all = loadAll();
+    if (!all[id]) all[id] = { forms: {} };
+    let changed = false;
+    FORM_DEFS.forEach((f) => {
+      if (all[id].forms[f.n]?.completed) return;
+      if (!isFormDataComplete(f.n, id)) return;
+      all[id].forms[f.n] = {
+        completed: true,
+        completedAt: new Date().toISOString(),
+        mirrored: true,
+      };
+      changed = true;
+    });
+    if (changed) saveAll(all);
+    return changed;
+  }
+
   function mountFormChrome(formN, appId) {
     if (!appId || appId === '_default') return;
+    syncMirroredCompletions(appId);
     renderProgressBar(formN, appId);
     renderFormNavBar(formN, appId);
   }
@@ -586,24 +614,16 @@ const PMSFormWorkflow = (() => {
         || document.getElementById('form2-root')?.appendChild(banner);
     }
 
-    if (formN === 3 && canScheduleHearing()) {
-      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — schedule the parole hearing (DJAG Secretary)</span>
-        <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Schedule →</button>`;
-      banner.classList.add('show');
-      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = schedulePortalHref(appId); });
-      return;
-    }
-
     if (formN === 3 && canAccessHearingPortal()) {
-      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — view case in the Hearing Portal (DJAG Secretary will set the hearing date)</span>
+      banner.innerHTML = `<span class="wf-continue__text">Form 3 submitted — board members can record their votes in the hearing portal</span>
         <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Portal →</button>`;
       banner.classList.add('show');
-      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = schedulePortalHref(appId); });
+      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
       return;
     }
 
     if (formN === 3) {
-      banner.innerHTML = `<span class="wf-continue__text">✅ Form 3 submitted — DJAG will schedule the parole hearing within 14 days after commander verification</span>`;
+      banner.innerHTML = `<span class="wf-continue__text">Form 3 submitted — the Parole Board will vote, then the DJAG Secretary issues Form 4 or Form 5</span>`;
       banner.classList.add('show');
       return;
     }
@@ -697,5 +717,6 @@ const PMSFormWorkflow = (() => {
     markComplete, openForm, initPage, isFormDataComplete, prereqsMet, canUserEditForms, canUserEditForm,
     hearingPortalHref, schedulePortalHref, canAccessHearingPortal, canScheduleHearing, mountFormChrome, navigateAfterSubmit,
     getNextForm, getPrevForm, formHref, getOutcomeFormN, getWorkflowSteps, showContinueBanner, getDef,
+    syncMirroredCompletions,
   };
 })();

@@ -50,7 +50,7 @@
       : (canAssess && !isPanelMember ? `${actor.role} — assessment portal` : 'Parole Board — collective review and decision-making')],
     prisoners: ['Prisoner Records', 'View official case files (read-only)'],
     applications: [isSecretary ? 'Schedule Hearings' : 'Completed Applications', isSecretary
-      ? 'Cases awaiting parole hearing date (Form 3 verified)'
+      ? 'Cases awaiting parole hearing date (after commander verification)'
       : 'Review applications ready for board consideration'],
     hearings: [canScheduleHearings ? 'Hearing Management' : 'Hearing Schedule', canScheduleHearings ? 'Schedule and review parole hearings' : 'Upcoming and completed parole hearings'],
     decisions: ['Board Vote', PMSBoardVote.getRoleConfig(actor).portalSubtitle],
@@ -58,6 +58,7 @@
     reports: ['Board Reports', 'Meeting summaries and board statistics'],
     notifications: ['Notifications', 'Hearing, review, and decision alerts'],
     profile: ['Profile', 'Your account information'],
+    approvals: ['Grant Approvals', 'Approve Form 4 grants with the CS Parole Clerk before release'],
   };
 
   function getActiveHearing(appId) {
@@ -86,7 +87,7 @@
     renderBoardBanner();
     ({ overview: renderOverview, prisoners: renderPrisoners, applications: renderApps, hearings: renderHearings,
        decisions: renderDecisions, history: renderHistory, reports: renderReports, notifications: renderNotifications,
-       profile: () => {} })[panel]?.();
+       approvals: renderApprovals, profile: () => {} })[panel]?.();
   }
 
   function bindOverviewRowNav(containerId) {
@@ -108,6 +109,31 @@
       e.preventDefault();
       go(row);
     });
+  }
+
+  function renderApprovals() {
+    const tbody = document.getElementById('approvals-tbody');
+    if (!tbody) return;
+    const queue = PMSStorage.getGrantApprovalQueue(actor);
+    tbody.innerHTML = queue.length
+      ? queue.map((a) => {
+        const p = PMSStorage.getPrisonerById(a.prisonerId);
+        const mine = PMSStorage.roleHasApprovedGrant(a, actor.role);
+        const action = !isSecretary || mine
+          ? '—'
+          : `<button type="button" class="btn-primary btn-sm" data-approve-grant="${a.id}">Approve</button>`;
+        const cell = (role) => PMSStorage.roleHasApprovedGrant(a, role)
+          ? '<span class="status-pill status-pill--active">Approved</span>'
+          : '<span class="status-pill status-pill--pending">Pending</span>';
+        return `<tr>
+          <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
+          <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+          <td>${cell('DJAG Secretary')}</td>
+          <td>${cell('CS Parole Clerk')}</td>
+          <td>${action}</td>
+        </tr>`;
+      }).join('')
+      : '<tr><td colspan="5" class="empty-state">No grants waiting for approval.</td></tr>';
   }
 
   function renderPrisoners() {
@@ -148,6 +174,7 @@
     const queue = schedulingQueue();
     const awaiting = canScheduleHearings ? queue.length : pending.length;
     const grantedParole = PMSStorage.countGrantedParole();
+    const refusedParole = PMSStorage.countRefusedParole();
 
     PMSUI.setStat('stat-pending', canScheduleHearings ? queue.filter((a) => {
       const d = PMSStorage.getHearingDeadlineInfo(a);
@@ -156,6 +183,7 @@
     PMSUI.setStat('stat-hearings', hearings);
     PMSUI.setStat('stat-awaiting', awaiting);
     PMSUI.setStat('stat-granted', grantedParole);
+    PMSUI.setStat('stat-refused', refusedParole);
 
     const awaitingLabel = document.querySelector('#stat-awaiting')?.closest('.stat-card')?.querySelector('.stat-label');
     if (awaitingLabel) {
@@ -211,7 +239,7 @@
       { label: 'Parole Granted (Form 4)', value: grantedParole },
       { label: 'Pending Review', value: pendingReview },
       { label: 'Deferred', value: apps.filter((a) => a.status === 'Deferred').length },
-      { label: 'Refused', value: apps.filter((a) => ['Refused', 'Parole Refused'].includes(a.status)).length },
+      { label: 'Refused', value: refusedParole },
     ], 'var(--color-navy)');
     const grantedOverview = document.getElementById('overview-granted-count');
     if (grantedOverview) {
@@ -249,7 +277,7 @@
           <td>${PMSUI.instName(a.institutionId)}</td>
           <td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td>
           <td>${deadlineText}</td>
-          <td>${summary.completed}/5</td>
+          <td title="${PMSUI.esc(typeof PMSStorage.describeFormVerification === 'function' ? PMSStorage.describeFormVerification(a) : '')}">${summary.completed}/5</td>
           <td><a href="${hearingPortalHref(a.id)}" class="btn-primary btn-sm">Schedule Hearing</a></td>
         </tr>`;
       }).join('') || '<tr><td colspan="6" class="empty-state">All verified cases have hearings scheduled.</td></tr>';
@@ -268,7 +296,7 @@
           ? ` <button type="button" class="btn-icon" data-decide="${a.id}">Review Case</button>`
           : '');
       const profileLink = p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : '';
-      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td>${PMSUI.instName(a.institutionId)}</td><td>${Math.floor(months / 12)}y ${months % 12}m</td><td>${preParoleReady ? 'Available' : '—'}</td><td>${summary.completed}/5</td><td>${profileLink}${formBtn}${PMSUI.renderApplicationActionButtons(a, actor)}</td></tr>`;
+      return `<tr><td>${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}">${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}</a>` : '—'}</td><td>${PMSUI.instName(a.institutionId)}</td><td>${Math.floor(months / 12)}y ${months % 12}m</td><td>${preParoleReady ? 'Available' : '—'}</td><td title="${PMSUI.esc(typeof PMSStorage.describeFormVerification === 'function' ? PMSStorage.describeFormVerification(a) : '')}">${summary.completed}/5</td><td>${profileLink}${formBtn}${PMSUI.renderApplicationActionButtons(a, actor)}</td></tr>`;
     }).join('') || '<tr><td colspan="6" class="empty-state">No applications.</td></tr>';
   }
 
@@ -406,6 +434,22 @@
           </tr>`;
         }),
       },
+      {
+        statId: 'stat-refused',
+        title: 'Parole Refused (Form 5)',
+        columns: ['Case', 'Name', 'Institution', 'Refused', ''],
+        getRows: () => PMSStorage.getRefusedParoleCases().map((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          const form5 = a.formData?.form5 || {};
+          return `<tr>
+            <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
+            <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+            <td>${PMSUI.instName(a.institutionId)}</td>
+            <td>${PMSUI.fmtDate(form5.issuedAt || form5.recordedAt)}</td>
+            <td><a href="forms/form5.html?appId=${encodeURIComponent(a.id)}" class="btn-icon">Form 5</a></td>
+          </tr>`;
+        }),
+      },
     ]);
   }
 
@@ -535,6 +579,18 @@
       return;
     }
     if (e.target.closest('[data-decide]') && isSecretary) openDecisionModal(e.target.closest('[data-decide]').dataset.decide);
+    const approveBtn = e.target.closest('[data-approve-grant]');
+    if (approveBtn && isSecretary) {
+      if (!confirm('Approve this parole grant? Release waits until the CS Parole Clerk also approves.')) return;
+      try {
+        PMSStorage.saveApprovalStep(approveBtn.dataset.approveGrant, { decision: 'Approved' }, actor);
+        refresh('approvals');
+        PMSUI.showSuccess('Grant approval recorded.');
+      } catch (err) {
+        PMSUI.showError(err.message || 'Could not record approval.');
+      }
+      return;
+    }
     if (e.target.closest('[data-open-form]')) {
       const btn = e.target.closest('[data-open-form]');
       PMSForms.openForm(parseInt(btn.dataset.openForm, 10), btn.dataset.app);

@@ -197,7 +197,7 @@ const PMSForm4Grant = (() => {
         issuedBanner.classList.add('show');
         updateSummaryBanner();
         submitGate?.sync();
-        showToast('Form 4 issued — case archived to parole granted records.');
+        showToast('Form 4 issued — DJAG Secretary and CS Parole Clerk must both approve before release.');
         PMSFormWorkflow.navigateAfterSubmit(4, app.id);
       } catch (err) {
         showToast(err.message || 'Could not issue Form 4.');
@@ -211,6 +211,22 @@ const PMSForm4Grant = (() => {
     mountOfficerAuth();
     updateSummaryBanner();
     submitGate?.sync();
+
+    if (typeof PMSUI?.bindLiveDataRefresh === 'function' && app?.id) {
+      PMSUI.bindLiveDataRefresh(() => {
+        const next = PMSStorage.getApplicationById(app.id);
+        if (!next) return;
+        const f4 = next.formData?.form4;
+        if (!PMSStorage.isForm4Complete(f4) && !f4?.issued) return;
+        applyState(f4);
+        if (f4?.digitalSignature?.verified) officerAuth?.restore(f4.digitalSignature);
+        officerAuth?.lock();
+        issuedBanner.classList.add('show');
+        updateSummaryBanner();
+        submitGate?.sync();
+        wf.refreshProgress();
+      }, { refreshOnFocus: true });
+    }
 
     if (typeof PMSFormAutosave !== 'undefined') {
       PMSFormAutosave.create({

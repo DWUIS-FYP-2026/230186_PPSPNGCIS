@@ -416,6 +416,15 @@ const PMSUI = (() => {
     const canSchedule = typeof PMSRBAC !== 'undefined'
       ? PMSRBAC.canScheduleHearing(user)
       : user?.role === 'DJAG Secretary';
+    if (n.linkPanel === 'approvals' && n.applicationId) {
+      return `${dash}?panel=approvals&app=${encodeURIComponent(n.applicationId)}`;
+    }
+    if (n.linkPanel === 'users') {
+      return `${dash}?panel=users`;
+    }
+    if (n.linkPanel === 'guarantors') {
+      return `${dash}?panel=guarantors`;
+    }
     if (n.applicationId && canSchedule && (n.type === 'hearing' || n.type === 'escalation' || n.type === 'deadline' || n.linkPanel === 'hearings')) {
       return `forms/hearing-schedule.html?appId=${encodeURIComponent(n.applicationId)}`;
     }
@@ -994,24 +1003,59 @@ const PMSUI = (() => {
     });
   }
 
-  function bindLiveDataRefresh(onRefresh, { refreshOnFocus = true } = {}) {
+  function bindLiveDataRefresh(onRefresh, { refreshOnFocus = true, pollMs = 4000 } = {}) {
     if (typeof onRefresh !== 'function' || typeof window === 'undefined') return () => {};
     let timer = null;
-    const run = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => { onRefresh(); }, 120);
+    let pollId = null;
+    let pulling = false;
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') run(true);
     };
-    window.addEventListener('pms:data-changed', run);
+    const onStorage = (e) => {
+      if (!e?.key) return;
+      if (e.key === 'pms_mock_data_v5' || e.key === 'png_parole_workflow') run(true);
+    };
+    const onChanged = () => run(true);
+
+    const run = (force = false) => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        if (pulling) return;
+        pulling = true;
+        let changed = force;
+        try {
+          if (typeof PMSStorage?.pullRemoteCaseProgress === 'function') {
+            changed = !!(await PMSStorage.pullRemoteCaseProgress()) || force;
+          }
+        } catch (_) { /* keep local view */ }
+        pulling = false;
+        if (typeof PMSFormWorkflow?.syncMirroredCompletions === 'function') {
+          const appId = PMSFormWorkflow.getAppId?.();
+          if (appId && appId !== '_default') PMSFormWorkflow.syncMirroredCompletions(appId);
+        }
+        if (changed) {
+          try { onRefresh(); } catch (_) { /* ignore render errors */ }
+        }
+      }, 120);
+    };
+
+    window.addEventListener('pms:data-changed', onChanged);
+    window.addEventListener('storage', onStorage);
     if (refreshOnFocus) {
-      window.addEventListener('focus', run);
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') run();
-      });
+      window.addEventListener('focus', onChanged);
+      document.addEventListener('visibilitychange', onVisibility);
     }
+    if (pollMs > 0) pollId = window.setInterval(() => run(false), pollMs);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('pms:data-changed', run);
-      if (refreshOnFocus) window.removeEventListener('focus', run);
+      if (pollId) window.clearInterval(pollId);
+      window.removeEventListener('pms:data-changed', onChanged);
+      window.removeEventListener('storage', onStorage);
+      if (refreshOnFocus) {
+        window.removeEventListener('focus', onChanged);
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
     };
   }
 

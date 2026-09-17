@@ -32,6 +32,7 @@ const PMSStorage = (() => {
   };
 
   const SIGNING_PINS_LS_KEY = 'pms_signing_pins_v1';
+  const PASSWORDS_LS_KEY = 'pms_user_passwords_v1';
 
   const LEGACY_USERNAME_MAP = {
     'john.dole@cs.gov.pg': 'j.dole@cs.gov.pg',
@@ -80,8 +81,22 @@ const PMSStorage = (() => {
     return stored === password;
   }
 
+  function persistUserPasswords() {
+    try { localStorage.setItem(PASSWORDS_LS_KEY, JSON.stringify(DEMO_PASSWORDS)); } catch (_) { /* ignore */ }
+  }
+
+  function loadUserPasswords() {
+    try {
+      const raw = localStorage.getItem(PASSWORDS_LS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') Object.assign(DEMO_PASSWORDS, parsed);
+    } catch (_) { /* ignore */ }
+  }
+
   function setUserPassword(username, password) {
     DEMO_PASSWORDS[username] = hashPassword(password);
+    persistUserPasswords();
   }
 
   function loadSigningPinsFromStorage() {
@@ -153,6 +168,18 @@ const PMSStorage = (() => {
       }
     });
     if (changed) persistSigningPins();
+  }
+
+  function resetSigningPin(userId, actor) {
+    const user = getUserById(userId);
+    if (!user) throw new Error('User not found');
+    const key = user.username?.toLowerCase() === 'admin' ? 'admin' : user.username;
+    const pin = generateUniqueSigningPin();
+    DEMO_SIGNING_PINS[key] = pin;
+    persistSigningPins();
+    logAudit(actor, 'UPDATE', 'User', userId, `Signing PIN reset for ${user.username}`);
+    persist();
+    return pin;
   }
 
   const USER_ROLES = [
@@ -538,13 +565,14 @@ const PMSStorage = (() => {
       },
       {
         id: 'APP-000008', caseNumber: 'PMS-2026-DEMO-F4', prisonerId: 'PR-000007', institutionId: 'INS-000001',
-        status: 'Parole Granted', submittedAt: '2026-08-01', submittedBy: 'USR-000002', demoStage: 'Form 4',
+        status: 'Pending Approval', submittedAt: '2026-08-01', submittedBy: 'USR-000002', demoStage: 'Form 4',
         formData: {
           form1: demoForm1SubmittedSeed('F1-000007', 'Demo case — board granted parole; issue Form 4 order.'),
           form2: demoForm2CompleteSeed('F2-000006'),
           form3: demoForm3HearingCompleteSeed('F3-000005'),
           form4: {
-            formId: 'F4-000001', status: 'draft', decision: 'Parole Granted',
+            formId: 'F4-000001', status: 'Parole Granted', decision: 'Parole Granted',
+            issued: true, issuedAt: '2026-08-26T09:00:00.000Z', issuedBy: 'Helen Morris',
             caseNumber: 'PMS-2026-DEMO-F4', prisonerName: 'Mark Grant',
             hearingDate: '2026-08-25', hearingLocation: 'Bomana Hearing Room A',
             conditions: 'Report to supervising parole officer within 48 hours.',
@@ -552,8 +580,14 @@ const PMSStorage = (() => {
           },
           form5: {},
         },
-        preParoleReport: 'Demo case — ready for Form 4 (Parole Granted order).',
+        preParoleReport: 'Demo case — Form 4 issued; awaiting DJAG Secretary and CS Clerk grant approval.',
         commanderReview: demoCommanderReviewSeed('PR-000007', 'PMS-2026-DEMO-F4'),
+        guarantors: [{
+          id: 'GUA-000001', applicationId: 'APP-000008', name: 'Michael Grant',
+          relationship: 'Brother', contact: '+675 7123 8899', village: 'Hohola, NCD',
+          notes: 'Community guarantor for the Form 4 demo case.',
+          createdAt: '2026-08-26T10:00:00.000Z', updatedAt: '2026-08-26T10:00:00.000Z',
+        }],
         boardAssessments: demoBoardAssessmentsSeed('Approved'),
         boardDecision: {
           outcome: 'Parole Granted',
@@ -836,6 +870,7 @@ const PMSStorage = (() => {
   function persist(meta = {}) {
     packHearingSyncFields();
     try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) { console.warn('Storage persist failed', e); }
+    persistUserPasswords();
     if (dbSyncEnabled && !meta.localOnly) {
       clearTimeout(syncTimer);
       syncTimer = setTimeout(() => {
@@ -927,6 +962,7 @@ const PMSStorage = (() => {
       migrateCaseNumbers();
       migrateNotifications();
       mergeSeedUsers();
+      loadUserPasswords();
       loadSigningPinsFromStorage();
       ensureSigningPins();
       runEscalationChecks();
@@ -1579,6 +1615,34 @@ const PMSStorage = (() => {
       }
     });
 
+    const grantApp = data.applications.find((a) => a.id === 'APP-000008');
+    if (grantApp?.formData?.form4) {
+      const f4 = grantApp.formData.form4;
+      if (f4.decision === 'Parole Granted' || f4.status === 'Parole Granted' || grantApp.status === 'Parole Granted') {
+        f4.issued = true;
+        f4.status = 'Parole Granted';
+        f4.decision = 'Parole Granted';
+        f4.issuedAt = f4.issuedAt || f4.recordedAt || '2026-08-26T09:00:00.000Z';
+        f4.issuedBy = f4.issuedBy || 'Helen Morris';
+        if (!['Approved', 'Released', 'Refused', 'Parole Refused'].includes(grantApp.status)) {
+          grantApp.status = 'Pending Approval';
+        }
+      }
+      if (!Array.isArray(grantApp.guarantors) || !grantApp.guarantors.length) {
+        grantApp.guarantors = [{
+          id: 'GUA-000001',
+          applicationId: grantApp.id,
+          name: 'Michael Grant',
+          relationship: 'Brother',
+          contact: '+675 7123 8899',
+          village: 'Hohola, NCD',
+          notes: 'Community guarantor for the Form 4 demo case.',
+          createdAt: '2026-08-26T10:00:00.000Z',
+          updatedAt: '2026-08-26T10:00:00.000Z',
+        }];
+      }
+    }
+
     data.applications?.forEach((application) => {
       promoteToCommanderReviewIfReady(application);
       reconcileCommanderVerification(application);
@@ -1836,10 +1900,15 @@ const PMSStorage = (() => {
     return ['Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review'].includes(app.status);
   }
 
+  function isForm2SectionVerified(section) {
+    if (!section) return false;
+    if (section.submitted === true) return true;
+    if (section.confirmed === true || section.verificationStatus === 'Verified') return true;
+    return !!section.digitalSignature?.verified;
+  }
+
   function isForm2Complete(form2) {
-    const ddr = form2?.sections?.ddr;
-    const ppr = form2?.sections?.ppr;
-    return !!(ddr?.submitted && ddr?.confirmed && ppr?.submitted && ppr?.confirmed);
+    return isForm2SectionVerified(form2?.sections?.ddr) && isForm2SectionVerified(form2?.sections?.ppr);
   }
 
   const FORM2_ATTACHMENT_LABELS = Object.freeze({
@@ -1975,6 +2044,28 @@ const PMSStorage = (() => {
     return getGrantedParoleCases({ institutionId: scopeInstitutionId || undefined }).length;
   }
 
+  function isParoleRefusedCase(app) {
+    if (!app) return false;
+    if (['Refused', 'Parole Refused'].includes(app.status)) return true;
+    return isForm5Complete(app.formData?.form5);
+  }
+
+  function getRefusedParoleCases(opts = {}) {
+    const { institutionId } = opts;
+    return getAllParoleApplications({ includeArchived: true })
+      .filter((a) => isParoleRefusedCase(a))
+      .filter((a) => !institutionId || a.institutionId === institutionId)
+      .sort((a, b) => {
+        const left = a.formData?.form5?.issuedAt || a.formData?.form5?.recordedAt || a.updatedAt || 0;
+        const right = b.formData?.form5?.issuedAt || b.formData?.form5?.recordedAt || b.updatedAt || 0;
+        return new Date(right) - new Date(left);
+      });
+  }
+
+  function countRefusedParole(scopeInstitutionId = null) {
+    return getRefusedParoleCases({ institutionId: scopeInstitutionId || undefined }).length;
+  }
+
   function getParoleGrantedArchive(opts = {}) {
     const { institutionId } = opts;
     data.paroleGrantedArchive = data.paroleGrantedArchive || [];
@@ -2033,8 +2124,13 @@ const PMSStorage = (() => {
     if (prisoner && !['Released on Parole', 'Released'].includes(prisoner.status)) {
       prisoner.status = 'Approved';
     }
-    if (!['Approved', 'Released'].includes(app.status)) {
-      transitionApplication(appId, 'Approved', actor, 'Parole granted — Form 4 issued and case archived');
+    if (!['Approved', 'Released', 'Pending Approval'].includes(app.status)) {
+      try {
+        transitionApplication(appId, 'Pending Approval', actor, 'Form 4 issued — awaiting DJAG Secretary and CS Clerk approval');
+      } catch (_) {
+        app.status = 'Pending Approval';
+        app.updatedAt = new Date().toISOString();
+      }
     }
     recordParoleGrantedArchive(app, actor);
     logAudit(actor, 'ARCHIVE', 'ParoleApplication', appId, `Parole granted archive — ${app.caseNumber || appId}`, {
@@ -2042,10 +2138,10 @@ const PMSStorage = (() => {
     });
     const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : app.caseNumber || appId;
     notifyRoles(
-      ['CS Parole Clerk', 'DJAG Parole Clerk', 'Jail Commander'],
-      'Parole Granted — Case Archived',
-      `Form 4 issued for ${pName} (${app.caseNumber || appId}). Record moved to parole granted archive.`,
-      { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'approval', linkPanel: 'history' },
+      ['CS Parole Clerk', 'DJAG Secretary', 'Jail Commander'],
+      'Approval Required — Parole Grant',
+      `Form 4 issued for ${pName} (${app.caseNumber || appId}). DJAG Secretary and CS Parole Clerk must both approve before release.`,
+      { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'approval', linkPanel: 'approvals' },
     );
     persist();
     return app;
@@ -2439,8 +2535,10 @@ const PMSStorage = (() => {
       contributorRole: actor.role,
       submittedAt: new Date().toISOString(),
       submitted: true,
-      confirmed: sectionData.confirmed === true,
-      verificationStatus: sectionData.verificationStatus || (sectionData.confirmed ? 'Verified' : 'Pending'),
+      confirmed: sectionData.confirmed !== false,
+      verificationStatus: sectionData.digitalSignature?.verified || sectionData.confirmed !== false
+        ? 'Verified'
+        : (sectionData.verificationStatus || 'Pending'),
     };
     app.formData.form2.sections = { ...(app.formData.form2.sections || {}), [normalizedKey]: block };
     if (isForm2Complete(app.formData.form2)) {
@@ -2592,16 +2690,29 @@ const PMSStorage = (() => {
   function saveGuarantor(applicationId, guarantor, actor) {
     const app = getApplicationById(applicationId);
     if (!app) throw new Error('Application not found');
+    const name = String(guarantor.name || '').trim();
+    const relationship = String(guarantor.relationship || '').trim();
+    const contact = String(guarantor.contact || guarantor.phone || '').trim();
+    if (!name) throw new Error('Guarantor name is required.');
+    if (!relationship) throw new Error('Relationship to the detainee is required.');
+    if (!contact) throw new Error('Guarantor contact number is required.');
     app.guarantors = app.guarantors || [];
+    const payload = {
+      name,
+      relationship,
+      contact,
+      village: String(guarantor.village || '').trim(),
+      notes: String(guarantor.notes || '').trim(),
+    };
     if (guarantor.id) {
       const idx = app.guarantors.findIndex((g) => g.id === guarantor.id);
       if (idx < 0) throw new Error('Guarantor not found');
-      app.guarantors[idx] = { ...app.guarantors[idx], ...guarantor, updatedAt: new Date().toISOString() };
+      app.guarantors[idx] = { ...app.guarantors[idx], ...payload, updatedAt: new Date().toISOString() };
     } else {
       const id = `GUA-${String(app.guarantors.length + 1).padStart(6, '0')}`;
-      app.guarantors.push({ ...guarantor, id, applicationId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      app.guarantors.push({ ...payload, id, applicationId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
-    logAudit(actor, guarantor.id ? 'UPDATE' : 'CREATE', 'Guarantor', guarantor.id || app.guarantors.at(-1).id, guarantor.name);
+    logAudit(actor, guarantor.id ? 'UPDATE' : 'CREATE', 'Guarantor', guarantor.id || app.guarantors.at(-1).id, payload.name);
     persist();
     return guarantor.id ? app.guarantors.find((g) => g.id === guarantor.id) : app.guarantors.at(-1);
   }
@@ -2620,31 +2731,66 @@ const PMSStorage = (() => {
     return required.every((r) => steps.some((s) => s.role === r && s.decision === 'Approved'));
   }
 
+  function roleHasApprovedGrant(app, role) {
+    const normalized = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(role) : role;
+    return (app?.approvalSteps || []).some((s) => s.role === normalized && s.decision === 'Approved');
+  }
+
+  function isGrantApprovalPending(app) {
+    if (!app || !isForm4Issued(app)) return false;
+    if (['Released', 'Refused', 'Parole Refused', 'Approved'].includes(app.status)) return false;
+    return !requiredApprovalsComplete(app);
+  }
+
+  function getGrantApprovalQueue(actor) {
+    const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor?.role) : actor?.role;
+    return getParoleApplications().filter((app) => {
+      if (!isGrantApprovalPending(app)) return false;
+      if (role === 'CS Parole Clerk' && actor?.institutionId && app.institutionId !== actor.institutionId) return false;
+      return true;
+    });
+  }
+
   function saveApprovalStep(appId, step, actor) {
     const app = getApplicationById(appId);
     if (!app) throw new Error('Application not found');
+    const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
+    if (!['DJAG Secretary', 'CS Parole Clerk'].includes(role)) {
+      throw new Error('Only the DJAG Secretary and CS Parole Clerk may record grant approvals.');
+    }
+    if (!isForm4Issued(app)) {
+      throw new Error('Form 4 must be issued before grant approvals can be recorded.');
+    }
+    if (roleHasApprovedGrant(app, role)) {
+      throw new Error(`${role} has already approved this grant.`);
+    }
     app.approvalSteps = app.approvalSteps || [];
     app.approvalSteps.push({
       approverId: actor.id,
       approverName: `${actor.firstName} ${actor.lastName}`,
-      role: actor.role,
+      role,
       decision: step.decision,
       comments: step.comments || '',
       at: new Date().toISOString(),
     });
-    logAudit(actor, 'APPROVE', 'ParoleApplication', appId, `${actor.role} ${step.decision}`);
-    const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'approval', linkPanel: 'applications' };
+    logAudit(actor, 'APPROVE', 'ParoleApplication', appId, `${role} ${step.decision}`);
+    const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'approval', linkPanel: 'approvals' };
     if (step.decision === 'Approved' && requiredApprovalsComplete(app)) {
       transitionApplication(appId, 'Approved', actor, 'All required approvals completed');
-      notifyRole('CS Parole Clerk', 'Release Authorized — Pending Action', `Approvals complete for ${app.caseNumber || appId} — authorize release`, app.institutionId, app.prisonerId, null, meta);
+      notifyRoles(
+        ['CS Parole Clerk', 'Jail Commander'],
+        'Release Authorized — Pending Action',
+        `Approvals complete for ${app.caseNumber || appId} — authorize release`,
+        meta,
+      );
     } else if (step.decision === 'Rejected') {
       transitionApplication(appId, 'Refused', actor, step.comments || 'Approval rejected');
     } else if (step.decision === 'Returned for Correction') {
       transitionApplication(appId, 'Returned for Correction', actor, step.comments || 'Returned during approval');
     } else {
       app.status = 'Pending Approval';
-      notifyRole('DJAG Secretary', 'Approval Required', `Approval pending for ${app.caseNumber || appId}`, app.institutionId, app.prisonerId, null, meta);
-      notifyRole('CS Parole Clerk', 'Approval Required', `Approval pending for ${app.caseNumber || appId}`, app.institutionId, app.prisonerId, null, meta);
+      const other = role === 'DJAG Secretary' ? 'CS Parole Clerk' : 'DJAG Secretary';
+      notifyRole(other, 'Approval Required', `${role} approved ${app.caseNumber || appId}. Your approval is still required.`, app.institutionId, app.prisonerId, null, meta);
     }
     persist();
     return app;
@@ -3169,15 +3315,22 @@ const PMSStorage = (() => {
 
   const LIVE_HEARING_RECORD_STATUSES = ['In Progress', 'Completed', 'Cancelled'];
   const APP_SESSION_RANK = {
-    'Hearing Scheduled': 1,
-    'Hearing In Progress': 2,
-    'Pending Board Review': 3,
-    'Parole Granted': 4,
-    'Parole Refused': 4,
-    'Pending Approval': 4,
-    Approved: 4,
-    Refused: 4,
-    Deferred: 3,
+    Draft: 0,
+    Submitted: 1,
+    'Returned for Correction': 1,
+    'Under DJAG Review': 2,
+    'Pending Commander Review': 3,
+    'Pre-Parole Report Prepared': 4,
+    'Hearing Scheduled': 5,
+    'Hearing In Progress': 6,
+    'Pending Board Review': 7,
+    Deferred: 7,
+    'Parole Granted': 8,
+    'Parole Refused': 8,
+    'Pending Approval': 9,
+    Approved: 10,
+    Refused: 10,
+    Released: 11,
   };
   const HEARING_RECORD_RANK = {
     Upcoming: 0,
@@ -3191,6 +3344,8 @@ const PMSStorage = (() => {
       app.formData = app.formData && typeof app.formData === 'object' ? app.formData : {};
       if (Array.isArray(app.boardAssessments)) app.formData.__pmsBoardAssessments = app.boardAssessments;
       if (app.hearingSession) app.formData.__pmsHearingSession = app.hearingSession;
+      if (app.commanderReview) app.formData.__pmsCommanderReview = app.commanderReview;
+      if (Array.isArray(app.approvalSteps)) app.formData.__pmsApprovalSteps = app.approvalSteps;
     });
   }
 
@@ -3202,6 +3357,12 @@ const PMSStorage = (() => {
       }
       if (!app.hearingSession && fd.__pmsHearingSession) {
         app.hearingSession = fd.__pmsHearingSession;
+      }
+      if (!app.commanderReview?.verifiedAt && fd.__pmsCommanderReview) {
+        app.commanderReview = fd.__pmsCommanderReview;
+      }
+      if ((!app.approvalSteps || !app.approvalSteps.length) && Array.isArray(fd.__pmsApprovalSteps)) {
+        app.approvalSteps = fd.__pmsApprovalSteps;
       }
       const packed = app.hearingSession;
       if (!packed?.hearingId || packed.status !== 'In Progress') return;
@@ -3253,6 +3414,55 @@ const PMSStorage = (() => {
     return localSession;
   }
 
+  function formBlobScore(formN, blob) {
+    if (!blob || typeof blob !== 'object') return 0;
+    if (formN === 1) {
+      if (isForm1Complete(blob)) return 4;
+      if (blob.digitalSignature?.verified || blob.status === 'submitted') return 3;
+      return Object.keys(blob).length ? 1 : 0;
+    }
+    if (formN === 2) {
+      return (isForm2SectionVerified(blob.sections?.ddr) ? 2 : 0)
+        + (isForm2SectionVerified(blob.sections?.ppr) ? 2 : 0);
+    }
+    if (formN === 3) {
+      if (isForm3Complete(blob)) return 4;
+      if (blob.digitalSignature?.verified) return 2;
+      return blob.scheduledDate ? 1 : 0;
+    }
+    if (formN === 4) return blob.issued ? 4 : (isForm4Complete(blob) ? 2 : 0);
+    if (formN === 5) return isForm5Complete(blob) ? 3 : 0;
+    return 0;
+  }
+
+  function mergeForm2Sections(local, remote) {
+    const localFd = local && typeof local === 'object' ? local : {};
+    const remoteFd = remote && typeof remote === 'object' ? remote : {};
+    const sections = { ...(localFd.sections || {}) };
+    ['ddr', 'ppr'].forEach((key) => {
+      const l = sections[key];
+      const r = remoteFd.sections?.[key];
+      if (isForm2SectionVerified(r) && !isForm2SectionVerified(l)) sections[key] = r;
+      else if (!l && r) sections[key] = r;
+      else if (isForm2SectionVerified(r) && isForm2SectionVerified(l) && r.digitalSignature?.verified && !l.digitalSignature?.verified) {
+        sections[key] = { ...l, ...r };
+      }
+    });
+    const next = { ...localFd, sections };
+    if (isForm2Complete({ sections }) && !isForm2Complete(localFd)) {
+      next.status = remoteFd.status || next.status || 'submitted';
+      next.submittedAt = remoteFd.submittedAt || next.submittedAt || new Date().toISOString();
+    }
+    return next;
+  }
+
+  function mergeFormBlob(local, remote, formN) {
+    if (!remote || typeof remote !== 'object' || !Object.keys(remote).length) return local;
+    if (!local || typeof local !== 'object' || !Object.keys(local).length) return remote;
+    if (formN === 2) return mergeForm2Sections(local, remote);
+    return formBlobScore(formN, remote) > formBlobScore(formN, local) ? { ...local, ...remote } : local;
+  }
+
   function mergeRemoteHearingSessions(remote) {
     if (!data || !remote) return false;
     let changed = false;
@@ -3277,6 +3487,27 @@ const PMSStorage = (() => {
         local.hearingSession = mergedSession;
         changed = true;
       }
+      if (rem.formData) {
+        local.formData = local.formData || createEmptyFormData();
+        [1, 2, 3, 4, 5].forEach((n) => {
+          const key = `form${n}`;
+          const merged = mergeFormBlob(local.formData[key], rem.formData[key], n);
+          if (JSON.stringify(merged || {}) !== JSON.stringify(local.formData[key] || {})) {
+            local.formData[key] = merged;
+            changed = true;
+          }
+        });
+      }
+      const remoteCommander = rem.commanderReview || rem.formData?.__pmsCommanderReview;
+      if (remoteCommander?.verifiedAt && !local.commanderReview?.verifiedAt) {
+        local.commanderReview = remoteCommander;
+        changed = true;
+      }
+      const remoteSteps = rem.approvalSteps || rem.formData?.__pmsApprovalSteps || [];
+      if (remoteSteps.length > (local.approvalSteps || []).length) {
+        local.approvalSteps = remoteSteps;
+        changed = true;
+      }
     });
     const remoteHearings = new Map((remote.hearings || []).map((h) => [h.id, h]));
     (data.hearings || []).forEach((local) => {
@@ -3288,14 +3519,18 @@ const PMSStorage = (() => {
         local.status = nextStatus;
         changed = true;
       }
-      ['startedAt', 'startedBy', 'startedByName'].forEach((key) => {
-        if (!local[key] && rem[key]) {
+      ['startedAt', 'startedBy', 'startedByName', 'scheduledDate', 'scheduledTime', 'location', 'notes'].forEach((key) => {
+        if (rem[key] && rem[key] !== local[key]) {
           local[key] = rem[key];
           changed = true;
         }
       });
     });
     return changed;
+  }
+
+  async function pullRemoteCaseProgress() {
+    return pullRemoteHearingSessions();
   }
 
   async function pullRemoteHearingSessions() {
@@ -3412,8 +3647,8 @@ const PMSStorage = (() => {
     if (!isParoleGrantedForRelease(app)) {
       blockers.push('Parole must be granted before release can be authorized.');
     }
-    if (role === 'CS Parole Clerk' && !requiredApprovalsComplete(app) && app.status !== 'Approved') {
-      blockers.push('Required approval workflow must be completed before release.');
+    if (!requiredApprovalsComplete(app) && app.status !== 'Approved') {
+      blockers.push('DJAG Secretary and CS Parole Clerk must both approve the grant before release.');
     }
     return blockers;
   }
@@ -3758,9 +3993,71 @@ const PMSStorage = (() => {
   function resetPassword(userId, newPassword, actor) {
     const u = getUserById(userId);
     if (!u) throw new Error('User not found');
+    if (!newPassword || String(newPassword).length < 6) throw new Error('Password must be at least 6 characters.');
     setUserPassword(u.username, newPassword);
+    (data.notifications || []).forEach((n) => {
+      if (n.title === 'Password Reset Request' && !n.resolved && (n.message || '').includes(u.username)) {
+        n.resolved = true;
+        n.read = true;
+      }
+    });
     logAudit(actor, 'UPDATE', 'User', userId, `Password reset for ${u.username}`);
+    notifyRole(u.role, 'Password Reset', 'An administrator reset your password. Sign in with the new password.', u.institutionId, null, u.id, {
+      type: 'system', linkPanel: 'profile',
+    });
+    persist();
     return u;
+  }
+
+  function userLoginKeys(user) {
+    const keys = [];
+    const username = String(user?.username || '').toLowerCase();
+    const email = String(user?.email || '').toLowerCase();
+    if (username) keys.push(username);
+    if (email && email !== username) keys.push(email);
+    if (username.includes('@')) keys.push(username.split('@')[0]);
+    if (email.includes('@')) keys.push(email.split('@')[0]);
+    return keys;
+  }
+
+  function findUserForLogin(identifier) {
+    const login = String(identifier || '').trim().toLowerCase();
+    if (!login || !data?.users) return null;
+    const mapped = (LEGACY_USERNAME_MAP[login] || login).toLowerCase();
+    const matches = data.users.filter((u) => {
+      const keys = userLoginKeys(u);
+      return keys.includes(login) || keys.includes(mapped);
+    });
+    const exact = matches.filter((u) => {
+      const username = String(u.username || '').toLowerCase();
+      const email = String(u.email || '').toLowerCase();
+      return username === login || email === login || username === mapped || email === mapped;
+    });
+    if (exact.length === 1) return exact[0];
+    if (exact.length > 1) return null;
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  function requestPasswordReset(identifier) {
+    if (!data) throw new Error('Storage not loaded');
+    const user = findUserForLogin(identifier);
+    if (user) {
+      notifyRole(
+        'System Administrator',
+        'Password Reset Request',
+        `${user.firstName} ${user.lastName} (${user.username}) requested a password reset.`,
+        user.institutionId,
+        null,
+        null,
+        {
+          type: 'system',
+          linkPanel: 'users',
+          dedupeKey: `password-reset:${user.id}`,
+        },
+      );
+      persist();
+    }
+    return { ok: true };
   }
 
   function authenticate(identifier, password) {
@@ -3770,14 +4067,8 @@ const PMSStorage = (() => {
       logAudit(null, 'ACCESS_DENIED', 'Session', login, 'Account temporarily locked after failed login attempts', { denied: true });
       return null;
     }
-    let user = data.users.find((u) =>
-      u.status === 'Active' && (u.username.toLowerCase() === login || u.email.toLowerCase() === login));
-    if (!user && LEGACY_USERNAME_MAP[login]) {
-      const mapped = LEGACY_USERNAME_MAP[login].toLowerCase();
-      user = data.users.find((u) =>
-        u.status === 'Active' && (u.username.toLowerCase() === mapped || u.email.toLowerCase() === mapped));
-    }
-    if (!user) {
+    const user = findUserForLogin(identifier);
+    if (!user || user.status !== 'Active') {
       recordLoginFailure(login);
       return null;
     }
@@ -4498,27 +4789,37 @@ const PMSStorage = (() => {
   function getFormCompletionSummary(app) {
     const fd = app?.formData || {};
     const appId = app?.id;
-
-    if (typeof PMSFormWorkflow !== 'undefined' && appId) {
-      const wfChecks = PMSFormWorkflow.getChecks(appId);
-      const checks = {
-        form1: wfChecks.form1 || isForm1Complete(fd.form1),
-        form2: wfChecks.form2 || isForm2Complete(fd.form2),
-        form3: wfChecks.form3 || isForm3Complete(fd.form3),
-        form4: wfChecks.form4 || isForm4Complete(fd.form4),
-        form5: wfChecks.form5 || isForm5Complete(fd.form5),
-      };
-      return { completed: Object.values(checks).filter(Boolean).length, total: 5, checks };
-    }
-
+    const wfChecks = (typeof PMSFormWorkflow !== 'undefined' && appId)
+      ? PMSFormWorkflow.getChecks(appId)
+      : {};
     const checks = {
-      form1: isForm1Complete(fd.form1),
-      form2: isForm2Complete(fd.form2),
-      form3: isForm3Complete(fd.form3),
-      form4: isForm4Complete(fd.form4),
-      form5: isForm5Complete(fd.form5),
+      form1: isForm1Complete(fd.form1) || !!wfChecks.form1,
+      form2: isForm2Complete(fd.form2) || !!wfChecks.form2,
+      form3: isForm3Complete(fd.form3) || !!wfChecks.form3,
+      form4: isForm4Complete(fd.form4) || !!wfChecks.form4,
+      form5: isForm5Complete(fd.form5) || !!wfChecks.form5,
     };
     return { completed: Object.values(checks).filter(Boolean).length, total: 5, checks };
+  }
+
+  function describeFormVerification(app) {
+    const fd = app?.formData || {};
+    const s = getFormCompletionSummary(app);
+    const ddr = isForm2SectionVerified(fd.form2?.sections?.ddr);
+    const ppr = isForm2SectionVerified(fd.form2?.sections?.ppr);
+    const form2Label = s.checks.form2
+      ? 'F2 verified'
+      : (ddr || ppr)
+        ? `F2 ${ddr ? 'DDR✓' : 'DDR—'}${ppr ? ' PPR✓' : ' PPR—'}`
+        : 'F2 —';
+    const commander = isCommanderVerified(app) ? 'Commander✓' : null;
+    return [
+      s.checks.form1 ? 'F1 verified' : 'F1 —',
+      form2Label,
+      s.checks.form3 ? 'F3 verified' : 'F3 —',
+      s.checks.form4 ? 'F4 issued' : (s.checks.form5 ? 'F5 issued' : null),
+      commander,
+    ].filter(Boolean).join(' · ');
   }
 
   function saveParoleApplication(app, actor) {
@@ -5328,12 +5629,8 @@ const PMSStorage = (() => {
     const pendingNotifications = data.notifications.filter((n) => !n.read && !n.resolved).length;
     const users = data.users || [];
     const boardRoles = ['Doctor', 'CS Commissioner', 'DJAG Secretary'];
-    const allApps = getAllParoleApplications({ includeArchived: true });
-    const scopedAll = scopeInstitutionId
-      ? allApps.filter((a) => a.institutionId === scopeInstitutionId)
-      : allApps;
-    const granted = scopedAll.filter((a) => isForm4Issued(a)).length;
-    const refused = apps.filter((a) => ['Refused', 'Parole Refused'].includes(a.status) || a.formData?.form5?.status === 'Parole Refused').length;
+    const granted = countGrantedParole(scopeInstitutionId);
+    const refused = countRefusedParole(scopeInstitutionId);
     return {
       totalUsers: data.users.length,
       totalStaff: data.users.filter((u) => u.role !== 'System Administrator').length,
@@ -5371,8 +5668,8 @@ const PMSStorage = (() => {
     USER_ROLES, OFFICER_ROLES, BOARD_POSITIONS, PAROLE_FORMS, APPLICATION_STATUSES, PRISONER_STATUSES,
     DEFAULT_SETTINGS, DEMO_PASSWORDS, ensureLoaded, reloadAll, flushSyncToDatabase, isDatabaseSyncEnabled: () => dbSyncEnabled,
     getSettings, saveSettings, isAct1991ParoleSyncEnabled, getAuditLogs, logAudit, validatePrisonerDates, applyPrisonerEligibility,
-    getUsers, getUserById, getUserByUsername, saveUser, deleteUser, resetPassword, authenticate,
-    verifySigningPin, getSigningPinForUser, ensureSigningPins, DEMO_SIGNING_PINS,
+    getUsers, getUserById, getUserByUsername, saveUser, deleteUser, resetPassword, requestPasswordReset, authenticate,
+    verifySigningPin, getSigningPinForUser, ensureSigningPins, resetSigningPin, DEMO_SIGNING_PINS,
     getInstitutions, getInstitutionById, getActiveInstitutions: () => getInstitutions(true),
     getJailCommanderForInstitution, getJailCommanders, getCommanderProfile, saveCommanderProfile, getCommanderDetailBundle,
     getPrisonersByInstitution, getInstitutionStats,
@@ -5387,16 +5684,17 @@ const PMSStorage = (() => {
     canDeleteApplication, canArchiveApplication, deleteApplication, archiveApplication,
     saveParoleApplication, uploadApplicationForm,
     verifyApplicationForm, submitApplicationToDJAG, createEmptyForms, createEmptyFormData,
-    saveFormData, saveForm1Screening, saveForm2Section, getOrCreateDraftApplication, isForm1Complete, isForm2Complete,
+    saveFormData, saveForm1Screening, saveForm2Section, getOrCreateDraftApplication, isForm1Complete, isForm2Complete, isForm2SectionVerified,
     FORM2_ATTACHMENT_LABELS, getForm2AttachmentFiles, getForm2AttachmentFile, canDownloadForm2Attachments, downloadForm2Attachment,
     isForm4Issued, getAllParoleApplications, getGrantedParoleCases, countGrantedParole, getParoleGrantedArchive, archiveParoleGrantedCase,
+    isParoleRefusedCase, getRefusedParoleCases, countRefusedParole,
     needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm3HearingPhaseOpen, isForm4Complete, isForm5Complete,
     transitionApplication, recordBoardDecision, routeParoleOutcome, issueForm4Grant, issueForm5Refusal,
     getBoardDecisionOutcome, isBoardDecisionFinalized, canProceedToForm4, canProceedToForm5,
-    getFormCompletionSummary, calculateParoleScore, getHearingDeadlineInfo,
+    getFormCompletionSummary, describeFormVerification, calculateParoleScore, getHearingDeadlineInfo,
     getCaseTimeline, getCaseTracker, syncApplicationProgress, syncAllApplicationProgress, getReleaseRequirements, getEscalations, runEscalationChecks,
     getOffenses, saveOffense, deleteOffense,
-    startHearing, getHearingSession, isHearingSessionOpen, pullRemoteHearingSessions,
+    startHearing, getHearingSession, isHearingSessionOpen, pullRemoteHearingSessions, pullRemoteCaseProgress,
     maybeCompleteHearingOnVoteTally, saveBoardAssessment, saveInterviewSessionMeta, getBoardAssessments, getBoardAssessmentProgress, getBoardAssessmentForActor,
     getBoardAssessmentEntryForRole,
     hasSubmittedBoardAssessment, requiredBoardAssessmentsComplete, calculateBoardVotes, finalizeBoardVotes,
@@ -5407,6 +5705,7 @@ const PMSStorage = (() => {
     getReleaseBlockers, canAuthorizeRelease, authorizeRelease, overrideEligibility, saveCommanderCaseReview, saveCommanderVerificationDraft,
     reconcileCommanderVerification, syncCommanderVerificationState, resolveVerificationNotifications, resolveHearingNotifications,
     saveApprovalStep, getGuarantors, saveGuarantor, deleteGuarantor, requiredApprovalsComplete,
+    getGrantApprovalQueue, roleHasApprovedGrant, isGrantApprovalPending,
     generateCaseNumber, syncBoardContracts, isCommanderVerified, isCommanderVerificationLocked,
     getCommanderVerificationRecord, getCommanderVerifiedApplications, isForm1Verified, isVerificationReady,
     getHearings, getHearingById, getHearingsByPrisoner, getHearingsByApplication, splitHearingScheduleNotes, getScheduledHearings, saveHearing, HEARING_STATUSES,

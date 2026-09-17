@@ -422,6 +422,28 @@ const PMSForm1Parole = (() => {
 
     $('form1-root').classList.remove('hidden');
     $('selection-panel').classList.add('hidden');
+
+    if (typeof PMSUI?.bindLiveDataRefresh === 'function') {
+      PMSUI.bindLiveDataRefresh(() => {
+        const next = PMSStorage.getApplicationById(appId);
+        if (!next) return;
+        app = next;
+        const form1 = app.formData?.form1;
+        const complete = PMSStorage.isForm1Complete(form1) || form1?.status === 'submitted';
+        if (typeof PMSFormWorkflow !== 'undefined') PMSFormWorkflow.mountFormChrome(1, appId);
+        if (!complete) return;
+        populateForm();
+        if (!locked) {
+          locked = true;
+          officerAuth?.lock();
+          if ($('btnSave')) $('btnSave').disabled = true;
+          if ($('btnSubmit')) $('btnSubmit').disabled = true;
+        }
+        if (viewOnly) applyViewOnlyLock();
+        if (typeof PMSFormWorkflow !== 'undefined') PMSFormWorkflow.mountFormChrome(1, appId);
+        submitGate?.sync();
+      }, { refreshOnFocus: true });
+    }
   }
 
   async function init() {

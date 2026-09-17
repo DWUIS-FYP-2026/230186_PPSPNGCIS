@@ -35,8 +35,8 @@
     { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', prereqs: [] },
     { n: 2, key: 'form2', label: 'Form 2 — Assessment (PPR)', prereqs: ['form1'] },
     { n: 3, key: 'form3', label: 'Form 3 — Parole Hearing Record', prereqs: ['form1', 'form2'] },
-    { n: 4, key: 'form4', label: 'Form 4 — Pre-Parole Report', prereqs: ['form1', 'form2', 'form3'] },
-    { n: 5, key: 'form5', label: 'Form 5 — Parole Refused', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 4, key: 'form4', label: 'Form 4 — Discharge of Parole Order', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 5, key: 'form5', label: 'Form 5 — Applications After Refusal', prereqs: ['form1', 'form2', 'form3'] },
   ];
 
   function prereqsMet(checks, prereqs) {
@@ -117,7 +117,10 @@
 
   function formsSummary(app) {
     const s = PMSStorage.getFormCompletionSummary(app);
-    return `${s.completed}/5 forms complete`;
+    const detail = typeof PMSStorage.describeFormVerification === 'function'
+      ? PMSStorage.describeFormVerification(app)
+      : '';
+    return `${s.completed}/5 forms complete${detail ? ` · ${detail}` : ''}`;
   }
 
   function renderOverview() {
@@ -130,17 +133,42 @@
     PMSUI.setStat('stat-eligible', activeCases);
     PMSUI.setStat('stat-prisoners', underReview);
     PMSUI.setStat('stat-drafts', pprPending);
+    PMSUI.setStat('stat-granted', PMSStorage.countGrantedParole());
+    PMSUI.setStat('stat-refused', PMSStorage.countRefusedParole());
     PMSUI.setStat('stat-notifications', unread);
 
     PMSUI.syncOverviewNotifHeader(unread);
     const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = `
       <div class="overview-row"><strong>Submitted from PNGCS</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => a.status === 'Submitted').length)} cases</span></div>
+      <div class="overview-row"><strong>Parole granted</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countGrantedParole())} Form 4 issued</span></div>
+      <div class="overview-row"><strong>Parole refused</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countRefusedParole())} Form 5 / refused</span></div>
       <div class="overview-row"><strong>Under DJAG review</strong><span class="meta">${PMSUI.formatStat(underReview)}</span></div>
       <div class="overview-row"><strong>Hearings scheduled</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countUpcomingHearings())}</span></div>
       ${notifs.length ? notifs.map((n) => PMSUI.renderOverviewNotificationRow(n, actor)).join('') : ''}`;
 
     if (typeof PMSCalendar !== 'undefined') PMSCalendar.mount('dashboard-calendar', actor);
+  }
+
+  function outcomeStatRows(kind) {
+    const granted = kind === 'granted';
+    const list = granted ? PMSStorage.getGrantedParoleCases() : PMSStorage.getRefusedParoleCases();
+    return list.map((a) => {
+      const p = PMSStorage.getPrisonerById(a.prisonerId);
+      const when = granted
+        ? a.formData?.form4?.issuedAt
+        : (a.formData?.form5?.issuedAt || a.formData?.form5?.recordedAt);
+      const href = granted
+        ? `forms/form4.html?appId=${encodeURIComponent(a.id)}`
+        : `forms/form5.html?appId=${encodeURIComponent(a.id)}`;
+      return `<tr>
+        <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
+        <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+        <td>${PMSUI.instName(a.institutionId)}</td>
+        <td>${PMSUI.fmtDate(when)}</td>
+        <td><a href="${href}" class="btn-icon">${granted ? 'Form 4' : 'Form 5'}</a></td>
+      </tr>`;
+    });
   }
 
   function setupStatCards() {
@@ -163,6 +191,18 @@
         title: 'Form 2 / PPR Pending',
         columns: cols,
         getRows: () => djagApps().filter((a) => PMSStorage.needsDjagForm2Ppr(a)).map((a) => PMSUI.appDrilldownRow(a)),
+      },
+      {
+        statId: 'stat-granted',
+        title: 'Parole Granted',
+        columns: ['Case', 'Name', 'Institution', 'Granted', ''],
+        getRows: () => outcomeStatRows('granted'),
+      },
+      {
+        statId: 'stat-refused',
+        title: 'Parole Refused',
+        columns: ['Case', 'Name', 'Institution', 'Refused', ''],
+        getRows: () => outcomeStatRows('refused'),
       },
     ], {
       notificationsStatId: 'stat-notifications',
@@ -240,12 +280,20 @@
     return PMSStorage.PAROLE_FORMS.map((f) => {
       const key = `form${f.number}`;
       const done = s.checks[key];
+      let status = done ? 'Complete' : 'Incomplete';
+      if (f.number === 2 && !done) {
+        const ddr = PMSStorage.isForm2SectionVerified?.(app.formData?.form2?.sections?.ddr);
+        const ppr = PMSStorage.isForm2SectionVerified?.(app.formData?.form2?.sections?.ppr);
+        if (ddr || ppr) {
+          status = `${ddr ? 'DDR verified' : 'DDR pending'} · ${ppr ? 'PPR verified' : 'PPR pending'}`;
+        }
+      }
       const canView = PMSRBAC.canAccessForm(actor, f.number, 'view');
       const canEdit = PMSRBAC.canAccessForm(actor, f.number, 'edit');
       const openBtn = canView
         ? `<button type="button" class="btn-icon btn-sm" data-open-form="${f.number}" data-app="${app.id}">${canEdit && !done ? 'Open' : 'View'}</button>`
         : '';
-      return `<li class="${done ? 'form-done' : 'form-pending'}">${PMSUI.esc(f.name)}: ${done ? 'Complete' : 'Incomplete'} ${openBtn}</li>`;
+      return `<li class="${done ? 'form-done' : 'form-pending'}">${PMSUI.esc(f.name)}: ${status} ${openBtn}</li>`;
     }).join('');
   }
 

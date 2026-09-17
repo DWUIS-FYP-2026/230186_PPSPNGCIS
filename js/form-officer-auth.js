@@ -162,9 +162,20 @@ const PMSFormOfficerAuth = (() => {
       };
     }
 
+    function applySignerLabels(source) {
+      const name = source?.officerName || officerName;
+      const id = source?.officerId || officerId;
+      const role = source?.role || actor?.role || '—';
+      qs(root, '.officer-auth__officer-name').textContent = name;
+      qs(root, '.officer-auth__officer-id-value').textContent = id;
+      qs(root, '.officer-auth__id-name').textContent = name;
+      qs(root, '.officer-auth__id-role').textContent = role;
+    }
+
     function applyVerifiedState(nextRecord) {
       record = nextRecord;
       verified = true;
+      applySignerLabels(record);
       idBlock?.classList.add('verified');
       qs(root, '.officer-auth__id-status-text').textContent = 'Digitally Verified';
       qs(root, '.officer-auth__id-timestamp').textContent = formatTimestamp(record.timestamp);
@@ -174,6 +185,12 @@ const PMSFormOfficerAuth = (() => {
       verifyBtn.textContent = 'Signed ✓';
       verifyBtn.classList.add('is-signed');
       pinInput?.classList.remove('is-error');
+      const otherSigner = record?.userId && actor?.id && record.userId !== actor.id;
+      if (successMsg) {
+        successMsg.textContent = otherSigner
+          ? `Already verified by ${record.officerName || 'the assigned officer'}.`
+          : 'Identity verified successfully.';
+      }
       showSuccess();
       onVerified?.(record);
     }
@@ -254,9 +271,11 @@ const PMSFormOfficerAuth = (() => {
         verified = false;
         record = null;
         idBlock?.classList.remove('verified');
+        applySignerLabels(actor ? { officerName, officerId, role: actor.role } : null);
         qs(root, '.officer-auth__id-status-text').textContent = 'Awaiting Verification';
         qs(root, '.officer-auth__id-timestamp').textContent = '—';
         qs(root, '.officer-auth__hash').textContent = 'SHA-256: —';
+        if (successMsg) successMsg.textContent = 'Identity verified successfully.';
         pinInput.value = '';
         pinInput.disabled = readOnly;
         verifyBtn.disabled = readOnly;

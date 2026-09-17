@@ -183,7 +183,10 @@
 
   function formsSummary(app) {
     const s = PMSStorage.getFormCompletionSummary(app);
-    return `${s.completed}/5 forms complete`;
+    const detail = typeof PMSStorage.describeFormVerification === 'function'
+      ? PMSStorage.describeFormVerification(app)
+      : '';
+    return `${s.completed}/5 forms complete${detail ? ` · ${detail}` : ''}`;
   }
 
   function verificationBadge(app) {

@@ -424,9 +424,20 @@ const PMSForm3Institutional = (() => {
         }
         app = PMSStorage.getApplicationById(app.id) || app;
         const live = fillScheduleFields(app);
-        const canRecord = !viewOnly && !!live?.scheduledDate && !PMSStorage.isForm3Complete(app?.formData?.form3);
+        const formComplete = PMSStorage.isForm3Complete(app?.formData?.form3);
+        const canRecord = !viewOnly && !!live?.scheduledDate && !formComplete;
         setHearingRecordEnabled(canRecord);
         if ($('case-status')) $('case-status').textContent = app.status || '—';
+        if (formComplete) {
+          populateForm(app.formData.form3);
+          const savedAuth = app.formData?.form3?.digitalSignature;
+          if (savedAuth?.verified) officerAuth?.restore(savedAuth);
+          officerAuth?.lock();
+          PMSFormWorkflow.mountFormChrome(3, app.id);
+          PMSFormWorkflow.showContinueBanner?.(3, app.id);
+        }
+        updateStatusBadge(app);
+        updateNavButtons(app);
         submitGate?.sync();
       } catch (_) { /* keep current schedule view */ }
     }
