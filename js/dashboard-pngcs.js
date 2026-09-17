@@ -30,6 +30,8 @@
 
     guarantors: ['Guarantors', 'Community guarantors registered against parole cases'],
 
+    archive: ['Archived Cases', 'Granted parole records and authorized releases'],
+
   };
 
 
@@ -405,7 +407,7 @@
     ({ overview: renderOverview, prisoners: renderPrisoners, eligibility: renderEligibility,
 
        applications: renderApplications, notifications: renderNotifications, reports: renderReports,
-       approvals: renderApprovals, guarantors: renderGuarantors })[panel]?.();
+       approvals: renderApprovals, guarantors: renderGuarantors, archive: renderArchive })[panel]?.();
 
   }
 
@@ -492,6 +494,7 @@
         title: 'Parole Granted',
         columns: ['Case', 'Name', 'Institution', 'Granted', ''],
         getRows: () => outcomeStatRows('granted'),
+        onClick: () => PMSUI.switchPanel('archive', panelTitles, refresh, 'archive'),
       },
       {
         statId: 'stat-refused',
@@ -775,7 +778,11 @@
           <td>${action}</td>
         </tr>`;
       }).join('')
-      : '<tr><td colspan="5" class="empty-state">No grants waiting for your approval.</td></tr>';
+      : '<tr><td colspan="5" class="empty-state">No grants waiting for your approval. After the DJAG Secretary issues Form 4, the case appears here until you approve it.</td></tr>';
+  }
+
+  function renderArchive() {
+    PMSUI.renderGrantedParoleArchive('granted-archive-tbody', { institutionId: actor.institutionId });
   }
 
   function renderGuarantors() {

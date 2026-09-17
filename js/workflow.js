@@ -9,12 +9,12 @@ const PMSWorkflow = (() => {
     { id: 2, name: 'Eligibility Calculation', status: 'Eligible for Parole Application', role: 'System (Automated)', action: 'Calculate eligibility at one-half (1/2) of sentence served' },
     { id: 3, name: 'Eligibility Notification', status: null, role: 'System (Automated)', action: 'Notify CS Parole Clerk, CS Parole Officer, and System Administrator' },
     { id: 4, name: 'Forms 1 & 2 Preparation', status: 'Draft', role: 'CS Parole Officer / PNGCS & DJAG Clerks', action: 'Complete Form 1 and Form 2 (DDR by CS, PPR by DJAG)' },
-    { id: 5, name: 'Form 3 — Parole Hearing Record', status: 'Hearing Scheduled', role: 'CS Parole Clerk / DJAG Secretary', action: 'Record parole hearing proceedings after the board session is scheduled' },
-    { id: 6, name: 'Institutional Verification', status: 'Pending Commander Review', role: 'Jail Commander', action: 'Verify Forms 1–3 and record institutional decision' },
-    { id: 7, name: 'Submit to DJAG', status: 'Submitted', role: 'CS Parole Clerk', action: 'Submit complete application package to DJAG' },
-    { id: 8, name: 'DJAG Review', status: 'Under DJAG Review', role: 'DJAG Parole Clerk', action: 'Verify documentation and review application' },
-    { id: 9, name: 'Return for Correction', status: 'Returned for Correction', role: 'DJAG Parole Clerk', action: 'Return application to PNGCS for correction if required' },
-    { id: 10, name: 'Schedule Hearing', status: 'Hearing Scheduled', role: 'DJAG Secretary', action: 'Schedule parole hearing within 2 weeks' },
+    { id: 5, name: 'Institutional Verification', status: 'Pending Commander Review', role: 'Jail Commander', action: 'Verify Forms 1–2 and record institutional decision' },
+    { id: 6, name: 'Submit to DJAG', status: 'Submitted', role: 'CS Parole Clerk', action: 'Submit complete application package to DJAG' },
+    { id: 7, name: 'DJAG Review', status: 'Under DJAG Review', role: 'DJAG Parole Clerk', action: 'Verify documentation and review application' },
+    { id: 8, name: 'Return for Correction', status: 'Returned for Correction', role: 'DJAG Parole Clerk', action: 'Return application to PNGCS for correction if required' },
+    { id: 9, name: 'Schedule Hearing', status: 'Hearing Scheduled', role: 'DJAG Secretary', action: 'Schedule parole hearing within 14 days of commander verification' },
+    { id: 10, name: 'Form 3 — Parole Hearing Record', status: 'Hearing Scheduled', role: 'CS Parole Clerk', action: 'Record parole hearing proceedings after the DJAG Secretary sets the date' },
     { id: 11, name: 'Board Assessments', status: 'Pending Board Review', role: 'Psychiatrist / PNGCS Commissioner / DJAG Secretary', action: 'Submit individual board assessments' },
     { id: 12, name: 'Score Calculation', status: 'Pending Board Review', role: 'System (Automated)', action: 'Calculate final parole score (simple majority of 3 board members)' },
     { id: 13, name: 'Form 4 or 5 Outcome', status: 'Parole Granted|Parole Refused', role: 'DJAG Secretary', action: 'Record Form 4 (Granted) or Form 5 (Refused) based on board vote' },
@@ -30,12 +30,12 @@ const PMSWorkflow = (() => {
     'Under DJAG Review': ['Pre-Parole Report Prepared', 'Returned for Correction'],
     'Returned for Correction': ['Draft', 'Submitted', 'Pending Commander Review'],
     'Pre-Parole Report Prepared': ['Hearing Scheduled', 'Pending Board Review', 'Under DJAG Review'],
-    'Hearing Scheduled': ['Hearing In Progress'],
-    'Hearing In Progress': ['Pending Board Review'],
+    'Hearing Scheduled': ['Hearing In Progress', 'Pending Board Review', 'Parole Granted', 'Parole Refused', 'Deferred'],
+    'Hearing In Progress': ['Pending Board Review', 'Parole Granted', 'Parole Refused', 'Deferred'],
     'Pending Board Review': ['Parole Granted', 'Parole Refused', 'Pending Approval', 'Deferred'],
     'Parole Granted': ['Pending Approval', 'Approved'],
     'Parole Refused': ['Refused'],
-    'Pending Approval': ['Approved', 'Returned for Correction', 'Refused'],
+    'Pending Approval': ['Approved', 'Returned for Correction', 'Refused', 'Released'],
     Approved: ['Released'],
   };
 
@@ -56,18 +56,27 @@ const PMSWorkflow = (() => {
     'Pre-Parole Report Prepared→Under DJAG Review': ['CS Parole Clerk', 'CS Parole Officer'],
     'Pre-Parole Report Prepared→Hearing Scheduled': ['DJAG Secretary', 'DJAG Parole Clerk'],
     'Pre-Parole Report Prepared→Pending Board Review': ['DJAG Secretary', 'DJAG Parole Clerk'],
-    'Hearing Scheduled→Hearing In Progress': ['DJAG Secretary'],
-    'Hearing In Progress→Pending Board Review': ['DJAG Secretary', 'Doctor', 'CS Commissioner'],
+    'Hearing Scheduled→Hearing In Progress': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing Scheduled→Pending Board Review': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing Scheduled→Parole Granted': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing Scheduled→Parole Refused': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing Scheduled→Deferred': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing In Progress→Pending Board Review': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing In Progress→Parole Granted': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing In Progress→Parole Refused': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Hearing In Progress→Deferred': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
     'Pending Board Review→Pending Approval': ['DJAG Secretary'],
-    'Pending Board Review→Parole Granted': ['DJAG Secretary'],
-    'Pending Board Review→Parole Refused': ['DJAG Secretary'],
-    'Pending Board Review→Deferred': ['DJAG Secretary'],
+    'Pending Board Review→Parole Granted': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Pending Board Review→Parole Refused': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
+    'Pending Board Review→Deferred': ['DJAG Secretary', 'Doctor', 'CS Commissioner', 'System Administrator'],
     'Parole Granted→Pending Approval': ['DJAG Secretary'],
     'Parole Granted→Approved': ['DJAG Secretary', 'CS Parole Clerk'],
     'Parole Refused→Refused': ['DJAG Secretary'],
+    'Parole Granted→Released': ['Jail Commander', 'CS Parole Clerk'],
     'Pending Approval→Approved': ['DJAG Secretary', 'CS Parole Clerk'],
     'Pending Approval→Returned for Correction': ['DJAG Secretary', 'CS Parole Clerk'],
     'Pending Approval→Refused': ['DJAG Secretary'],
+    'Pending Approval→Released': ['Jail Commander', 'CS Parole Clerk'],
     'Approved→Released': ['Jail Commander', 'CS Parole Clerk'],
   };
 
@@ -85,6 +94,7 @@ const PMSWorkflow = (() => {
     const key = `${fromStatus}→${toStatus}`;
     const roles = TRANSITION_ROLES[key] || [];
     const role = user?.role || '';
+    if (role === 'System Administrator') return true;
     if (roles.includes(role)) return true;
     if (role === 'CS Parole Clerk' && roles.includes('CS Parole Officer')) return true;
     return false;
@@ -95,7 +105,7 @@ const PMSWorkflow = (() => {
   }
 
   function getFormWorkflowStep(formNumber) {
-    return { 1: 4, 2: 4, 3: 5, 4: 13, 5: 13 }[formNumber];
+    return { 1: 4, 2: 4, 3: 10, 4: 13, 5: 13 }[formNumber];
   }
 
   function getAdvanceBlockers(app, toStatus) {
@@ -140,8 +150,12 @@ const PMSWorkflow = (() => {
     }
     if (toStatus === 'Approved') need('approvalsComplete', 'Required approval workflow must be completed.');
     if (toStatus === 'Released') {
-      need('assessmentsComplete', 'All board interview assessments must be completed before release.');
-      if (!['Approved', 'Pending Approval', 'Parole Granted'].includes(app.status)) {
+      if (!PMSStorage.isForm4Issued(app) && !PMSStorage.requiredApprovalsComplete(app)) {
+        need('assessmentsComplete', 'All board interview assessments must be completed before release.');
+      }
+      const grantReady = PMSStorage.isForm4Issued(app)
+        || ['Approved', 'Pending Approval', 'Parole Granted', 'Released'].includes(app.status);
+      if (!grantReady) {
         blockers.push('Case must be approved or parole granted before release authorization.');
       }
     }

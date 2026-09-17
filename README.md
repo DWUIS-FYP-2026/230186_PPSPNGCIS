@@ -1,196 +1,66 @@
-# [Project Name]
+# PNG Parole Management System (PMS)
 
-> Final Year Major Project — [Programme Name], [University Name]
+Web application for Papua New Guinea Correctional Service and DJAG to run parole cases from eligibility through hearing, board decision, grant or refusal, and release.
 
-[![Status](https://img.shields.io/badge/status-in%20development-blue)](#)
-[![Academic Project](https://img.shields.io/badge/type-final%20year%20project-success)](#)
-[![License](https://img.shields.io/badge/license-academic%20use-lightgrey)](#)
+Built as a DWU final-year project. The live path is the client workflow in `js/workflow.js` and `js/storage.js`, with optional MySQL sync through the Node server.
 
-## Overview
-
-[Project Name] is a [web/mobile/desktop] system developed to help [target users] manage and improve [process, service, or problem area].
-
-## Objectives
-
-- Provide a secure and easy-to-use system for [main purpose].
-- Improve the management of [records, services, workflows, or data].
-- Support users through search, reporting, and role-based access.
-- Deliver a tested, responsive, and documented final-year project.
-
-## Features
-
-- User registration and login
-- Role-based access control
-- Dashboard and reporting
-- Search, sorting, filtering, and pagination
-- Create, view, update, and delete records
-- File or document management
-- Notifications and activity tracking
-- Responsive design for desktop and mobile devices
-
-## Technology Stack
+## Stack
 
 | Area | Technology |
 |---|---|
-| Frontend | [React / HTML / CSS / JavaScript] |
-| Backend | [Node.js / Express / Laravel / Django] |
-| Database | [PostgreSQL / MySQL / MongoDB] |
-| Authentication | [JWT / Session / OAuth] |
-| Testing | [Jest / Postman / Cypress] |
-| Deployment | [Docker / Vercel / Render / Railway] |
+| Frontend | HTML, CSS, JavaScript |
+| Backend | Node.js, Express |
+| Database | MySQL (WampServer) |
+| Auth | Session token (`/api/auth/login`) plus local fallback |
 
+## Run locally
 
-## Supervisor
-
-- **Name:** [Supervisor Name]
-- **Department:** [Department Name]
-- **Email:** [Supervisor Email]
-
-## Project Structure
-
-```text
-project-root/
-├── frontend/          # Frontend application
-├── backend/           # Backend/API application
-├── database/          # Database scripts and seed data
-├── docs/              # Project documentation
-├── tests/             # Test files
-├── .env.example       # Example environment variables
-├── docker-compose.yml # Docker configuration, if used
-└── README.md
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Git
-- Node.js and npm
-- [PostgreSQL / MySQL / MongoDB]
-- Docker Desktop, if using Docker
-
-### Clone the Repository
-
-```bash
-git clone https://github.com/[username]/[repository-name].git
-cd [repository-name]
-```
-
-### Configure Environment Variables
-
-```bash
-cp .env.example .env
-```
-
-Example:
-
-```env
-PORT=5000
-DATABASE_URL=your_database_connection_string
-JWT_SECRET=your_secure_secret
-```
-
-> Do not commit `.env` files, passwords, API keys, or database credentials.
-
-### Run the Application
-
-Backend:
-
-```bash
-cd backend
+```powershell
+cd server
+copy .env.example .env
 npm install
-npm run dev
+npm run migrate
+npm run seed
+npm start
 ```
 
-Frontend:
+Open [http://localhost:3000/index.html](http://localhost:3000/index.html).
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+See `MYSQL_SETUP.md` for database details. Set `AUTH_REQUIRED=false` in `server/.env` only for local debugging.
 
-Or use Docker:
+## Demo accounts
 
-```bash
-docker compose up --build
-```
+Password for staff accounts: `Password123!` (admin: `admin123`). Clerk signing PIN: `000000` for `j.dole@cs.gov.pg`. Short usernames such as `j.dole` also work for sign-in and password-reset requests. Other PINs are unique per user; an administrator can reset them.
 
-## Testing
+| Role | Username |
+|---|---|
+| System Administrator | `admin` |
+| CS Parole Clerk | `j.dole@cs.gov.pg` |
+| CS Parole Officer | `s.tau@cs.gov.pg` |
+| Jail Commander | `p.koroma@cs.gov.pg` |
+| DJAG Parole Clerk | `m.kila@djag.gov.pg` |
+| DJAG Secretary | `h.morris@djag.gov.pg` |
+| Psychiatrist | `r.sine@health.gov.pg` |
+| CS Commissioner | `t.bain@cs.gov.pg` |
 
-Run automated tests:
+## Live parole path
 
-```bash
-npm test
-```
+1. CS Parole Clerk registers the prisoner and starts Form 1 when eligibility is reached.
+2. CS Clerk completes Form 2 DDR; DJAG Clerk completes Form 2 PPR (PIN required).
+3. Jail Commander verifies Forms 1–2 (starts the 14-day hearing clock).
+4. DJAG Secretary sets the hearing date, time, and venue.
+5. CS Clerk records Form 3. Schedule fields match the Secretary page and are view-only.
+6. Psychiatrist, CS Commissioner, and DJAG Secretary each vote.
+7. Secretary issues Form 4 (grant) or Form 5 (refusal).
+8. Secretary and CS Clerk both approve a grant, then the Jail Commander authorizes release.
 
-Project testing should include:
+## Staff tools
 
-- Unit testing
-- API and integration testing
-- User acceptance testing
-- Security and validation testing
-- Responsive interface testing
+- **Grant approvals** — Secretary and CS Clerk dashboards, after Form 4 is issued.
+- **Guarantors** — CS Clerk (and Officer view) register community guarantors on a case.
+- **User accounts** — System Administrator creates users, resets passwords, and resets 6-digit signing PINs.
+- **Forgot password** — staff request a reset from the landing sign-in dialog; the administrator is notified.
 
-## Demo Accounts
+## Architecture
 
-> Use sample credentials only.
-
-| Role | Email / Username | Password |
-|---|---|---|
-| Administrator | admin@example.com | Admin123! |
-| Staff | staff@example.com | Staff123! |
-| User | user@example.com | User123! |
-
-## Responsible Use of AI
-
-AI tools may be used where permitted for research, debugging, documentation, and coding support. All team members must understand, verify, test, and appropriately declare significant AI-assisted work.
-
-| Tool | Purpose | Team Member | Date |
-|---|---|---|---|
-| [ChatGPT / Copilot / Other] | [Purpose] | [Name] | [Date] |
-
-## Documentation
-
-The `docs/` folder should contain:
-
-- Project proposal
-- Software requirements specification
-- System design document
-- Database design and ERD
-- UML diagrams
-- Test plan and test results
-- User manual
-- Installation guide
-- Final report and presentation
-
-## Contribution Guidelines
-
-Use clear branches and commit messages.
-
-```text
-feature/user-authentication
-feature/admin-dashboard
-fix/login-validation
-docs/system-design
-```
-
-```text
-feat: add user registration
-fix: resolve login validation error
-docs: update installation guide
-test: add API tests
-```
-
-Before merging:
-
-- [ ] Test the changes.
-- [ ] Do not include secrets or `.env` files.
-- [ ] Document new features.
-- [ ] Ensure the application builds successfully.
-
-## Licence
-
-This project is developed for academic purposes as part of a Final Year Major Project.
-
-© [Year] [Team Name / University Name].
+The Act 1991 server workflow under `server/src/parole/` is **not mounted**. Do not re-enable it without a policy decision. See `ARCHITECTURE_DECISIONS.md`.

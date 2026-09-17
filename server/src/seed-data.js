@@ -204,13 +204,14 @@ function buildDemoFormStageSeed(now) {
     },
     {
       id: 'APP-000008', caseNumber: 'PMS-2026-DEMO-F4', prisonerId: 'PR-000007', institutionId: 'INS-000001',
-      status: 'Parole Granted', submittedAt: '2026-08-01', submittedBy: 'USR-000002', demoStage: 'Form 4',
+      status: 'Pending Approval', submittedAt: '2026-08-01', submittedBy: 'USR-000002', demoStage: 'Form 4',
       formData: {
         form1: demoForm1Submitted('F1-000007', 'Demo case — board granted parole; issue Form 4 order.'),
         form2: demoForm2Complete('F2-000006'),
         form3: demoForm3HearingComplete('F3-000005'),
         form4: {
-          formId: 'F4-000001', status: 'draft', decision: 'Parole Granted',
+          formId: 'F4-000001', status: 'Parole Granted', decision: 'Parole Granted',
+          issued: true, issuedAt: '2026-08-26T09:00:00.000Z', issuedBy: 'Helen Morris',
           caseNumber: 'PMS-2026-DEMO-F4', prisonerName: 'Mark Grant',
           hearingDate: '2026-08-25', hearingLocation: 'Bomana Hearing Room A',
           conditions: 'Report to supervising parole officer within 48 hours.',
@@ -218,8 +219,14 @@ function buildDemoFormStageSeed(now) {
         },
         form5: {},
       },
-      preParoleReport: 'Demo case — ready for Form 4 (Parole Granted order).',
+      preParoleReport: 'Demo case — Form 4 issued; awaiting DJAG Secretary and CS Clerk grant approval.',
       commanderReview: demoCommanderReview('PR-000007', 'PMS-2026-DEMO-F4'),
+      guarantors: [{
+        id: 'GUA-000001', applicationId: 'APP-000008', name: 'Michael Grant',
+        relationship: 'Brother', contact: '+675 7123 8899', village: 'Hohola, NCD',
+        notes: 'Community guarantor for the Form 4 demo case.',
+        createdAt: '2026-08-26T10:00:00.000Z', updatedAt: '2026-08-26T10:00:00.000Z',
+      }],
       boardAssessments: demoBoardAssessments('Approved'),
       boardDecision: {
         outcome: 'Parole Granted',

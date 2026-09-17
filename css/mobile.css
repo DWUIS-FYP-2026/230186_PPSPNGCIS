@@ -76,7 +76,12 @@ video {
   }
 
   .workspace-header__primary {
-    padding: 0 1rem 0.75rem;
+    padding: 0;
+    flex: 1 1 auto;
+  }
+
+  .header-avatar-meta {
+    display: none;
   }
 
   .workspace-quick-actions {

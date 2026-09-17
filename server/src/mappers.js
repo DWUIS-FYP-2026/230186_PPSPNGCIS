@@ -95,22 +95,60 @@ function mapPrisonerRow(row, documents = null) {
 }
 
 function mapApplicationRow(row) {
+  const formData = jsonParse(row.form_data, {}) || {};
+  const sidecar = formData.__pmsAppState && typeof formData.__pmsAppState === 'object' ? formData.__pmsAppState : {};
+  const packedRelease = sidecar.releaseInfo || formData.__pmsReleaseInfo || null;
+  const packedReview = sidecar.commanderReview || formData.__pmsCommanderReview || null;
+  const released = sidecar.status === 'Released' || packedRelease?.authorizedAt;
+  const status = released && row.status !== 'Released'
+    ? 'Released'
+    : (row.status || sidecar.status || 'Draft');
   return {
     id: row.id,
     prisonerId: row.prisoner_id,
     institutionId: row.institution_id,
-    status: row.status,
+    status,
     submittedAt: row.submitted_at,
     submittedBy: row.submitted_by,
-    formData: jsonParse(row.form_data, {}),
+    formData,
     forms: jsonParse(row.form_uploads, null),
-    boardDecision: jsonParse(row.board_decision, null),
-    workflowNotes: jsonParse(row.workflow_notes, []),
+    boardDecision: jsonParse(row.board_decision, null) || sidecar.boardDecision || null,
+    workflowNotes: jsonParse(row.workflow_notes, []) || sidecar.workflowNotes || [],
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+    caseNumber: sidecar.caseNumber || null,
+    archived: sidecar.archived != null ? !!sidecar.archived : !!formData.__pmsAppState?.archived,
+    archivedAt: sidecar.archivedAt || null,
+    archivedBy: sidecar.archivedBy || null,
+    archiveReason: sidecar.archiveReason || null,
+    commanderReview: packedReview,
+    commanderVerificationDraft: sidecar.commanderVerificationDraft || null,
+    hearingSchedulingAt: sidecar.hearingSchedulingAt || null,
+    releaseInfo: packedRelease,
+    approvalSteps: sidecar.approvalSteps || formData.__pmsApprovalSteps || [],
+    guarantors: sidecar.guarantors || [],
+    boardAssessments: sidecar.boardAssessments || formData.__pmsBoardAssessments || [],
+    hearingSession: sidecar.hearingSession || formData.__pmsHearingSession || null,
+    preParoleReport: sidecar.preParoleReport || null,
+    paroleScore: sidecar.paroleScore || null,
+    demoStage: sidecar.demoStage || null,
+    lastModifiedForm: sidecar.lastModifiedForm || null,
+    lastModifiedLabel: sidecar.lastModifiedLabel || null,
+    updatedAt: sidecar.updatedAt || null,
   };
 }
 
 function mapHearingRow(row) {
+  let notes = row.notes || '';
+  let extra = {};
+  if (typeof notes === 'string' && notes.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(notes);
+      if (parsed && parsed.__pmsHearing === true) {
+        notes = parsed.notes || '';
+        extra = parsed.extra && typeof parsed.extra === 'object' ? parsed.extra : {};
+      }
+    } catch (_) { /* plain-text notes */ }
+  }
   return {
     id: row.id,
     applicationId: row.application_id,
@@ -119,8 +157,9 @@ function mapHearingRow(row) {
     scheduledDate: row.scheduled_date,
     scheduledTime: row.scheduled_time,
     location: row.location,
-    notes: row.notes,
+    notes,
     status: row.status,
+    ...extra,
   };
 }
 
@@ -177,7 +216,16 @@ function mapReportRow(row) {
 }
 
 function prisonerExtraAttributes(p) {
-  const extra = {};
+  const skip = new Set([
+    'id', 'prisonerNumber', 'institutionId', 'firstName', 'lastName', 'dateOfBirth', 'gender',
+    'offense', 'sentenceStartDate', 'sentenceEndDate', 'status', 'paroleEligibilityDate',
+    'statusUpdatedAt', 'documents', 'extraAttributes',
+  ]);
+  const extra = { ...(p.extraAttributes && typeof p.extraAttributes === 'object' ? p.extraAttributes : {}) };
+  Object.keys(p || {}).forEach((key) => {
+    if (skip.has(key) || p[key] == null) return;
+    extra[key] = p[key];
+  });
   if (p.sentenceDurationMonths != null) extra.sentenceDurationMonths = p.sentenceDurationMonths;
   if (p.sentenceServedPercent != null) extra.sentenceServedPercent = p.sentenceServedPercent;
   if (p.computedStatus) extra.computedStatus = p.computedStatus;

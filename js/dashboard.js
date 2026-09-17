@@ -326,6 +326,7 @@
       <td class="actions-cell">
         <button type="button" class="btn-icon" data-edit-user="${u.id}">Edit</button>
         <button type="button" class="btn-icon" data-reset-pw="${u.id}">Reset PW</button>
+        <button type="button" class="btn-icon" data-reset-pin="${u.id}">Reset PIN</button>
         <button type="button" class="btn-icon" data-toggle-user="${u.id}">${u.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
         ${u.role !== 'System Administrator' ? `<button type="button" class="btn-icon btn-icon--danger" data-delete-user="${u.id}">Delete</button>` : ''}
       </td>
@@ -717,7 +718,10 @@
       refreshAll();
       if (!id) {
         const created = PMSStorage.getUsers().at(-1);
-        if (created) alert(`User created successfully.\nUser ID: ${created.id}${created.officerId ? `\nOfficer ID: ${created.officerId}` : ''}`);
+        if (created) {
+          const pin = PMSStorage.getSigningPinForUser(created);
+          alert(`User created successfully.\nUser ID: ${created.id}${created.officerId ? `\nOfficer ID: ${created.officerId}` : ''}\nUsername: ${created.username}\nSigning PIN: ${pin}\n\nGive the password and PIN to the officer. The PIN is required to sign Forms 1–5.`);
+        }
       }
     } catch (err) { alert(err.message); }
   });
@@ -761,6 +765,19 @@
       document.getElementById('reset-user-label').textContent = `Reset password for ${u.username}`;
       document.getElementById('reset-password').value = '';
       document.getElementById('reset-password-modal').showModal();
+      return;
+    }
+
+    const resetPin = e.target.closest('[data-reset-pin]');
+    if (resetPin) {
+      const u = PMSStorage.getUserById(resetPin.dataset.resetPin);
+      if (!u || !confirm(`Generate a new 6-digit signing PIN for ${u.username}? The previous PIN will stop working.`)) return;
+      try {
+        const pin = PMSStorage.resetSigningPin(u.id, actor);
+        alert(`New signing PIN for ${u.username}:\n${pin}\n\nGive this PIN to the officer. It will not be shown again.`);
+      } catch (err) {
+        alert(err.message);
+      }
       return;
     }
 

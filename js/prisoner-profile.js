@@ -29,6 +29,12 @@
   }
   renderCase();
   PMSUI.bindApplicationActionHandlers(renderCase);
+  PMSUI.bindLiveDataRefresh(() => {
+    const latest = PMSStorage.getPrisonerById(prisonerId);
+    if (!latest) return;
+    Object.assign(prisoner, latest);
+    renderCase();
+  });
 
   PMSPageChrome.init({ basePath: '' });
 

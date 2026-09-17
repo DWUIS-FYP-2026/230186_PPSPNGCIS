@@ -10,9 +10,28 @@ const PMSEligibility = (() => {
   };
 
   const ASSESSMENT_APP_STATUSES = [
-    'Draft', 'Submitted', 'Under DJAG Review', 'Returned for Correction', 'Pre-Parole Report Prepared',
+    'Draft', 'Submitted', 'Under DJAG Review', 'Returned for Correction',
+    'Pending Commander Review', 'Pre-Parole Report Prepared',
   ];
-  const HEARING_APP_STATUSES = ['Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review'];
+  const HEARING_APP_STATUSES = ['Hearing Scheduled', 'Hearing In Progress'];
+  const APPLICATION_PROCESS_RANK = {
+    Draft: 0,
+    Submitted: 1,
+    'Returned for Correction': 1,
+    'Under DJAG Review': 2,
+    'Pending Commander Review': 3,
+    'Pre-Parole Report Prepared': 4,
+    'Hearing Scheduled': 5,
+    'Hearing In Progress': 6,
+    'Pending Board Review': 7,
+    Deferred: 7,
+    'Parole Granted': 8,
+    'Parole Refused': 8,
+    'Pending Approval': 9,
+    Approved: 10,
+    Refused: 10,
+    Released: 11,
+  };
 
   function normalizeStatus(status) {
     return LEGACY_STATUS_MAP[status] || status;
@@ -40,13 +59,15 @@ const PMSEligibility = (() => {
 
   function getActiveApplication(prisonerId, applications) {
     const apps = (applications || []).filter((a) => a.prisonerId === prisonerId);
-    if (!apps.length) return null;
-    const terminal = new Set(['Approved', 'Refused', 'Deferred']);
-    const active = apps.filter((a) => !terminal.has(a.status));
-    if (active.length) {
-      return active.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0];
+    if (!apps.length && typeof PMSStorage?.getCanonicalApplication === 'function') {
+      return PMSStorage.getCanonicalApplication(prisonerId);
     }
-    return apps.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0];
+    if (!apps.length) return null;
+    return apps.slice().sort((a, b) => {
+      const rankDelta = (APPLICATION_PROCESS_RANK[b.status] || 0) - (APPLICATION_PROCESS_RANK[a.status] || 0);
+      if (rankDelta) return rankDelta;
+      return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+    })[0];
   }
 
   function isEligibleByDate(prisoner, progress) {
@@ -74,15 +95,20 @@ const PMSEligibility = (() => {
       }
     }
 
-    if (p.status === 'Released') return 'Released';
+    if (p.status === 'Released' || p.status === 'Released on Parole') return p.status === 'Released' ? 'Released' : 'Released on Parole';
 
     const app = getActiveApplication(p.id, applications);
     if (app) {
-      if (app.status === 'Approved' || app.boardDecision?.outcome === 'Approved') return 'Approved';
-      if (app.status === 'Refused' || app.boardDecision?.outcome === 'Refused') return 'Rejected';
+      if (app.status === 'Released' || app.releaseInfo?.authorizedAt) return 'Released on Parole';
+      if (app.status === 'Approved' || app.status === 'Parole Granted' || app.status === 'Pending Approval') return 'Approved';
+      if (app.status === 'Refused' || app.status === 'Parole Refused') return 'Refused';
+      if (app.status === 'Pending Board Review') return 'Board Review';
       if (HEARING_APP_STATUSES.includes(app.status)) return 'Hearing Scheduled';
-      if (ASSESSMENT_APP_STATUSES.includes(app.status)) return 'Assessment in Progress';
+      if (ASSESSMENT_APP_STATUSES.includes(app.status) && app.status !== 'Draft') return 'Assessment in Progress';
       if (app.status === 'Deferred') return 'Eligible for Parole Application';
+      if (app.status === 'Draft') {
+        if (isEligibleByDate(p, progress)) return 'Eligible for Parole Application';
+      }
     }
 
     if (isEligibleByDate(p, progress)) return 'Eligible for Parole Application';
@@ -119,7 +145,8 @@ const PMSEligibility = (() => {
   }
 
   function syncAllPrisoners(actor, applications) {
-    const apps = applications || (typeof PMSStorage !== 'undefined' ? PMSStorage.getParoleApplications() : []);
+    const apps = applications
+      || (typeof PMSStorage !== 'undefined' ? PMSStorage.getParoleApplications({ includeArchived: true }) : []);
     const prisoners = typeof PMSStorage !== 'undefined' ? PMSStorage.getPrisoners() : [];
     prisoners.forEach((p) => syncPrisonerStatus(p, actor, { applications: apps }));
     return prisoners;

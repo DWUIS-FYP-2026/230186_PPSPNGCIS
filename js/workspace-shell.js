@@ -33,22 +33,49 @@ const PMSWorkspace = (() => {
     return (user?.firstName || user?.username || '?').charAt(0).toUpperCase();
   }
 
+  function userDisplayName(user) {
+    return `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+  }
+
+  function toolsMarkup() {
+    const name = userDisplayName(currentUser);
+    const role = currentUser?.role || '';
+    return `
+        <div class="workspace-header__tools">
+          <div class="header-actions">
+            <div class="header-action-wrap">
+              <button type="button" class="header-action-btn header-action-btn--bell" id="workspace-notif-bell" aria-label="Open notifications">
+                <i class="fi fi-rr-bell" aria-hidden="true"></i>
+                <span class="header-badge header-badge--danger nav-notif-badge hidden" id="header-notif-badge">0</span>
+              </button>
+            </div>
+            <button type="button" class="header-avatar-btn" id="workspace-avatar-btn" aria-label="Open profile">
+              <span class="header-avatar" id="header-user-avatar">${esc(userInitial(currentUser))}</span>
+              <span class="header-avatar-meta">
+                <span class="header-avatar-name" id="header-user-name">${esc(name || 'Profile')}</span>
+                <span class="header-avatar-role" id="header-user-role">${esc(role)}</span>
+              </span>
+            </button>
+          </div>
+        </div>`;
+  }
+
   function ensureHeaderBar(header) {
     let bar = header.querySelector('.workspace-header__bar');
-    if (bar) return bar;
-
-    const staleTools = header.querySelector('.workspace-header__tools');
-    if (staleTools && !staleTools.querySelector('.header-actions')) staleTools.remove();
-
-    bar = document.createElement('div');
-    bar.className = 'workspace-header__bar';
-
     const primary = header.querySelector('.workspace-header__primary');
-    const tools = header.querySelector('.workspace-header__tools');
     const mobileToggle = header.querySelector('#sidebar-mobile-toggle');
 
-    if (mobileToggle) bar.appendChild(mobileToggle);
-    bar.insertAdjacentHTML('beforeend', `
+    if (!bar) {
+      const staleTools = header.querySelector('.workspace-header__tools');
+      if (staleTools && !staleTools.querySelector('.header-actions')) staleTools.remove();
+
+      bar = document.createElement('div');
+      bar.className = 'workspace-header__bar';
+
+      const existingTools = header.querySelector('.workspace-header__tools');
+      if (mobileToggle) bar.appendChild(mobileToggle);
+      if (primary) bar.appendChild(primary);
+      bar.insertAdjacentHTML('beforeend', `
       <div class="workspace-header__search-wrap">
         <div class="workspace-search-bar">
           <input type="search" id="workspace-search" placeholder="Search records…" aria-label="Search records">
@@ -57,30 +84,17 @@ const PMSWorkspace = (() => {
           </button>
         </div>
       </div>`);
-
-    if (tools) {
-      bar.appendChild(tools);
-    } else {
-      bar.insertAdjacentHTML('beforeend', `
-        <div class="workspace-header__tools">
-          <div class="header-actions">
-            <div class="header-action-wrap">
-              <button type="button" class="header-action-btn" id="workspace-notif-bell" aria-label="Open notifications">
-                <i class="fi fi-rr-bell" aria-hidden="true"></i>
-                <span class="header-badge header-badge--danger nav-notif-badge hidden" id="header-notif-badge">0</span>
-              </button>
-            </div>
-            <button type="button" class="header-avatar-btn" id="workspace-avatar-btn" aria-label="Open profile">
-              <span class="header-avatar" id="header-user-avatar">${esc(userInitial(currentUser))}</span>
-            </button>
-          </div>
-        </div>`);
+      if (existingTools) bar.appendChild(existingTools);
+      else bar.insertAdjacentHTML('beforeend', toolsMarkup());
+      header.prepend(bar);
     }
 
-    if (primary) {
-      header.insertBefore(bar, primary);
-    } else {
-      header.prepend(bar);
+    if (mobileToggle && mobileToggle.parentElement !== bar) {
+      bar.insertBefore(mobileToggle, bar.firstChild);
+    }
+    if (primary && primary.parentElement !== bar) {
+      const search = bar.querySelector('.workspace-header__search-wrap');
+      bar.insertBefore(primary, search || bar.querySelector('.workspace-header__tools') || null);
     }
     return bar;
   }
@@ -109,23 +123,18 @@ const PMSWorkspace = (() => {
     if (!header.querySelector('#workspace-notif-bell')) {
       const tools = header.querySelector('.workspace-header__tools');
       if (tools && !tools.querySelector('.header-actions')) {
-        tools.innerHTML = `
-          <div class="header-actions">
-            <div class="header-action-wrap">
-              <button type="button" class="header-action-btn" id="workspace-notif-bell" aria-label="Open notifications">
-                <i class="fi fi-rr-bell" aria-hidden="true"></i>
-                <span class="header-badge header-badge--danger nav-notif-badge hidden" id="header-notif-badge">0</span>
-              </button>
-            </div>
-            <button type="button" class="header-avatar-btn" id="workspace-avatar-btn" aria-label="Open profile">
-              <span class="header-avatar" id="header-user-avatar">${esc(userInitial(currentUser))}</span>
-            </button>
-          </div>`;
+        tools.outerHTML = toolsMarkup();
+      } else if (!tools) {
+        header.querySelector('.workspace-header__bar')?.insertAdjacentHTML('beforeend', toolsMarkup());
       }
     }
 
     const avatarEl = header.querySelector('#header-user-avatar');
     if (avatarEl && currentUser) avatarEl.textContent = userInitial(currentUser);
+    const nameEl = header.querySelector('#header-user-name');
+    if (nameEl && currentUser) nameEl.textContent = userDisplayName(currentUser) || 'Profile';
+    const roleEl = header.querySelector('#header-user-role');
+    if (roleEl && currentUser) roleEl.textContent = currentUser.role || '';
   }
 
   function upgradeHeader(user) {

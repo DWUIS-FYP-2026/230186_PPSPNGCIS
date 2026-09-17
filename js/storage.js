@@ -268,6 +268,7 @@ const PMSStorage = (() => {
   let loadPromise = null;
   let dbSyncEnabled = false;
   let syncTimer = null;
+  let syncChain = Promise.resolve();
 
   function getApiBaseUrl() {
     if (typeof window !== 'undefined' && window.PMS_API_BASE) return window.PMS_API_BASE.replace(/\/$/, '');
@@ -295,21 +296,23 @@ const PMSStorage = (() => {
   }
 
   async function pushSnapshotToDatabase(snapshot, passwords = DEMO_PASSWORDS) {
+    (snapshot?.applications || []).forEach(packApplicationFormSidecar);
     const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/bootstrap`, {
       method: 'PUT',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify({
         data: {
-          settings: snapshot.settings,
+          settings: { ...(snapshot.settings || {}), paroleGrantedArchive: snapshot.paroleGrantedArchive || snapshot.settings?.paroleGrantedArchive || [] },
           institutions: snapshot.institutions,
           users: snapshot.users,
           prisoners: snapshot.prisoners,
           applications: snapshot.applications,
-          hearings: snapshot.hearings,
+          hearings: (snapshot.hearings || []).map(packHearingForDb),
           notifications: snapshot.notifications,
           auditLogs: snapshot.auditLogs,
           reports: snapshot.reports || [],
           idCounters: snapshot.idCounters || {},
+          paroleGrantedArchive: snapshot.paroleGrantedArchive || [],
         },
         demoPasswords: passwords,
       }),
@@ -359,25 +362,47 @@ const PMSStorage = (() => {
     return payload.data;
   }
 
-  async function syncToDatabase() {
+  function uniqueEntitiesById(rows) {
+    const seen = new Map();
+    (rows || []).forEach((row) => {
+      if (!row || row.id == null) return;
+      seen.set(row.id, row);
+    });
+    return [...seen.values()];
+  }
+
+  function dedupeStoreIds(store) {
+    if (!store) return store;
+    ['institutions', 'users', 'prisoners', 'applications', 'hearings', 'notifications', 'auditLogs', 'reports'].forEach((key) => {
+      if (Array.isArray(store[key])) store[key] = uniqueEntitiesById(store[key]);
+    });
+    return store;
+  }
+
+  async function putStoreToDatabase() {
     if (!dbSyncEnabled || !data) return;
     try {
       const remote = await loadFromDatabase();
-      unpackHearingSyncFields(remote);
-      mergeRemoteHearingSessions(remote);
-    } catch (_) { /* keep local copy if bootstrap cannot be read */ }
+      if (remote) {
+        unpackHearingSyncFields(remote);
+        mergeRemoteHearingSessions(remote);
+      }
+    } catch (_) { /* PUT the in-memory union if GET fails */ }
     packHearingSyncFields();
+    dedupeStoreIds(data);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) { console.warn('Storage persist failed', e); }
     const snapshot = {
-      settings: data.settings,
+      settings: { ...(data.settings || {}), paroleGrantedArchive: data.paroleGrantedArchive || [] },
       institutions: data.institutions,
       users: data.users,
       prisoners: data.prisoners,
       applications: data.applications,
-      hearings: data.hearings,
+      hearings: (data.hearings || []).map(packHearingForDb),
       notifications: data.notifications,
       auditLogs: data.auditLogs,
       reports: data.reports || [],
       idCounters: data.idCounters || {},
+      paroleGrantedArchive: data.paroleGrantedArchive || [],
     };
     const res = await fetch(`${getApiBaseUrl()}/api/bootstrap`, {
       method: 'PUT',
@@ -393,6 +418,15 @@ const PMSStorage = (() => {
     if (!res.ok || payload.success === false) {
       throw new Error(payload.error || 'Database sync failed');
     }
+  }
+
+  async function syncToDatabase() {
+    if (!dbSyncEnabled || !data) return;
+    const scheduled = syncChain.then(putStoreToDatabase, putStoreToDatabase);
+    syncChain = scheduled.catch((err) => {
+      console.warn('MySQL sync failed:', err.message);
+    });
+    return scheduled;
   }
 
   async function flushSyncToDatabase() {
@@ -867,17 +901,34 @@ const PMSStorage = (() => {
     } catch (_) { /* ignore */ }
   }
 
+  const APPLICATION_SIDECAR_KEYS = [
+    'caseNumber', 'archived', 'archivedAt', 'archivedBy', 'archiveReason',
+    'commanderReview', 'commanderVerificationDraft', 'hearingSchedulingAt',
+    'releaseInfo', 'approvalSteps', 'guarantors', 'boardAssessments',
+    'hearingSession', 'preParoleReport', 'paroleScore', 'paroleProgress',
+    'demoStage', 'updatedAt', 'lastModifiedForm', 'lastModifiedLabel', 'status',
+    'workflowNotes', 'boardDecision', 'returnTarget',
+  ];
+
   function persist(meta = {}) {
     packHearingSyncFields();
+    dedupeStoreIds(data);
     try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) { console.warn('Storage persist failed', e); }
     persistUserPasswords();
     if (dbSyncEnabled && !meta.localOnly) {
+      if (meta.flush) {
+        clearTimeout(syncTimer);
+        const flushed = flushSyncToDatabase();
+        if (!meta.silent) notifyDataChange(meta);
+        return flushed;
+      }
       clearTimeout(syncTimer);
       syncTimer = setTimeout(() => {
         syncToDatabase().catch((err) => console.warn('MySQL sync failed:', err.message));
       }, 400);
     }
     if (!meta.silent) notifyDataChange(meta);
+    return Promise.resolve();
   }
 
   function loadSession() {
@@ -906,8 +957,14 @@ const PMSStorage = (() => {
       reports: Array.isArray(base.reports) ? base.reports : [],
       offenses: Array.isArray(base.offenses) ? base.offenses : [],
       idCounters: base.idCounters && typeof base.idCounters === 'object' ? base.idCounters : {},
+      paroleGrantedArchive: Array.isArray(base.paroleGrantedArchive)
+        ? base.paroleGrantedArchive
+        : (Array.isArray(base.settings?.paroleGrantedArchive) ? base.settings.paroleGrantedArchive : []),
     };
     unpackHearingSyncFields(normalized);
+    (normalized.hearings || []).forEach((h, i) => {
+      normalized.hearings[i] = unpackHearingNotes(h);
+    });
     return normalized;
   }
 
@@ -942,6 +999,13 @@ const PMSStorage = (() => {
           const { demoPasswords, ...store } = fromDb;
           data = normalizeStore(store);
           if (demoPasswords) Object.assign(DEMO_PASSWORDS, demoPasswords);
+          const local = readLocalSnapshot();
+          if (local && ((local.applications || []).length || (local.prisoners || []).length || (local.hearings || []).length)) {
+            unpackHearingSyncFields(local);
+            if (mergeRemoteHearingSessions(local)) {
+              persist({ silent: true });
+            }
+          }
         } else {
           data = normalizeStore(seedData());
           try { await pushSnapshotToDatabase(data); } catch (_) { /* server may seed on next request */ }
@@ -956,7 +1020,7 @@ const PMSStorage = (() => {
       }
 
       PMSIdGenerator.ensureCounters(data);
-      migrateLegacyStatuses();
+      const migrated = migrateLegacyStatuses();
       migrateRoleCorrections();
       syncBoardContracts();
       migrateCaseNumbers();
@@ -967,11 +1031,16 @@ const PMSStorage = (() => {
       ensureSigningPins();
       runEscalationChecks();
       migratePasswordHashes();
+      let eligibilityChanged = false;
       if (typeof PMSEligibility !== 'undefined') {
+        const before = (data.prisoners || []).map((p) => `${p.id}:${p.status}`).join('|');
         PMSEligibility.syncAllPrisoners(null, data.applications);
-        persist();
+        const after = (data.prisoners || []).map((p) => `${p.id}:${p.status}`).join('|');
+        eligibilityChanged = before !== after;
       }
+      if (migrated || eligibilityChanged) persist({ silent: true });
       loaded = true;
+      bindUnloadFlush();
     })();
 
     try {
@@ -996,24 +1065,33 @@ const PMSStorage = (() => {
   }
 
   function migrateLegacyStatuses() {
-    if (!data.prisoners) return;
+    if (!data.prisoners) return false;
+    let changed = false;
     data.prisoners.forEach((p) => {
       if (typeof PMSEligibility !== 'undefined') {
-        p.status = PMSEligibility.normalizeStatus(p.status);
+        const next = PMSEligibility.normalizeStatus(p.status);
+        if (next !== p.status) {
+          p.status = next;
+          changed = true;
+        }
       }
     });
     if (data.notifications) {
       data.notifications.forEach((n) => {
-        if (n.type === 'parole_eligibility') n.type = 'eligibility';
+        if (n.type === 'parole_eligibility') {
+          n.type = 'eligibility';
+          changed = true;
+        }
         if (n.message && /one-third|1\/3/i.test(n.message)) {
           n.message = n.message.replace(/One-third \(1\/3\) of total sentence/gi, 'One-half (1/2) of total sentence');
+          changed = true;
         }
       });
     }
     migrateEligibilitySettings();
     migrateDemoApplications();
-    syncAllApplicationWorkflowStates();
-    persist();
+    if (syncAllApplicationWorkflowStates()) changed = true;
+    return changed;
   }
 
   /** Rename legacy roles and retire obsolete Parole Board Member accounts. */
@@ -1217,21 +1295,50 @@ const PMSStorage = (() => {
     };
   }
 
-  function syncPrisonerParoleStatus(prisoner, app) {
-    if (!prisoner || !app) return false;
-    if (isTerminalApplicationStatus(app.status)) return false;
-    if (['Released on Parole', 'Released'].includes(prisoner.status)) return false;
-    let next = prisoner.status;
-    if (app.status === 'Hearing Scheduled' || app.status === 'Hearing In Progress') next = 'Hearing Scheduled';
-    else if (app.status === 'Pending Board Review') next = 'Board Review';
-    else if (['Pre-Parole Report Prepared', 'Pending Commander Review', 'Submitted', 'Under DJAG Review'].includes(app.status)) {
-      next = 'Assessment in Progress';
-    } else if (app.status === 'Draft') {
-      const prog = getPrisonerProgress(prisoner);
-      next = prog.eligible ? 'Eligible for Parole Application' : prisoner.status;
+  function applicationProcessRank(status) {
+    return (APP_SESSION_RANK && APP_SESSION_RANK[status]) || 0;
+  }
+
+  function getCanonicalApplication(prisonerId) {
+    const apps = (data?.applications || []).filter((a) => a.prisonerId === prisonerId);
+    if (!apps.length) return null;
+    return apps.slice().sort((a, b) => {
+      const rankDelta = applicationProcessRank(b.status) - applicationProcessRank(a.status);
+      if (rankDelta) return rankDelta;
+      return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+    })[0];
+  }
+
+  function prisonerStatusFromApplication(prisoner, app) {
+    if (!prisoner) return null;
+    if (prisoner.releasedOnParoleAt || app?.status === 'Released' || app?.releaseInfo?.authorizedAt) {
+      return 'Released on Parole';
     }
-    if (next !== prisoner.status) {
+    if (!app) return prisoner.status;
+    const status = app.status;
+    if (status === 'Released') return 'Released on Parole';
+    if (status === 'Approved' || status === 'Parole Granted' || status === 'Pending Approval') return 'Approved';
+    if (status === 'Refused' || status === 'Parole Refused') return 'Refused';
+    if (status === 'Hearing Scheduled' || status === 'Hearing In Progress') return 'Hearing Scheduled';
+    if (status === 'Pending Board Review') return 'Board Review';
+    if (['Pre-Parole Report Prepared', 'Pending Commander Review', 'Submitted', 'Under DJAG Review', 'Returned for Correction'].includes(status)) {
+      return 'Assessment in Progress';
+    }
+    if (status === 'Draft') {
+      const prog = getPrisonerProgress(prisoner);
+      return prog.eligible ? 'Eligible for Parole Application' : (prisoner.status || 'Awaiting Eligibility');
+    }
+    if (status === 'Deferred') return 'Eligible for Parole Application';
+    return prisoner.status;
+  }
+
+  function syncPrisonerParoleStatus(prisoner, app) {
+    if (!prisoner) return false;
+    const canonical = app || getCanonicalApplication(prisoner.id);
+    const next = prisonerStatusFromApplication(prisoner, canonical);
+    if (next && next !== prisoner.status) {
       prisoner.status = next;
+      prisoner.statusUpdatedAt = new Date().toISOString();
       return true;
     }
     return false;
@@ -1316,7 +1423,7 @@ const PMSStorage = (() => {
       const linked = data.applications.find((a) => a.id === h.applicationId);
       if (!linked) return false;
       if (['Cancelled', 'Completed'].includes(h.status)) return true;
-      if (h.scheduledDate && h.location) return true;
+      if (h.scheduledDate) return true;
       if (preHearingStatuses.includes(linked.status) && linked.id !== 'APP-000001') return false;
       return POST_HEARING_SCHEDULE_STATUSES.includes(linked.status) || linked.id === 'APP-000001';
     });
@@ -1401,7 +1508,9 @@ const PMSStorage = (() => {
       if (!summary.checks.form2) app2.formData.form2 = { ...app2Template.formData.form2, ...(app2.formData.form2 || {}) };
       if (!summary.checks.form3) app2.formData.form3 = { ...app2Template.formData.form3, ...(app2.formData.form3 || {}) };
       if (!summary.checks.form1 || !summary.checks.form2 || !summary.checks.form3) {
-        app2.status = 'Pending Commander Review';
+        if (!isCommanderVerified(app2) && app2.status !== 'Released' && !app2.releaseInfo?.authorizedAt) {
+          app2.status = 'Pending Commander Review';
+        }
         app2.submittedAt = app2.submittedAt || app2Template.submittedAt;
         app2.submittedBy = app2.submittedBy || app2Template.submittedBy;
         app2.caseNumber = app2.caseNumber || app2Template.caseNumber;
@@ -1443,7 +1552,8 @@ const PMSStorage = (() => {
         applicationId: app1.id,
         screeningDate: '2026-06-15',
       });
-      app1.formData.form2 = {
+      if (!isForm2Complete(app1.formData.form2)) {
+        app1.formData.form2 = {
         formId: 'F2-000001',
         sections: {
           ddr: {
@@ -1469,6 +1579,8 @@ const PMSStorage = (() => {
           },
         },
       };
+      }
+      if (!isForm3Complete(app1.formData.form3)) {
       app1.formData.form3 = {
         formId: 'F3-000001',
         status: 'submitted',
@@ -1480,6 +1592,7 @@ const PMSStorage = (() => {
         officerName: 'John Dole',
         submittedAt: '2026-06-25T14:00:00.000Z',
       };
+      }
       app1.commanderReview = buildDemoCommanderReview({
         prisonerId: 'PR-000001',
         caseNumber: app1.caseNumber || 'PMS-2026-000001',
@@ -1496,12 +1609,21 @@ const PMSStorage = (() => {
 
     data.paroleGrantedArchive = data.paroleGrantedArchive || [];
     data.applications.forEach((app) => {
+      const packedRelease = app.releaseInfo || app.formData?.__pmsReleaseInfo || app.formData?.__pmsAppState?.releaseInfo;
+      if (packedRelease?.authorizedAt) {
+        app.releaseInfo = app.releaseInfo || packedRelease;
+        app.status = 'Released';
+      }
       if (!isForm4Issued(app)) return;
       if (!app.archived) {
         app.archived = true;
         app.archivedAt = app.formData?.form4?.issuedAt || app.updatedAt || new Date().toISOString();
         app.archiveReason = 'Parole Granted — Form 4 issued';
-        if (app.status !== 'Approved' && app.status !== 'Released') app.status = 'Approved';
+      }
+      if (app.releaseInfo?.authorizedAt || app.status === 'Released') {
+        app.status = 'Released';
+      } else if (!requiredApprovalsComplete(app) && !['Released', 'Refused', 'Parole Refused'].includes(app.status)) {
+        app.status = 'Pending Approval';
       }
       recordParoleGrantedArchive(app, { id: 'USR-000001', firstName: 'System', lastName: 'Migration', role: 'System Administrator' });
     });
@@ -1511,8 +1633,14 @@ const PMSStorage = (() => {
         applicationId: app2.id,
         screeningDate: '2026-08-01',
       });
-      const app2Verified = isCommanderVerified(app2) || isCommanderVerificationLocked(app2);
-      if (!app2Verified) {
+      const packedReview = app2.commanderReview
+        || app2.formData?.__pmsCommanderReview
+        || app2.formData?.__pmsAppState?.commanderReview;
+      if (packedReview && !app2.commanderReview) app2.commanderReview = packedReview;
+      const app2Verified = isCommanderVerified(app2) || isCommanderVerificationLocked(app2)
+        || POST_HEARING_SCHEDULE_STATUSES.includes(app2.status)
+        || !!findActiveHearingRecord('APP-000002')?.scheduledDate;
+      if (!app2Verified && app2.status !== 'Released' && !app2.releaseInfo?.authorizedAt) {
         delete app2.commanderReview;
         delete app2.hearingSchedulingAt;
         delete app2.commanderVerificationDraft;
@@ -1569,7 +1697,8 @@ const PMSStorage = (() => {
       };
       app4.formData.form4 = { ...(app4.formData.form4 || {}), investigationSummary: 'Pre-parole investigation complete — Sarah Tekate' };
       app4.preParoleReport = app4.preParoleReport || 'Institutional verification complete. Recommended for parole hearing.';
-      const app4Hearing = findActiveHearingRecord('APP-000004');
+      const app4Hearing = findActiveHearingRecord('APP-000004')
+        || (data.hearings || []).find((h) => h.applicationId === 'APP-000004' && h.scheduledDate && h.status !== 'Cancelled');
       const app4Scheduled = POST_HEARING_SCHEDULE_STATUSES.includes(app4.status) || !!app4Hearing?.scheduledDate;
       if (!app4.commanderReview && !app4Scheduled) {
         app4.commanderReview = buildDemoCommanderReview({
@@ -1593,18 +1722,25 @@ const PMSStorage = (() => {
     dedupeActiveHearingsPerApplication();
 
     if (app1 && !data.hearings.some((h) => h.applicationId === 'APP-000001' && !['Cancelled', 'Completed'].includes(h.status))) {
-      data.hearings.push({
-        id: 'HRG-000001',
-        applicationId: 'APP-000001',
-        prisonerId: 'PR-000001',
-        institutionId: 'INS-000001',
-        scheduledDate: '2026-09-18',
-        scheduledTime: '14:00',
-        location: 'PNG CS HQ Conference Room 3',
-        notes: 'Board hearing — Paul Kaupa',
-        status: 'Scheduled',
-        boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'],
-      });
+      const existing = data.hearings.find((h) => h.id === 'HRG-000001' || (h.applicationId === 'APP-000001'));
+      if (existing) {
+        if (['Cancelled', 'Completed'].includes(existing.status)) {
+          existing.status = existing.status === 'Completed' ? 'Completed' : 'Scheduled';
+        }
+      } else {
+        data.hearings.push({
+          id: 'HRG-000001',
+          applicationId: 'APP-000001',
+          prisonerId: 'PR-000001',
+          institutionId: 'INS-000001',
+          scheduledDate: '2026-09-18',
+          scheduledTime: '14:00',
+          location: 'PNG CS HQ Conference Room 3',
+          notes: 'Board hearing — Paul Kaupa',
+          status: 'Scheduled',
+          boardMembers: ['USR-000025', 'USR-000026', 'USR-000027'],
+        });
+      }
     }
 
     data.applications.forEach((application) => {
@@ -1624,7 +1760,7 @@ const PMSStorage = (() => {
         f4.decision = 'Parole Granted';
         f4.issuedAt = f4.issuedAt || f4.recordedAt || '2026-08-26T09:00:00.000Z';
         f4.issuedBy = f4.issuedBy || 'Helen Morris';
-        if (!['Approved', 'Released', 'Refused', 'Parole Refused'].includes(grantApp.status)) {
+        if (!requiredApprovalsComplete(grantApp) && !['Released', 'Refused', 'Parole Refused'].includes(grantApp.status)) {
           grantApp.status = 'Pending Approval';
         }
       }
@@ -1649,9 +1785,7 @@ const PMSStorage = (() => {
     });
 
     data.prisoners?.forEach((prisoner) => {
-      const app = data.applications.find(
-        (a) => a.prisonerId === prisoner.id && !isTerminalApplicationStatus(a.status),
-      );
+      const app = getCanonicalApplication(prisoner.id);
       if (app) syncPrisonerParoleStatus(prisoner, app);
     });
   }
@@ -1733,7 +1867,7 @@ const PMSStorage = (() => {
       { label: 'Board Votes Complete (4 members)', met: requiredBoardAssessmentsComplete(app) },
       { label: 'Final Approval Workflow', met: requiredApprovalsComplete(app) },
       { label: 'Parole Score Calculated', met: score.complete },
-      { label: score.meetsThreshold ? 'Form 4 — Parole Granted' : 'Decision Recorded', met: score.meetsThreshold ? isForm4Complete(app.formData?.form4) : isForm5Complete(app.formData?.form5) || app.status === 'Refused' },
+      { label: score.meetsThreshold || isForm4Issued(app) ? 'Form 4 — Parole Granted' : 'Decision Recorded', met: isForm4Issued(app) || isForm5Complete(app.formData?.form5) || app.status === 'Refused' },
     ];
   }
 
@@ -2069,10 +2203,41 @@ const PMSStorage = (() => {
   function getParoleGrantedArchive(opts = {}) {
     const { institutionId } = opts;
     data.paroleGrantedArchive = data.paroleGrantedArchive || [];
-    if (institutionId) {
-      return data.paroleGrantedArchive.filter((e) => e.institutionId === institutionId);
-    }
-    return [...data.paroleGrantedArchive].sort((a, b) => new Date(b.grantedAt || 0) - new Date(a.grantedAt || 0));
+    const list = institutionId
+      ? data.paroleGrantedArchive.filter((e) => e.institutionId === institutionId)
+      : [...data.paroleGrantedArchive];
+    return list.sort((a, b) => new Date(b.releasedAt || b.grantedAt || 0) - new Date(a.releasedAt || a.grantedAt || 0));
+  }
+
+  function getGrantedParoleRegister(opts = {}) {
+    const { institutionId } = opts;
+    return getGrantedParoleCases({ institutionId }).map((app) => {
+      const prisoner = getPrisonerById(app.prisonerId);
+      const form4 = app.formData?.form4 || {};
+      const release = app.releaseInfo || {};
+      const archive = (data.paroleGrantedArchive || []).find((e) => e.applicationId === app.id) || {};
+      const released = app.status === 'Released'
+        || prisoner?.status === 'Released on Parole'
+        || !!release.authorizedAt;
+      return {
+        applicationId: app.id,
+        caseNumber: app.caseNumber || app.id,
+        prisonerId: app.prisonerId,
+        prisonerNumber: prisoner?.prisonerNumber || archive.prisonerNumber || '',
+        prisonerName: prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : (archive.prisonerName || ''),
+        institutionId: app.institutionId,
+        grantedAt: form4.issuedAt || archive.grantedAt || app.archivedAt || '',
+        issuedBy: form4.issuedBy || archive.issuedBy || '',
+        paroleOrderNo: form4.paroleOrderNo || archive.paroleOrderNo || '',
+        released,
+        releaseDate: release.releaseDate || archive.releaseDate || '',
+        releaseTime: release.releaseTime || archive.releaseTime || '',
+        authorizedAt: release.authorizedAt || archive.releasedAt || '',
+        authorizedBy: release.authorizedByName || archive.authorizedBy || '',
+        authorizedByRole: release.authorizedByRole || archive.authorizedByRole || '',
+        status: released ? 'Released on Parole' : (app.status === 'Pending Approval' ? 'Pending Approval' : 'Parole Granted'),
+      };
+    });
   }
 
   function recordParoleGrantedArchive(app, actor) {
@@ -2080,28 +2245,39 @@ const PMSStorage = (() => {
     const prisoner = getPrisonerById(app.prisonerId);
     const form4 = app.formData?.form4 || {};
     const existingIdx = data.paroleGrantedArchive.findIndex((e) => e.applicationId === app.id);
+    const prev = existingIdx >= 0 ? data.paroleGrantedArchive[existingIdx] : {};
+    const release = app.releaseInfo || {};
+    const released = app.status === 'Released' || prisoner?.status === 'Released on Parole' || !!release.authorizedAt;
     const entry = {
-      id: existingIdx >= 0 ? data.paroleGrantedArchive[existingIdx].id : generateId('PGA'),
+      ...prev,
+      id: prev.id || generateId('PGA'),
       applicationId: app.id,
       caseNumber: app.caseNumber || app.id,
       prisonerId: app.prisonerId,
-      prisonerNumber: prisoner?.prisonerNumber || prisoner?.id || '',
-      prisonerName: prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : '',
+      prisonerNumber: prisoner?.prisonerNumber || prisoner?.id || prev.prisonerNumber || '',
+      prisonerName: prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : (prev.prisonerName || ''),
       institutionId: app.institutionId,
-      institutionName: getInstitutionById(app.institutionId)?.name || '',
-      grantedAt: form4.issuedAt || app.archivedAt || new Date().toISOString(),
-      issuedBy: form4.issuedBy || (actor ? `${actor.firstName} ${actor.lastName}` : ''),
-      paroleOrderNo: form4.paroleOrderNo || '',
+      institutionName: getInstitutionById(app.institutionId)?.name || prev.institutionName || '',
+      grantedAt: form4.issuedAt || prev.grantedAt || app.archivedAt || new Date().toISOString(),
+      issuedBy: form4.issuedBy || prev.issuedBy || (actor ? `${actor.firstName} ${actor.lastName}` : ''),
+      paroleOrderNo: form4.paroleOrderNo || prev.paroleOrderNo || '',
       form4Snapshot: {
-        dateIssued: form4.dateIssued || '',
-        dateCompleted: form4.dateCompleted || '',
-        parolePeriod: form4.parolePeriod || '',
-        supervisingCbc: form4.supervisingCbc || '',
-        paroleOfficer: form4.paroleOfficer || '',
+        dateIssued: form4.dateIssued || prev.form4Snapshot?.dateIssued || '',
+        dateCompleted: form4.dateCompleted || prev.form4Snapshot?.dateCompleted || '',
+        parolePeriod: form4.parolePeriod || prev.form4Snapshot?.parolePeriod || '',
+        supervisingCbc: form4.supervisingCbc || prev.form4Snapshot?.supervisingCbc || '',
+        paroleOfficer: form4.paroleOfficer || prev.form4Snapshot?.paroleOfficer || '',
       },
-      archivedAt: app.archivedAt || new Date().toISOString(),
+      archivedAt: app.archivedAt || prev.archivedAt || new Date().toISOString(),
+      released,
+      releaseDate: release.releaseDate || prev.releaseDate || '',
+      releaseTime: release.releaseTime || prev.releaseTime || '',
+      releasedAt: release.authorizedAt || prev.releasedAt || '',
+      authorizedBy: release.authorizedByName || prev.authorizedBy || '',
+      authorizedByRole: release.authorizedByRole || prev.authorizedByRole || '',
+      status: released ? 'Released on Parole' : (app.status || 'Parole Granted'),
     };
-    if (existingIdx >= 0) data.paroleGrantedArchive[existingIdx] = { ...data.paroleGrantedArchive[existingIdx], ...entry };
+    if (existingIdx >= 0) data.paroleGrantedArchive[existingIdx] = entry;
     else data.paroleGrantedArchive.push(entry);
     return entry;
   }
@@ -2124,9 +2300,11 @@ const PMSStorage = (() => {
     if (prisoner && !['Released on Parole', 'Released'].includes(prisoner.status)) {
       prisoner.status = 'Approved';
     }
-    if (!['Approved', 'Released', 'Pending Approval'].includes(app.status)) {
+    if (!requiredApprovalsComplete(app) && !['Released', 'Refused', 'Parole Refused'].includes(app.status)) {
       try {
-        transitionApplication(appId, 'Pending Approval', actor, 'Form 4 issued — awaiting DJAG Secretary and CS Clerk approval');
+        if (app.status !== 'Pending Approval') {
+          transitionApplication(appId, 'Pending Approval', actor, 'Form 4 issued — awaiting DJAG Secretary and CS Clerk approval');
+        }
       } catch (_) {
         app.status = 'Pending Approval';
         app.updatedAt = new Date().toISOString();
@@ -2284,8 +2462,14 @@ const PMSStorage = (() => {
     };
   }
 
+  function persistCritical() {
+    return Promise.resolve(persist({ flush: true })).catch((err) => {
+      console.warn('MySQL sync failed:', err.message);
+    });
+  }
+
   function getCommanderVerifiedApplications({ commanderId, institutionId } = {}) {
-    return getParoleApplications()
+    return getAllParoleApplications({ includeArchived: true })
       .filter((app) => isCommanderVerified(app))
       .filter((app) => !institutionId || app.institutionId === institutionId)
       .filter((app) => !commanderId || getCommanderVerificationRecord(app)?.commanderId === commanderId)
@@ -2384,6 +2568,21 @@ const PMSStorage = (() => {
     if (!app) return false;
     let changed = promoteToCommanderReviewIfReady(app);
     if (reconcileCommanderVerification(app)) changed = true;
+    const hearing = findActiveHearingRecord(app.id);
+    if (hearing?.scheduledDate && ['Pre-Parole Report Prepared', 'Pending Commander Review', 'Submitted', 'Under DJAG Review'].includes(app.status)) {
+      app.status = 'Hearing Scheduled';
+      app.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+    const tally = calculateBoardVotes(app);
+    if (tally.complete && !app.boardDecision?.outcome) {
+      try {
+        finalizeBoardVotes(app.id, {
+          id: 'system', firstName: 'Parole', lastName: 'Board', role: 'System Administrator',
+        });
+        changed = true;
+      } catch (_) { /* keep local tally until a board member retries */ }
+    }
     syncApplicationProgress(app.id);
     return changed;
   }
@@ -2395,10 +2594,7 @@ const PMSStorage = (() => {
       if (syncApplicationWorkflowState(app)) changed = true;
     });
     data.prisoners?.forEach((prisoner) => {
-      const app = data.applications.find(
-        (a) => a.prisonerId === prisoner.id && !isTerminalApplicationStatus(a.status),
-      );
-      if (app && syncPrisonerParoleStatus(prisoner, app)) changed = true;
+      if (syncPrisonerParoleStatus(prisoner, getCanonicalApplication(prisoner.id))) changed = true;
     });
     return changed;
   }
@@ -2576,7 +2772,7 @@ const PMSStorage = (() => {
       );
     }
     persist();
-    return app.formData.form2;
+    return persistCritical().then(() => app.formData.form2);
   }
 
   function saveCommanderCaseReview(appId, review, actor) {
@@ -2604,18 +2800,6 @@ const PMSStorage = (() => {
         : review.decision === 'Rejected'
           ? 'Refused'
           : null;
-    if (targetStatus && typeof PMSWorkflow !== 'undefined') {
-      if (!PMSWorkflow.canTransition(actor, app.status, targetStatus)) {
-        throw new Error(`You are not permitted to change status from ${app.status} to ${targetStatus}.`);
-      }
-      const recordingVerification = review.decision === 'Verified' || review.decision === 'Approved';
-      if (!recordingVerification) {
-        const advance = PMSWorkflow.canAdvanceApplication(app, targetStatus);
-        if (!advance.allowed) {
-          throw new Error(`Cannot record verification: ${advance.blockers.join(' ')}`);
-        }
-      }
-    }
     if ((review.decision === 'Verified' || review.decision === 'Approved')) {
       const summary = getFormCompletionSummary(app);
       if (!summary.checks.form1 || !summary.checks.form2) {
@@ -2642,22 +2826,57 @@ const PMSStorage = (() => {
     logAudit(actor, 'VERIFY', 'ParoleApplication', appId, `Commander ${review.decision}: ${review.comments || ''}`, {
       newValues: { prisonerId: app.prisonerId, decision: review.decision, reviewedAt },
     });
-    if (review.decision === 'Verified' || review.decision === 'Approved') {
-      app.hearingSchedulingAt = new Date().toISOString();
-      transitionApplication(appId, 'Pre-Parole Report Prepared', actor, `Institutional verification complete — ready for hearing scheduling (${review.comments || ''})`);
-      notifyRole('DJAG Secretary', 'Schedule Hearing Required', `Case ${app.caseNumber || app.id} requires hearing within ${HEARING_DEADLINE_DAYS} days`, app.institutionId, app.prisonerId, null, { applicationId: appId, type: 'hearing', linkPanel: 'hearings' });
-      notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Case Verified', `Case verified ${app.caseNumber || appId}`, { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'verification' });
-    } else if (review.decision === 'Returned for Correction') {
-      transitionApplication(appId, 'Returned for Correction', actor, review.comments || 'Returned for correction');
-    } else if (review.decision === 'Rejected') {
-      transitionApplication(appId, 'Refused', actor, review.comments || 'Rejected during institutional verification');
+
+    const alreadyPastVerification = targetStatus === 'Pre-Parole Report Prepared'
+      && POST_COMMANDER_VERIFICATION_STATUSES.includes(app.status);
+    if (targetStatus && app.status !== targetStatus && !alreadyPastVerification) {
+      try {
+        if (typeof PMSWorkflow !== 'undefined' && !PMSWorkflow.canTransition(actor, app.status, targetStatus)) {
+          throw new Error(`You are not permitted to change status from ${app.status} to ${targetStatus}.`);
+        }
+        if (review.decision !== 'Verified' && review.decision !== 'Approved' && typeof PMSWorkflow !== 'undefined') {
+          const advance = PMSWorkflow.canAdvanceApplication(app, targetStatus);
+          if (!advance.allowed) {
+            throw new Error(`Cannot record verification: ${advance.blockers.join(' ')}`);
+          }
+        }
+        if (review.decision === 'Verified' || review.decision === 'Approved') {
+          app.hearingSchedulingAt = app.hearingSchedulingAt || reviewedAt;
+          transitionApplication(appId, 'Pre-Parole Report Prepared', actor, `Institutional verification complete — ready for hearing scheduling (${review.comments || ''})`);
+          notifyRole('DJAG Secretary', 'Schedule Hearing Required', `Case ${app.caseNumber || app.id} requires hearing within ${HEARING_DEADLINE_DAYS} days`, app.institutionId, app.prisonerId, null, { applicationId: appId, type: 'hearing', linkPanel: 'hearings' });
+          notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Case Verified', `Case verified ${app.caseNumber || appId}`, { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'verification' });
+        } else if (review.decision === 'Returned for Correction') {
+          transitionApplication(appId, 'Returned for Correction', actor, review.comments || 'Returned for correction');
+        } else if (review.decision === 'Rejected') {
+          transitionApplication(appId, 'Refused', actor, review.comments || 'Rejected during institutional verification');
+        }
+      } catch (err) {
+        if (review.decision === 'Verified' || review.decision === 'Approved') {
+          app.hearingSchedulingAt = app.hearingSchedulingAt || reviewedAt;
+          if (['Pending Commander Review', 'Submitted', 'Draft', 'Returned for Correction'].includes(app.status)) {
+            app.status = 'Pre-Parole Report Prepared';
+            app.updatedAt = reviewedAt;
+            app.workflowNotes = [...(app.workflowNotes || []), {
+              status: 'Pre-Parole Report Prepared',
+              notes: `Institutional verification complete — ready for hearing scheduling (${review.comments || ''})`,
+              at: reviewedAt,
+              by: actor.id,
+              actorName: `${actor.firstName} ${actor.lastName}`,
+            }];
+            notifyRole('DJAG Secretary', 'Schedule Hearing Required', `Case ${app.caseNumber || app.id} requires hearing within ${HEARING_DEADLINE_DAYS} days`, app.institutionId, app.prisonerId, null, { applicationId: appId, type: 'hearing', linkPanel: 'hearings' });
+            notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Case Verified', `Case verified ${app.caseNumber || appId}`, { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'verification' });
+          }
+        }
+        console.warn('Commander verification recorded; status transition skipped:', err.message);
+      }
+    } else if (review.decision === 'Verified' || review.decision === 'Approved') {
+      app.hearingSchedulingAt = app.hearingSchedulingAt || reviewedAt;
     }
     app.commanderVerificationDraft = null;
     resolveVerificationNotifications(appId);
     reconcileCommanderVerification(app);
     syncApplicationWorkflowState(app);
-    persist();
-    return app;
+    return persistCritical().then(() => app);
   }
 
   function saveCommanderVerificationDraft(appId, draft, actor) {
@@ -2738,13 +2957,13 @@ const PMSStorage = (() => {
 
   function isGrantApprovalPending(app) {
     if (!app || !isForm4Issued(app)) return false;
-    if (['Released', 'Refused', 'Parole Refused', 'Approved'].includes(app.status)) return false;
+    if (['Released', 'Refused', 'Parole Refused'].includes(app.status)) return false;
     return !requiredApprovalsComplete(app);
   }
 
   function getGrantApprovalQueue(actor) {
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor?.role) : actor?.role;
-    return getParoleApplications().filter((app) => {
+    return getAllParoleApplications({ includeArchived: true }).filter((app) => {
       if (!isGrantApprovalPending(app)) return false;
       if (role === 'CS Parole Clerk' && actor?.institutionId && app.institutionId !== actor.institutionId) return false;
       return true;
@@ -2792,8 +3011,7 @@ const PMSStorage = (() => {
       const other = role === 'DJAG Secretary' ? 'CS Parole Clerk' : 'DJAG Secretary';
       notifyRole(other, 'Approval Required', `${role} approved ${app.caseNumber || appId}. Your approval is still required.`, app.institutionId, app.prisonerId, null, meta);
     }
-    persist();
-    return app;
+    return persistCritical().then(() => app);
   }
 
   function getBoardDecisionOutcome(app) {
@@ -2934,7 +3152,7 @@ const PMSStorage = (() => {
       transitionApplication(appId, 'Refused', actor, 'Form 5 — Parole Refused issued');
     }
     persist();
-    return getApplicationById(appId);
+    return persistCritical().then(() => getApplicationById(appId));
   }
 
   function getCaseTimeline(appId) {
@@ -3056,8 +3274,11 @@ const PMSStorage = (() => {
       'DJAG Secretary': 'DJAG Secretary',
     };
     if (!allowed[role]) throw new Error('Your role is not authorized to submit board votes.');
-    if (!['Hearing In Progress', 'Pending Board Review'].includes(app.status) && !isHearingSessionOpen(app)) {
-      throw new Error('Board votes can only be submitted after the hearing session has started.');
+    if (!['Hearing In Progress', 'Pending Board Review', 'Hearing Scheduled'].includes(app.status) && !isHearingSessionOpen(app)) {
+      throw new Error('Board votes can only be submitted after a hearing has been scheduled.');
+    }
+    if (app.status === 'Hearing Scheduled' && !isDraft) {
+      try { startHearing(appId, actor); } catch (_) { /* vote can still be stored */ }
     }
     const isDraft = assessment?.submissionStatus === 'Draft';
     const vote = assessment?.vote ? normalizeBoardVote(assessment.vote) : null;
@@ -3144,19 +3365,15 @@ const PMSStorage = (() => {
         progress.pendingRoles.forEach((r) => notifyRole(r, 'Board Vote Required', `Your vote is required for ${app.caseNumber || appId}. Other members may have already voted.`, app.institutionId, app.prisonerId, null, assessMeta));
       } else {
         maybeCompleteHearingOnVoteTally(appId, actor);
-        // A deferral has no outcome form, so close it out here. Grant/refuse waits
-        // for the Board Chairman (DJAG Secretary) to issue Form 4 or Form 5.
-        if (calculateBoardVotes(getApplicationById(appId))?.outcome === 'Deferred') {
+        try {
           finalizeBoardVotes(appId, actor);
-        } else {
-          notifyRole('DJAG Secretary', 'Overall Board Decision Required',
-            `All board votes are in for ${app.caseNumber || appId}. Record the overall decision to issue Form 4 or Form 5.`,
-            app.institutionId, app.prisonerId, null, assessMeta);
+        } catch (err) {
+          console.warn('Could not finalize board tally:', err.message);
         }
       }
     }
     persist();
-    return entry;
+    return persistCritical().then(() => entry);
   }
 
   function saveMedicalEvaluation(appId, evaluation, actor) {
@@ -3205,7 +3422,9 @@ const PMSStorage = (() => {
         decidedAt: new Date().toISOString(),
         votes: tally.votes,
       };
-      persist();
+      persistCritical();
+      const deferredPrisoner = getPrisonerById(app.prisonerId);
+      if (deferredPrisoner) syncPrisonerParoleStatus(deferredPrisoner, getCanonicalApplication(deferredPrisoner.id));
       return app;
     }
     routeParoleOutcome(appId, actor);
@@ -3239,8 +3458,10 @@ const PMSStorage = (() => {
       calculation: tally.calculation,
     };
     syncApplicationProgress(appId);
-    persist();
+    persistCritical();
     notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Board Decision Finalized', `${updated.caseNumber || appId}: ${tally.outcome}`, { applicationId: appId, institutionId: updated.institutionId, prisonerId: updated.prisonerId, type: 'board_review', linkPanel: 'decisions', linkHref: tally.outcome === 'Parole Granted' ? `forms/form4.html?appId=${encodeURIComponent(appId)}` : `forms/form5.html?appId=${encodeURIComponent(appId)}` });
+    const prisoner = getPrisonerById(updated.prisonerId);
+    if (prisoner) syncPrisonerParoleStatus(prisoner, getCanonicalApplication(prisoner.id));
     return updated;
   }
 
@@ -3332,6 +3553,22 @@ const PMSStorage = (() => {
     Refused: 10,
     Released: 11,
   };
+  const PRISONER_STATUS_RANK = {
+    'Not Eligible': 0,
+    'Awaiting Eligibility': 1,
+    'Eligible for Parole Application': 2,
+    'Case Started': 3,
+    'Assessment in Progress': 4,
+    'Hearing Pending': 5,
+    'Hearing Scheduled': 6,
+    'Board Review': 7,
+    Approved: 8,
+    Refused: 8,
+    Rejected: 8,
+    'Released on Parole': 9,
+    Released: 9,
+    'Sentence Completed': 10,
+  };
   const HEARING_RECORD_RANK = {
     Upcoming: 0,
     Scheduled: 0,
@@ -3339,30 +3576,88 @@ const PMSStorage = (() => {
     Completed: 3,
   };
 
-  function packHearingSyncFields() {
-    (data?.applications || []).forEach((app) => {
-      app.formData = app.formData && typeof app.formData === 'object' ? app.formData : {};
-      if (Array.isArray(app.boardAssessments)) app.formData.__pmsBoardAssessments = app.boardAssessments;
-      if (app.hearingSession) app.formData.__pmsHearingSession = app.hearingSession;
-      if (app.commanderReview) app.formData.__pmsCommanderReview = app.commanderReview;
-      if (Array.isArray(app.approvalSteps)) app.formData.__pmsApprovalSteps = app.approvalSteps;
+  const HEARING_EXTRA_KEYS = [
+    'startedAt', 'startedBy', 'startedByName', 'boardMembers', 'updatedAt', 'createdAt',
+    'caseNumber', 'deadlineException', 'supersededAt', 'supersededReason',
+  ];
+
+  function unpackHearingNotes(h) {
+    if (!h || typeof h.notes !== 'string' || !h.notes.trim().startsWith('{')) return h;
+    try {
+      const parsed = JSON.parse(h.notes);
+      if (parsed && parsed.__pmsHearing === true) {
+        return { ...h, notes: parsed.notes || '', ...(parsed.extra || {}) };
+      }
+    } catch (_) { /* keep original notes */ }
+    return h;
+  }
+
+  function packHearingForDb(h) {
+    if (!h) return h;
+    const extra = {};
+    HEARING_EXTRA_KEYS.forEach((key) => {
+      if (h[key] != null) extra[key] = h[key];
     });
+    if (!Object.keys(extra).length) return h;
+    const unpacked = unpackHearingNotes(h);
+    return {
+      ...h,
+      notes: JSON.stringify({ __pmsHearing: true, notes: unpacked.notes || '', extra }),
+    };
+  }
+
+  function packApplicationFormSidecar(app) {
+    if (!app) return app;
+    app.formData = app.formData && typeof app.formData === 'object' ? app.formData : {};
+    const sidecar = {};
+    APPLICATION_SIDECAR_KEYS.forEach((key) => {
+      if (app[key] != null) sidecar[key] = app[key];
+    });
+    app.formData.__pmsAppState = sidecar;
+    if (Array.isArray(app.boardAssessments)) app.formData.__pmsBoardAssessments = app.boardAssessments;
+    if (app.hearingSession) app.formData.__pmsHearingSession = app.hearingSession;
+    if (app.commanderReview) app.formData.__pmsCommanderReview = app.commanderReview;
+    if (Array.isArray(app.approvalSteps)) app.formData.__pmsApprovalSteps = app.approvalSteps;
+    if (app.releaseInfo) app.formData.__pmsReleaseInfo = app.releaseInfo;
+    return app;
+  }
+
+  function packHearingSyncFields() {
+    (data?.applications || []).forEach(packApplicationFormSidecar);
   }
 
   function unpackHearingSyncFields(store) {
     (store?.applications || []).forEach((app) => {
       const fd = app.formData || {};
-      if ((!app.boardAssessments || !app.boardAssessments.length) && Array.isArray(fd.__pmsBoardAssessments)) {
-        app.boardAssessments = fd.__pmsBoardAssessments;
+      const sidecar = fd.__pmsAppState && typeof fd.__pmsAppState === 'object' ? fd.__pmsAppState : {};
+      APPLICATION_SIDECAR_KEYS.forEach((key) => {
+        if (key === 'status') return;
+        const packed = sidecar[key] != null
+          ? sidecar[key]
+          : (key === 'commanderReview' ? fd.__pmsCommanderReview
+            : key === 'approvalSteps' ? fd.__pmsApprovalSteps
+              : key === 'boardAssessments' ? fd.__pmsBoardAssessments
+                : key === 'hearingSession' ? fd.__pmsHearingSession
+                  : key === 'releaseInfo' ? fd.__pmsReleaseInfo
+                    : undefined);
+        if (packed == null) return;
+        if (app[key] == null || app[key] === '' || (Array.isArray(app[key]) && !app[key].length)) {
+          app[key] = packed;
+        }
+      });
+      const packedReview = sidecar.commanderReview || fd.__pmsCommanderReview;
+      if (packedReview && !normalizeCommanderDecision(app.commanderReview) && normalizeCommanderDecision(packedReview)) {
+        app.commanderReview = packedReview;
       }
-      if (!app.hearingSession && fd.__pmsHearingSession) {
-        app.hearingSession = fd.__pmsHearingSession;
+      const packedRelease = sidecar.releaseInfo || fd.__pmsReleaseInfo;
+      if (packedRelease?.authorizedAt && !app.releaseInfo?.authorizedAt) {
+        app.releaseInfo = packedRelease;
       }
-      if (!app.commanderReview?.verifiedAt && fd.__pmsCommanderReview) {
-        app.commanderReview = fd.__pmsCommanderReview;
-      }
-      if ((!app.approvalSteps || !app.approvalSteps.length) && Array.isArray(fd.__pmsApprovalSteps)) {
-        app.approvalSteps = fd.__pmsApprovalSteps;
+      if ((sidecar.status === 'Released' || app.releaseInfo?.authorizedAt) && app.status !== 'Released') {
+        app.status = 'Released';
+      } else if (sidecar.status && sidecar.status !== app.status) {
+        const next = pickAdvancedStatus(app.status, sidecar.status, APP_SESSION_RANK);
+        if (next !== app.status) app.status = next;
       }
       const packed = app.hearingSession;
       if (!packed?.hearingId || packed.status !== 'In Progress') return;
@@ -3374,6 +3669,9 @@ const PMSStorage = (() => {
       hearing.startedAt = hearing.startedAt || packed.startedAt || null;
       hearing.startedBy = hearing.startedBy || packed.startedBy || null;
       hearing.startedByName = hearing.startedByName || packed.startedByName || null;
+    });
+    (store?.hearings || []).forEach((h, i) => {
+      store.hearings[i] = unpackHearingNotes(h);
     });
     return store;
   }
@@ -3463,16 +3761,136 @@ const PMSStorage = (() => {
     return formBlobScore(formN, remote) > formBlobScore(formN, local) ? { ...local, ...remote } : local;
   }
 
+  function entityTimestamp(row) {
+    const t = Date.parse(row?.updatedAt || row?.statusUpdatedAt || row?.createdAt || '');
+    return Number.isFinite(t) ? t : 0;
+  }
+
+  function getDeletedEntityIds() {
+    data.settings = data.settings || {};
+    if (!data.settings.deletedEntityIds || typeof data.settings.deletedEntityIds !== 'object') {
+      data.settings.deletedEntityIds = { prisoners: {}, applications: {} };
+    }
+    data.settings.deletedEntityIds.prisoners = data.settings.deletedEntityIds.prisoners || {};
+    data.settings.deletedEntityIds.applications = data.settings.deletedEntityIds.applications || {};
+    return data.settings.deletedEntityIds;
+  }
+
+  function isEntityDeleted(kind, id) {
+    return !!(id && getDeletedEntityIds()[kind]?.[id]);
+  }
+
+  function markEntityDeleted(kind, id) {
+    if (!id) return;
+    getDeletedEntityIds()[kind][id] = new Date().toISOString();
+  }
+
+  function mergeDeletedEntityIds(remote) {
+    const remoteMap = remote?.settings?.deletedEntityIds;
+    if (!remoteMap || typeof remoteMap !== 'object') return false;
+    let changed = false;
+    const local = getDeletedEntityIds();
+    ['prisoners', 'applications'].forEach((kind) => {
+      Object.entries(remoteMap[kind] || {}).forEach(([id, at]) => {
+        if (!local[kind][id]) {
+          local[kind][id] = at;
+          changed = true;
+        }
+      });
+    });
+    return changed;
+  }
+
+  function applyEntityTombstones() {
+    const beforeP = (data.prisoners || []).length;
+    const beforeA = (data.applications || []).length;
+    data.prisoners = (data.prisoners || []).filter((p) => !isEntityDeleted('prisoners', p.id));
+    data.applications = (data.applications || []).filter((a) => !isEntityDeleted('applications', a.id));
+    return data.prisoners.length !== beforeP || data.applications.length !== beforeA;
+  }
+
+  function mergeIdCounters(remote) {
+    if (!remote?.idCounters || typeof remote.idCounters !== 'object') return false;
+    data.idCounters = data.idCounters || {};
+    let changed = false;
+    Object.entries(remote.idCounters).forEach(([key, value]) => {
+      const next = Number(value) || 0;
+      const current = Number(data.idCounters[key]) || 0;
+      if (next > current) {
+        data.idCounters[key] = next;
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function mergeDocumentLists(localDocs, remoteDocs) {
+    const map = new Map();
+    [...(localDocs || []), ...(remoteDocs || [])].forEach((doc) => {
+      if (!doc) return;
+      const key = doc.id || `${doc.name || ''}|${doc.uploadedAt || ''}|${doc.type || ''}`;
+      if (!map.has(key)) map.set(key, doc);
+    });
+    return [...map.values()];
+  }
+
+  function mergeVerificationHistory(localList, remoteList) {
+    const merged = [...(localList || [])];
+    (remoteList || []).forEach((entry) => {
+      if (!entry) return;
+      if (!entry.applicationId) {
+        merged.push(entry);
+        return;
+      }
+      const idx = merged.findIndex((row) => row.applicationId === entry.applicationId);
+      if (idx < 0) merged.push(entry);
+      else if (!normalizeCommanderDecision(merged[idx]) && normalizeCommanderDecision(entry)) {
+        merged[idx] = entry;
+      }
+    });
+    return merged;
+  }
+
+  function mergePrisonerRecord(local, rem) {
+    const newer = entityTimestamp(rem) >= entityTimestamp(local) ? rem : local;
+    const older = newer === rem ? local : rem;
+    const merged = { ...older, ...newer, id: local.id || rem.id };
+    merged.documents = mergeDocumentLists(local.documents, rem.documents);
+    merged.verificationHistory = mergeVerificationHistory(local.verificationHistory, rem.verificationHistory);
+    merged.status = pickAdvancedStatus(local.status, rem.status, PRISONER_STATUS_RANK);
+    merged.releasedOnParoleAt = local.releasedOnParoleAt || rem.releasedOnParoleAt || merged.releasedOnParoleAt || null;
+    if (merged.releasedOnParoleAt) {
+      merged.status = pickAdvancedStatus(merged.status, 'Released on Parole', PRISONER_STATUS_RANK);
+    }
+    merged.prisonerNumber = local.prisonerNumber || rem.prisonerNumber || merged.prisonerNumber;
+    return merged;
+  }
+
   function mergeRemoteHearingSessions(remote) {
     if (!data || !remote) return false;
     let changed = false;
+    if (mergeDeletedEntityIds(remote)) changed = true;
+    if (mergeIdCounters(remote)) changed = true;
     const remoteApps = new Map((remote.applications || []).map((a) => [a.id, a]));
     (data.applications || []).forEach((local) => {
       const rem = remoteApps.get(local.id);
       if (!rem) return;
-      const nextStatus = pickAdvancedStatus(local.status, rem.status, APP_SESSION_RANK);
+      const remoteSteps = rem.approvalSteps || rem.formData?.__pmsApprovalSteps || [];
+      if (remoteSteps.length > (local.approvalSteps || []).length) {
+        local.approvalSteps = remoteSteps;
+        changed = true;
+      }
+      let nextStatus = pickAdvancedStatus(local.status, rem.status, APP_SESSION_RANK);
+      const grantIssued = isForm4Issued(local) || isForm4Issued(rem);
+      if (nextStatus === 'Approved' && grantIssued && !requiredApprovalsComplete(local) && !requiredApprovalsComplete(rem)) {
+        nextStatus = 'Pending Approval';
+      }
       if (nextStatus && nextStatus !== local.status) {
         local.status = nextStatus;
+        changed = true;
+      }
+      if (rem.boardDecision?.outcome && !local.boardDecision?.outcome) {
+        local.boardDecision = rem.boardDecision;
         changed = true;
       }
       const remoteAssess = rem.boardAssessments || rem.formData?.__pmsBoardAssessments;
@@ -3498,17 +3916,90 @@ const PMSStorage = (() => {
           }
         });
       }
-      const remoteCommander = rem.commanderReview || rem.formData?.__pmsCommanderReview;
-      if (remoteCommander?.verifiedAt && !local.commanderReview?.verifiedAt) {
+      const remoteCommander = rem.commanderReview || rem.formData?.__pmsCommanderReview || rem.formData?.__pmsAppState?.commanderReview;
+      if (normalizeCommanderDecision(remoteCommander) && !normalizeCommanderDecision(local.commanderReview)) {
         local.commanderReview = remoteCommander;
         changed = true;
       }
-      const remoteSteps = rem.approvalSteps || rem.formData?.__pmsApprovalSteps || [];
-      if (remoteSteps.length > (local.approvalSteps || []).length) {
-        local.approvalSteps = remoteSteps;
+      const remoteRelease = rem.releaseInfo || rem.formData?.__pmsReleaseInfo || rem.formData?.__pmsAppState?.releaseInfo;
+      if (remoteRelease?.authorizedAt && !local.releaseInfo?.authorizedAt) {
+        local.releaseInfo = remoteRelease;
+        changed = true;
+      }
+      if ((local.releaseInfo?.authorizedAt || rem.status === 'Released' || remoteRelease?.authorizedAt) && local.status !== 'Released') {
+        local.status = 'Released';
+        changed = true;
+      }
+      if (rem.archived && !local.archived) {
+        local.archived = true;
+        local.archivedAt = rem.archivedAt || local.archivedAt;
+        local.archivedBy = rem.archivedBy || local.archivedBy;
+        local.archiveReason = rem.archiveReason || local.archiveReason;
+        changed = true;
+      }
+      if (rem.hearingSchedulingAt && !local.hearingSchedulingAt) {
+        local.hearingSchedulingAt = rem.hearingSchedulingAt;
         changed = true;
       }
     });
+    (remote.applications || []).forEach((rem) => {
+      if (!rem?.id || isEntityDeleted('applications', rem.id)) return;
+      if (!(data.applications || []).some((a) => a.id === rem.id)) {
+        data.applications = data.applications || [];
+        data.applications.push(rem);
+        changed = true;
+      }
+    });
+    (remote.hearings || []).forEach((rem) => {
+      if (!rem?.id) return;
+      if (!(data.hearings || []).some((h) => h.id === rem.id)) {
+        const sameApp = (data.hearings || []).find((h) => h.applicationId === rem.applicationId && !['Cancelled', 'Completed'].includes(h.status));
+        if (sameApp && rem.scheduledDate && !sameApp.scheduledDate) {
+          sameApp.scheduledDate = rem.scheduledDate;
+          sameApp.scheduledTime = rem.scheduledTime || sameApp.scheduledTime;
+          sameApp.location = rem.location || sameApp.location;
+          changed = true;
+          return;
+        }
+        if (sameApp && sameApp.scheduledDate) return;
+        data.hearings = data.hearings || [];
+        data.hearings.push(unpackHearingNotes(rem));
+        changed = true;
+      }
+    });
+    const remotePrisoners = new Map((remote.prisoners || []).map((p) => [p.id, p]));
+    (data.prisoners || []).forEach((local, idx) => {
+      const rem = remotePrisoners.get(local.id);
+      if (!rem) return;
+      const merged = mergePrisonerRecord(local, rem);
+      if (JSON.stringify(merged) !== JSON.stringify(local)) {
+        data.prisoners[idx] = merged;
+        changed = true;
+      }
+    });
+    (remote.prisoners || []).forEach((rem) => {
+      if (!rem?.id || isEntityDeleted('prisoners', rem.id)) return;
+      if (!(data.prisoners || []).some((p) => p.id === rem.id)) {
+        data.prisoners = data.prisoners || [];
+        data.prisoners.push(rem);
+        changed = true;
+      }
+    });
+    const remoteArchive = remote.paroleGrantedArchive || remote.settings?.paroleGrantedArchive;
+    if (Array.isArray(remoteArchive) && remoteArchive.length) {
+      data.paroleGrantedArchive = data.paroleGrantedArchive || [];
+      remoteArchive.forEach((entry) => {
+        if (!entry?.applicationId) return;
+        const idx = data.paroleGrantedArchive.findIndex((e) => e.applicationId === entry.applicationId);
+        if (idx < 0) {
+          data.paroleGrantedArchive.push(entry);
+          changed = true;
+        } else if (entry.released && !data.paroleGrantedArchive[idx].released) {
+          data.paroleGrantedArchive[idx] = { ...data.paroleGrantedArchive[idx], ...entry };
+          changed = true;
+        }
+      });
+    }
     const remoteHearings = new Map((remote.hearings || []).map((h) => [h.id, h]));
     (data.hearings || []).forEach((local) => {
       const rem = remoteHearings.get(local.id);
@@ -3520,11 +4011,18 @@ const PMSStorage = (() => {
         changed = true;
       }
       ['startedAt', 'startedBy', 'startedByName', 'scheduledDate', 'scheduledTime', 'location', 'notes'].forEach((key) => {
-        if (rem[key] && rem[key] !== local[key]) {
+        if (!local[key] && rem[key]) {
+          local[key] = rem[key];
+          changed = true;
+        } else if (rem[key] && rem[key] !== local[key] && entityTimestamp(rem) > entityTimestamp(local)) {
           local[key] = rem[key];
           changed = true;
         }
       });
+    });
+    if (applyEntityTombstones()) changed = true;
+    (data.prisoners || []).forEach((prisoner) => {
+      if (syncPrisonerParoleStatus(prisoner, getCanonicalApplication(prisoner.id))) changed = true;
     });
     return changed;
   }
@@ -3637,17 +4135,17 @@ const PMSStorage = (() => {
     if (!['Jail Commander', 'CS Parole Clerk'].includes(role)) {
       return ['You do not have permission to authorize release.'];
     }
-    if (app.status === 'Released') return ['Prisoner has already been released.'];
+    if (app.status === 'Released' || app.releaseInfo?.authorizedAt) return ['Prisoner has already been released.'];
     if (actor?.institutionId && app.institutionId !== actor.institutionId) {
       blockers.push('This case belongs to another institution.');
     }
-    if (!requiredBoardAssessmentsComplete(app)) {
+    if (!requiredBoardAssessmentsComplete(app) && !isForm4Issued(app)) {
       blockers.push('All board members must submit their vote (Approve, Deny, or Defer) before release.');
     }
     if (!isParoleGrantedForRelease(app)) {
       blockers.push('Parole must be granted before release can be authorized.');
     }
-    if (!requiredApprovalsComplete(app) && app.status !== 'Approved') {
+    if (!requiredApprovalsComplete(app)) {
       blockers.push('DJAG Secretary and CS Parole Clerk must both approve the grant before release.');
     }
     return blockers;
@@ -3664,12 +4162,15 @@ const PMSStorage = (() => {
     if (blockers.length) {
       throw new Error(blockers.join(' '));
     }
+    const now = new Date();
+    const releaseTime = releaseInfo.releaseTime || now.toTimeString().slice(0, 5);
     app.releaseInfo = {
-      authorizedAt: new Date().toISOString(),
+      authorizedAt: now.toISOString(),
       authorizedBy: actor.id,
       authorizedByName: `${actor.firstName} ${actor.lastName}`,
       authorizedByRole: actor.role,
-      releaseDate: releaseInfo.releaseDate || new Date().toISOString().slice(0, 10),
+      releaseDate: releaseInfo.releaseDate || now.toISOString().slice(0, 10),
+      releaseTime,
       notes: releaseInfo.notes || '',
       institutionId: app.institutionId,
       institutionName: getInstitutionById(app.institutionId)?.name || '',
@@ -3683,20 +4184,38 @@ const PMSStorage = (() => {
       newValues: app.releaseInfo,
       entityCaseNumber: app.caseNumber,
     });
-    transitionApplication(appId, 'Released', actor, `Prisoner release authorized — ${releaseInfo.releaseDate || 'today'}`);
+    try {
+      if (app.status !== 'Released') {
+        transitionApplication(appId, 'Released', actor, `Prisoner release authorized — ${app.releaseInfo.releaseDate} ${releaseTime}`);
+      }
+    } catch (err) {
+      app.status = 'Released';
+      app.updatedAt = now.toISOString();
+      app.lastModifiedLabel = 'Status → Released';
+      app.workflowNotes = [...(app.workflowNotes || []), {
+        status: 'Released',
+        notes: `Prisoner release authorized — ${app.releaseInfo.releaseDate} ${releaseTime}`,
+        at: now.toISOString(),
+        by: actor.id,
+        actorName: `${actor.firstName} ${actor.lastName}`,
+      }];
+      console.warn('Release authorized; workflow transition skipped:', err.message);
+    }
     if (prisoner) {
       prisoner.status = 'Released on Parole';
       prisoner.releasedOnParoleAt = app.releaseInfo.authorizedAt;
-      applyPrisonerEligibility(prisoner, actor);
+      try { applyPrisonerEligibility(prisoner, actor); } catch (err) {
+        console.warn('Prisoner eligibility update skipped after release:', err.message);
+      }
     }
+    recordParoleGrantedArchive(app, actor);
     const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'prisoner';
     const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'release', linkPanel: 'applications' };
     notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Release Authorized', `${pName} released on parole from ${inst?.name || 'institution'}`, meta);
     notifyRole('Jail Commander', 'Release Completed', `${pName} — release on parole recorded`, app.institutionId, app.prisonerId, actor.id, meta);
     notifyRole('CS Parole Clerk', 'Release Completed', `${pName} — release on parole recorded`, app.institutionId, app.prisonerId, actor.id, meta);
     notifyRole('System Administrator', 'Release Authorized', `${app.caseNumber || appId}: ${pName} released on parole`, app.institutionId, app.prisonerId, null, meta);
-    persist();
-    return app;
+    return persistCritical().then(() => app);
   }
 
   function overrideEligibility(prisonerId, override, actor) {
@@ -4324,8 +4843,9 @@ const PMSStorage = (() => {
       if (idx < 0) throw new Error('Prisoner not found');
       const prev = prisonerAuditSnapshot(data.prisoners[idx]);
       const { id: _id, prisonerNumber: _pn, ...updates } = prisonerFields;
-      data.prisoners[idx] = { ...data.prisoners[idx], ...updates, id: existing.id, prisonerNumber: existing.prisonerNumber };
+      data.prisoners[idx] = { ...data.prisoners[idx], ...updates, id: existing.id, prisonerNumber: existing.prisonerNumber, updatedAt: new Date().toISOString() };
       const saved = applyPrisonerEligibility(data.prisoners[idx], actor);
+      syncPrisonerParoleStatus(saved, getCanonicalApplication(saved.id));
       logAudit(actor, 'UPDATE', 'Prisoner', saved.id, saved.prisonerNumber, {
         previousValues: prev,
         newValues: prisonerAuditSnapshot(saved),
@@ -4353,26 +4873,31 @@ const PMSStorage = (() => {
         changeMeta,
       );
       syncParoleNotifications(actor);
-      persist();
+      persistCritical();
       return saved;
     }
 
     assertPrisonerModify(actor);
     const id = prisoner.prisonerNumber || generateId('prisoner');
+    const deleted = getDeletedEntityIds().prisoners;
+    if (deleted[id]) delete deleted[id];
     const record = {
       ...prisonerFields,
       id,
       prisonerNumber: prisoner.prisonerNumber || id,
       documents: prisoner.documents || [],
       status: 'Awaiting Eligibility',
+      createdAt: prisoner.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     applyPrisonerEligibility(record, actor);
+    syncPrisonerParoleStatus(record, getCanonicalApplication(record.id));
     data.prisoners.push(record);
     logAudit(actor, 'CREATE', 'Prisoner', record.id, record.prisonerNumber, {
       newValues: prisonerAuditSnapshot(record),
     });
     syncParoleNotifications(actor);
-    persist();
+    persistCritical();
     return record;
   }
 
@@ -4382,8 +4907,9 @@ const PMSStorage = (() => {
     assertPrisonerModify(actor, p);
     const prev = prisonerAuditSnapshot(p);
     data.prisoners = data.prisoners.filter((x) => x.id !== id);
+    markEntityDeleted('prisoners', id);
     logAudit(actor, 'DELETE', 'Prisoner', id, p.prisonerNumber, { previousValues: prev });
-    persist();
+    persistCritical();
   }
 
   function addPrisonerDocument(prisonerId, doc, actor) {
@@ -4401,10 +4927,11 @@ const PMSStorage = (() => {
       prisonerId,
     };
     p.documents = [...(p.documents || []), entry];
+    p.updatedAt = new Date().toISOString();
     logAudit(actor, 'CREATE', 'Document', entry.id, `Attached ${entry.name} to ${p.prisonerNumber}`, {
       newValues: { prisonerId, documentId: entry.id, name: entry.name, type: entry.type },
     });
-    persist();
+    persistCritical();
     return entry;
   }
 
@@ -4442,12 +4969,13 @@ const PMSStorage = (() => {
     assertPrisonerModify(actor, p);
     const removed = (p.documents || []).find((d) => d.id === docId);
     p.documents = (p.documents || []).filter((d) => d.id !== docId);
+    p.updatedAt = new Date().toISOString();
     if (removed) {
       logAudit(actor, 'DELETE', 'Document', docId, `Removed ${removed.name} from ${p.prisonerNumber}`, {
         previousValues: { prisonerId, documentId: docId, name: removed.name },
       });
     }
-    persist();
+    persistCritical();
   }
 
   function getParoleApplications(opts = {}) {
@@ -4642,13 +5170,14 @@ const PMSStorage = (() => {
     const prisoner = getPrisonerById(app.prisonerId);
     data.applications = data.applications.filter((a) => a.id !== appId);
     data.hearings = (data.hearings || []).filter((h) => h.applicationId !== appId);
+    markEntityDeleted('applications', appId);
     if (data.notifications) {
       data.notifications.forEach((n) => {
         if (n.applicationId === appId && !n.resolved) n.resolved = true;
       });
     }
     logAudit(actor, 'DELETE', 'ParoleApplication', appId, prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : app.caseNumber || appId);
-    persist();
+    persistCritical();
   }
 
   function archiveApplication(appId, actor) {
@@ -4857,7 +5386,8 @@ const PMSStorage = (() => {
     }
     const saved = app.id ? getApplicationById(app.id) : data.applications.at(-1);
     logAudit(actor, app.id ? 'UPDATE' : 'CREATE', 'ParoleApplication', saved.id, saved.status);
-    persist();
+    if (prisoner) syncPrisonerParoleStatus(prisoner, getCanonicalApplication(prisoner.id));
+    persistCritical();
     return saved;
   }
 
@@ -4984,9 +5514,12 @@ const PMSStorage = (() => {
     if (toStatus === 'Deferred') {
       notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Decision Deferred', notes || `Parole decision deferred for ${pName}`, appMeta);
     }
-    if (prisoner) applyPrisonerEligibility(prisoner, actor);
+    if (prisoner) {
+      applyPrisonerEligibility(prisoner, actor);
+      syncPrisonerParoleStatus(prisoner, getCanonicalApplication(prisoner.id));
+    }
     syncApplicationProgress(appId);
-    persist();
+    persistCritical();
     return app;
   }
 
@@ -5043,7 +5576,9 @@ const PMSStorage = (() => {
       calculation: updated.paroleScore?.calculation || calculateBoardVotes(updated).calculation,
       votes: calculateBoardVotes(updated).votes,
     };
-    persist();
+    persistCritical();
+    const prisoner = getPrisonerById(updated.prisonerId);
+    if (prisoner) syncPrisonerParoleStatus(prisoner, getCanonicalApplication(prisoner.id));
     return updated;
   }
 
@@ -5238,7 +5773,7 @@ const PMSStorage = (() => {
       syncApplicationProgress(saved.applicationId);
     }
     persist();
-    return saved;
+    return persistCritical().then(() => saved);
   }
 
   function buildNotificationDedupeKey(opts) {
@@ -5577,7 +6112,24 @@ const PMSStorage = (() => {
   }
   function getSession() { return session; }
 
-  function clearSession() {
+  function bindUnloadFlush() {
+    if (typeof window === 'undefined' || window.__pmsUnloadFlushBound) return;
+    window.__pmsUnloadFlushBound = true;
+    const flush = () => {
+      try { flushSyncToDatabase(); } catch (_) { /* ignore */ }
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flush();
+    });
+  }
+
+  async function clearSession() {
+    try {
+      if (dbSyncEnabled && data) await flushSyncToDatabase();
+    } catch (err) {
+      console.warn('Flush before logout failed:', err.message);
+    }
     session = null;
     try {
       sessionStorage.removeItem(SESSION_KEY);
@@ -5674,7 +6226,7 @@ const PMSStorage = (() => {
     getJailCommanderForInstitution, getJailCommanders, getCommanderProfile, saveCommanderProfile, getCommanderDetailBundle,
     getPrisonersByInstitution, getInstitutionStats,
     assignJailCommander, saveInstitution, deleteInstitution, getOfficersByInstitution,
-    getPrisoners, getPrisonerById, getSentenceDurationMonths, getParoleEligibilityDate, getPrisonerProgress,
+    getPrisoners, getPrisonerById, getCanonicalApplication, getSentenceDurationMonths, getParoleEligibilityDate, getPrisonerProgress,
     hasMetEligibilityThreshold, isEligibleParoleApplicant, getEligibleParoleApplicants, countEligibleParoleApplicants,
     isParoleGrantComplete, isParoleApplicationRefused, notifyDataChange,
     savePrisoner, deletePrisoner, addPrisonerDocument, removePrisonerDocument, addCaseDocument, getCaseDocuments,
@@ -5686,7 +6238,7 @@ const PMSStorage = (() => {
     verifyApplicationForm, submitApplicationToDJAG, createEmptyForms, createEmptyFormData,
     saveFormData, saveForm1Screening, saveForm2Section, getOrCreateDraftApplication, isForm1Complete, isForm2Complete, isForm2SectionVerified,
     FORM2_ATTACHMENT_LABELS, getForm2AttachmentFiles, getForm2AttachmentFile, canDownloadForm2Attachments, downloadForm2Attachment,
-    isForm4Issued, getAllParoleApplications, getGrantedParoleCases, countGrantedParole, getParoleGrantedArchive, archiveParoleGrantedCase,
+    isForm4Issued, getAllParoleApplications, getGrantedParoleCases, countGrantedParole, getParoleGrantedArchive, getGrantedParoleRegister, archiveParoleGrantedCase,
     isParoleRefusedCase, getRefusedParoleCases, countRefusedParole,
     needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm3HearingPhaseOpen, isForm4Complete, isForm5Complete,
     transitionApplication, recordBoardDecision, routeParoleOutcome, issueForm4Grant, issueForm5Refusal,

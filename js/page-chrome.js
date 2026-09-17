@@ -3,6 +3,7 @@
  */
 const PMSPageChrome = (() => {
   const ICONS_HREF = 'https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1/css/regular/rounded.css';
+  const SOLID_ICONS_HREF = 'https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1/css/solid/rounded.css';
 
   function detectBasePath() {
     return location.pathname.includes('/forms/') ? '../' : '';
@@ -16,12 +17,13 @@ const PMSPageChrome = (() => {
       link.href = css;
       document.head.appendChild(link);
     }
-    if (!document.querySelector(`link[href="${ICONS_HREF}"]`)) {
+    [ICONS_HREF, SOLID_ICONS_HREF].forEach((href) => {
+      if (document.querySelector(`link[href="${href}"]`)) return;
       const icons = document.createElement('link');
       icons.rel = 'stylesheet';
-      icons.href = ICONS_HREF;
+      icons.href = href;
       document.head.appendChild(icons);
-    }
+    });
   }
 
   function getSessionUser() {

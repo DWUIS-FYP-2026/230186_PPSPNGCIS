@@ -309,6 +309,28 @@
       font-weight: 600;
       font-size: 0.9375rem;
       animation: lpFadeIn 0.4s ease;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem 1rem;
+    }
+
+    .lp-welcome-continue {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      background: #fff;
+      color: var(--lp-primary);
+      font: inherit;
+      font-weight: 700;
+      font-size: 0.8125rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .lp-welcome-continue:hover {
+      background: var(--lp-bg, #f8f9fa);
     }
 
     @keyframes lpFadeIn {
@@ -795,6 +817,24 @@
 
     .lp-forgot-link:hover { text-decoration: underline; }
 
+    #forgot-form.hidden,
+    #login-form.hidden { display: none; }
+
+    .lp-forgot-note {
+      margin: 0 0 0.85rem;
+      font-size: 0.8125rem;
+      color: var(--lp-text-md);
+      line-height: 1.45;
+    }
+
+    .lp-btn--ghost {
+      width: 100%;
+      margin-top: 0.65rem;
+      background: transparent;
+      border: 1px solid var(--lp-border, #d0d5dd);
+      color: var(--lp-text-md);
+    }
+
     .lp-btn--signin {
       width: 100%;
       justify-content: center;
@@ -815,6 +855,61 @@
     }
 
     @keyframes lpSpin { to { transform: rotate(360deg); } }
+
+    .pms-signin-veil {
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background: rgb(13 43 78 / 0.72);
+    }
+
+    .pms-signin-veil.is-open {
+      display: flex;
+    }
+
+    .pms-signin-veil__card {
+      width: min(26rem, 100%);
+      padding: 1.75rem 1.5rem;
+      border-radius: 12px;
+      background: #fff;
+      text-align: center;
+      box-shadow: 0 24px 64px rgb(13 43 78 / 0.28);
+    }
+
+    .pms-signin-veil__spinner {
+      width: 2rem;
+      height: 2rem;
+      margin: 0 auto 1rem;
+      border: 3px solid #e2e8f0;
+      border-top-color: var(--lp-primary, #0d2b4e);
+      border-radius: 50%;
+      animation: lpSpin 0.7s linear infinite;
+    }
+
+    #pms-signin-veil-title {
+      margin: 0 0 0.35rem;
+      font-size: 1.0625rem;
+      font-weight: 700;
+      color: var(--lp-primary, #0d2b4e);
+    }
+
+    .pms-signin-veil__detail {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--lp-text-md, #64748b);
+    }
+
+    body.pms-signing-in {
+      overflow: hidden;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pms-signin-veil__spinner { animation: none; border-top-color: #e2e8f0; }
+    }
 
     /* ---- Toast ---- */
     .lp-toast-wrap {
@@ -1177,6 +1272,29 @@
           <button type="button" class="lp-forgot-link" id="forgot-password-btn">Forgot password?</button>
         </div>
       </form>
+      <form id="forgot-form" class="hidden" novalidate>
+        <p class="lp-forgot-note">Enter your username or email. The system administrator will reset your password. You will not receive an email.</p>
+        <div class="lp-field">
+          <label for="forgot-identifier">Username or email</label>
+          <div class="lp-input-wrap">
+            <i data-lucide="user" aria-hidden="true"></i>
+            <input type="text" id="forgot-identifier" name="forgot-identifier" autocomplete="username" placeholder="e.g. j.dole or j.dole@cs.gov.pg">
+          </div>
+          <span class="lp-error" id="forgot-error"></span>
+        </div>
+        <button type="submit" class="lp-btn lp-btn--primary lp-btn--signin" id="forgot-submit-btn">
+          <span class="btn-text">Request reset</span>
+        </button>
+        <button type="button" class="lp-btn lp-btn--ghost" id="forgot-back-btn">Back to sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="pms-signin-veil hidden" id="pms-signin-veil" hidden aria-hidden="true" role="status" aria-live="polite">
+    <div class="pms-signin-veil__card">
+      <div class="pms-signin-veil__spinner" aria-hidden="true"></div>
+      <p id="pms-signin-veil-title">Opening your workspace</p>
+      <p class="pms-signin-veil__detail" id="pms-signin-veil-detail"></p>
     </div>
   </div>
 

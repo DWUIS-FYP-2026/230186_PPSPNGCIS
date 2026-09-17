@@ -101,9 +101,29 @@
 
       <section class="panel" id="panel-release">
         <div class="panel-toolbar">
-          <p class="toolbar-note">Authorize prisoner release after the Parole Board has completed full interviews (Psychiatrist, PNGCS Commissioner, and DJAG Secretary assessments) and parole is granted.</p>
+          <p class="toolbar-note">Open Form 4, then authorize release. Date, time, prisoner name, and the authorizing commander are recorded in the release report and in Granted Parole.</p>
         </div>
-        <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Case</th><th>Prisoner</th><th>Status</th><th>Board Interviews</th><th>Release Readiness</th><th></th></tr></thead><tbody id="release-tbody"></tbody></table></div></div>
+        <div class="card">
+          <div class="card-header"><h2>Awaiting Release</h2></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Case</th><th>Prisoner</th><th>Form 4</th><th>Status</th><th>Readiness</th><th></th></tr></thead><tbody id="release-tbody"></tbody></table></div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-header">
+            <h2>Release Report</h2>
+            <p class="card-subtitle">Authorized releases at this institution — date, time, prisoner, and who authorized.</p>
+          </div>
+          <div class="card-body" id="release-report"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-archive">
+        <div class="panel-toolbar">
+          <p class="toolbar-note">Archived Form 4 grants. After you authorize release, the parolee is recorded here as Released on Parole.</p>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>Granted Parole</h2></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Case</th><th>Form 4</th><th>Granted</th><th>Release Date</th><th>Release Time</th><th>Authorized By</th><th>Status</th></tr></thead><tbody id="granted-archive-tbody"></tbody></table></div>
+        </div>
       </section>
 
       <section class="panel" id="panel-applications">
@@ -136,6 +156,7 @@
       <div class="modal-body" id="release-content"></div>
       <input type="hidden" id="release-app-id">
       <div class="form-group"><label for="release-date">Release Date</label><input type="date" id="release-date" required></div>
+      <div class="form-group"><label for="release-time">Release Time</label><input type="time" id="release-time" required></div>
       <div class="form-group"><label for="release-notes">Release Notes</label><textarea id="release-notes" rows="3" placeholder="Handover notes, escort details, conditions reminder…"></textarea></div>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" data-close="release-modal">Cancel</button>

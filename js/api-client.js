@@ -67,6 +67,10 @@ const PMSApi = (() => {
     return request('GET', '/api/health', undefined, { auth: false });
   }
 
+  async function requestPasswordReset(identifier) {
+    return request('POST', '/api/auth/password-reset-request', { identifier }, { auth: false });
+  }
+
   async function login(identifier, password) {
     const payload = await request('POST', '/api/auth/login', { identifier, password }, { auth: false });
     setToken(payload.token);
@@ -180,6 +184,7 @@ const PMSApi = (() => {
     getAuthHeaders,
     checkHealth,
     login,
+    requestPasswordReset,
     logout,
     me,
     loadBootstrap,

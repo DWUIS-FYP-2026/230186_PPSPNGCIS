@@ -37,6 +37,71 @@ const PMSUI = (() => {
     });
   }
 
+  function fmtTime(t) {
+    if (!t) return '—';
+    if (/^\d{1,2}:\d{2}/.test(String(t))) {
+      const [h, m] = String(t).split(':');
+      const d = new Date();
+      d.setHours(Number(h), Number(m), 0, 0);
+      return d.toLocaleTimeString('en-PG', { hour: '2-digit', minute: '2-digit' });
+    }
+    return fmtDateTime(t);
+  }
+
+  function form4Href(applicationId) {
+    return `forms/form4.html?appId=${encodeURIComponent(applicationId)}`;
+  }
+
+  function grantedParoleArchiveRowsHtml(rows) {
+    if (!rows.length) {
+      return '<tr><td colspan="8" class="empty-state">No granted parole records yet. Cases appear here after Form 4 is issued. Release date, time, and the authorizing commander appear after the Jail Commander authorizes release.</td></tr>';
+    }
+    return rows.map((row) => {
+      const released = !!row.released;
+      return `<tr>
+        <td><strong>${esc(row.prisonerName || '—')}</strong><span class="meta">${esc(row.prisonerNumber || '')}</span></td>
+        <td>${esc(row.caseNumber || row.applicationId || '—')}</td>
+        <td>${row.applicationId ? `<a href="${form4Href(row.applicationId)}" class="btn-icon">Form 4</a>` : '—'}</td>
+        <td>${fmtDate(row.grantedAt)}</td>
+        <td>${row.releaseDate ? fmtDate(row.releaseDate) : '—'}</td>
+        <td>${row.releaseTime ? fmtTime(row.releaseTime) : '—'}</td>
+        <td>${esc(row.authorizedBy || '—')}${row.authorizedByRole ? `<span class="meta">${esc(row.authorizedByRole)}</span>` : ''}</td>
+        <td><span class="status-pill status-pill--${released ? 'released' : 'pending'}">${esc(row.status || (released ? 'Released on Parole' : 'Parole Granted'))}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderGrantedParoleArchive(tbodyId, opts = {}) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody || typeof PMSStorage === 'undefined') return;
+    const rows = typeof PMSStorage.getGrantedParoleRegister === 'function'
+      ? PMSStorage.getGrantedParoleRegister(opts)
+      : [];
+    tbody.innerHTML = grantedParoleArchiveRowsHtml(rows);
+  }
+
+  function renderReleaseReport(hostId, opts = {}) {
+    const host = document.getElementById(hostId);
+    if (!host || typeof PMSStorage === 'undefined') return;
+    const released = (PMSStorage.getGrantedParoleRegister(opts) || []).filter((row) => row.released);
+    if (!released.length) {
+      host.innerHTML = '<p class="empty-state">No authorized releases recorded yet. After you authorize a release, the parolee appears here and in Granted Parole.</p>';
+      return;
+    }
+    host.innerHTML = `<div class="release-report-grid">${released.map((row) => `
+      <article class="release-report-card">
+        <h3>${esc(row.prisonerName || '—')}</h3>
+        <p class="meta">${esc(row.prisonerNumber || '')}${row.caseNumber ? ` · ${esc(row.caseNumber)}` : ''}</p>
+        <dl class="release-report-dl">
+          <dt>Date</dt><dd>${row.releaseDate ? fmtDate(row.releaseDate) : fmtDate(row.authorizedAt)}</dd>
+          <dt>Time</dt><dd>${row.releaseTime ? fmtTime(row.releaseTime) : fmtDateTime(row.authorizedAt)}</dd>
+          <dt>Prisoner</dt><dd>${esc(row.prisonerName || '—')}</dd>
+          <dt>Authorized by</dt><dd>${esc(row.authorizedBy || '—')}${row.authorizedByRole ? ` <span class="meta">(${esc(row.authorizedByRole)})</span>` : ''}</dd>
+        </dl>
+        ${row.applicationId ? `<a href="${form4Href(row.applicationId)}" class="btn-icon">View Form 4</a>` : ''}
+      </article>`).join('')}</div>`;
+  }
+
   function formatStat(value) {
     const n = Number(value);
     if (!Number.isFinite(n) || n < 0) return '0';
@@ -421,9 +486,6 @@ const PMSUI = (() => {
     }
     if (n.linkPanel === 'users') {
       return `${dash}?panel=users`;
-    }
-    if (n.linkPanel === 'guarantors') {
-      return `${dash}?panel=guarantors`;
     }
     if (n.applicationId && canSchedule && (n.type === 'hearing' || n.type === 'escalation' || n.type === 'deadline' || n.linkPanel === 'hearings')) {
       return `forms/hearing-schedule.html?appId=${encodeURIComponent(n.applicationId)}`;
@@ -1060,7 +1122,7 @@ const PMSUI = (() => {
   }
 
   return {
-    esc, fmtDate, fmtDateTime, formatStat, setStat, recentNotifications, statusClass, instName, prisonerName,
+    esc, fmtDate, fmtDateTime, fmtTime, formatStat, setStat, recentNotifications, statusClass, instName, prisonerName,
     bindLiveDataRefresh,
     initShell, updateNotifBadge, switchPanel, setPanelNavigator, openNotificationsPanel,
     bindNav, renderBarChart,
@@ -1076,5 +1138,6 @@ const PMSUI = (() => {
     renderCaseTracker, renderApplicationActionButtons, applicationRowAttributes,
     bindApplicationActionHandlers, navigateToApplicationEdit,
     downloadDataUrl, renderForm2AttachmentRow,
+    form4Href, renderGrantedParoleArchive, renderReleaseReport,
   };
 })();

@@ -158,7 +158,13 @@ const PMSAuth = (() => {
   function redirectAfterLogin(user) {
     touchSession();
     const target = getDashboardForRole(user?.role);
-    window.location.replace(target && target !== 'index.html' ? target : getDashboardHub());
+    const url = target && target !== 'index.html' ? target : getDashboardHub();
+    try { sessionStorage.setItem('pms_just_signed_in', '1'); } catch (_) { /* ignore */ }
+    const prefetch = document.createElement('link');
+    prefetch.rel = 'prefetch';
+    prefetch.href = url;
+    document.head.appendChild(prefetch);
+    window.location.replace(url);
   }
 
   function canAccessInstitution(user, institutionId) {

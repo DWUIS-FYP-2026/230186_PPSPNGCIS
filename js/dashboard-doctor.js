@@ -165,5 +165,9 @@
     const appId = PMSUI.getDeepLinkParam('app');
     if (appId) window.location.href = boardVoteHref(appId);
   }
+  PMSUI.bindLiveDataRefresh(() => {
+    const active = document.querySelector('.sidebar-nav .nav-item.active')?.dataset.panel || 'overview';
+    refresh(active);
+  });
   setupStatCards();
 })();

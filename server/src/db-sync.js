@@ -83,8 +83,18 @@ async function loadAll() {
     auditLogs: auditLogs[0].map(mapAuditRow),
     reports: reports[0].map(mapReportRow),
     idCounters,
+    paroleGrantedArchive: Array.isArray(settings?.paroleGrantedArchive) ? settings.paroleGrantedArchive : [],
     demoPasswords,
   };
+}
+
+function uniqueById(rows) {
+  const seen = new Map();
+  (rows || []).forEach((row) => {
+    if (!row || row.id == null || row.id === '') return;
+    seen.set(row.id, row);
+  });
+  return [...seen.values()];
 }
 
 async function saveAll(payload, demoPasswords = {}) {
@@ -103,7 +113,16 @@ async function saveAll(payload, demoPasswords = {}) {
     await conn.execute('DELETE FROM users');
     await conn.execute('DELETE FROM institutions');
 
-    for (const inst of payload.institutions || []) {
+    const institutions = uniqueById(payload.institutions);
+    const users = uniqueById(payload.users);
+    const prisoners = uniqueById(payload.prisoners);
+    const applications = uniqueById(payload.applications);
+    const hearings = uniqueById(payload.hearings);
+    const notifications = uniqueById(payload.notifications);
+    const auditLogs = uniqueById(payload.auditLogs);
+    const reports = uniqueById(payload.reports);
+
+    for (const inst of institutions) {
       await conn.execute(
         `INSERT INTO institutions
           (id, code, name, province, address, location, status, commander_id, capacity, phone, email)
@@ -117,7 +136,7 @@ async function saveAll(payload, demoPasswords = {}) {
       );
     }
 
-    for (const user of payload.users || []) {
+    for (const user of users) {
       await conn.execute(
         `INSERT INTO users
           (id, officer_id, employee_number, username, email, first_name, last_name, role, \`rank\`,
@@ -136,9 +155,11 @@ async function saveAll(payload, demoPasswords = {}) {
     }
 
     const passwords = { ...(payload.demoPasswords || {}), ...demoPasswords };
-    for (const user of payload.users || []) {
+    const seenUsernames = new Set();
+    for (const user of users) {
       const password = passwords[user.username];
-      if (password) {
+      if (password && user.username && !seenUsernames.has(user.username)) {
+        seenUsernames.add(user.username);
         await conn.execute(
           'INSERT INTO user_credentials (username, password) VALUES (?, ?)',
           [user.username, password]
@@ -146,7 +167,8 @@ async function saveAll(payload, demoPasswords = {}) {
       }
     }
 
-    for (const p of payload.prisoners || []) {
+    const seenDocs = new Set();
+    for (const p of prisoners) {
       await conn.execute(
         `INSERT INTO prisoners
           (id, prisoner_number, institution_id, first_name, last_name, date_of_birth, gender,
@@ -165,6 +187,8 @@ async function saveAll(payload, demoPasswords = {}) {
       );
 
       for (const doc of p.documents || []) {
+        if (!doc?.id || seenDocs.has(doc.id)) continue;
+        seenDocs.add(doc.id);
         await conn.execute(
           `INSERT INTO prisoner_documents
             (id, prisoner_id, name, mime_type, file_size, data_url, uploaded_by, uploaded_at)
@@ -183,7 +207,7 @@ async function saveAll(payload, demoPasswords = {}) {
       }
     }
 
-    for (const app of payload.applications || []) {
+    for (const app of applications) {
       await conn.execute(
         `INSERT INTO parole_applications
           (id, prisoner_id, institution_id, status, submitted_at, submitted_by,
@@ -201,7 +225,7 @@ async function saveAll(payload, demoPasswords = {}) {
       );
     }
 
-    for (const h of payload.hearings || []) {
+    for (const h of hearings) {
       await conn.execute(
         `INSERT INTO hearings
           (id, application_id, prisoner_id, institution_id, scheduled_date, scheduled_time,
@@ -215,9 +239,10 @@ async function saveAll(payload, demoPasswords = {}) {
       );
     }
 
-    for (const n of payload.notifications || []) {
+    for (const n of notifications) {
       const { id, type, title, message, recipientRole, recipientUserId, institutionId,
         prisonerId, eligibleDate, read, resolved, createdAt, ...meta } = n;
+      if (!id) continue;
       await conn.execute(
         `INSERT INTO notifications
           (id, type, title, message, recipient_role, recipient_user_id, institution_id,
@@ -232,7 +257,8 @@ async function saveAll(payload, demoPasswords = {}) {
       );
     }
 
-    for (const log of payload.auditLogs || []) {
+    for (const log of auditLogs) {
+      if (!log?.id) continue;
       await conn.execute(
         `INSERT INTO audit_logs
           (id, user_id, user_name, role, action, entity, entity_id, details, logged_at,
@@ -249,7 +275,8 @@ async function saveAll(payload, demoPasswords = {}) {
       );
     }
 
-    for (const r of payload.reports || []) {
+    for (const r of reports) {
+      if (!r?.id) continue;
       const { id, institutionId, type, title, status, createdBy, createdAt, ...content } = r;
       await conn.execute(
         `INSERT INTO reports (id, institution_id, type, title, status, content, created_by, created_at)
@@ -262,10 +289,16 @@ async function saveAll(payload, demoPasswords = {}) {
       );
     }
 
+    const settings = {
+      ...(payload.settings || buildSeedData().seed.settings || {}),
+      paroleGrantedArchive: Array.isArray(payload.paroleGrantedArchive)
+        ? payload.paroleGrantedArchive
+        : (payload.settings?.paroleGrantedArchive || []),
+    };
     await conn.execute(
       `INSERT INTO system_settings (id, settings) VALUES (1, ?)
        ON DUPLICATE KEY UPDATE settings = VALUES(settings)`,
-      [jsonStringify(payload.settings || buildSeedData().seed.settings)]
+      [jsonStringify(settings)]
     );
 
     await conn.execute(

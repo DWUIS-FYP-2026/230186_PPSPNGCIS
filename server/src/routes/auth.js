@@ -1,5 +1,5 @@
 const express = require('express');
-const { login, logout, getSession, extractToken } = require('../auth-service');
+const { login, logout, getSession, extractToken, requestPasswordReset } = require('../auth-service');
 const { mapUserRow } = require('../mappers');
 
 const router = express.Router();
@@ -26,6 +26,22 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('POST /api/auth/login', err);
     res.status(500).json({ success: false, error: 'Login failed.' });
+  }
+});
+
+/** POST /api/auth/password-reset-request */
+router.post('/password-reset-request', async (req, res) => {
+  try {
+    const { identifier, username, email } = req.body || {};
+    const loginId = identifier || username || email;
+    if (!loginId) {
+      return res.status(400).json({ success: false, error: 'Username or email is required.' });
+    }
+    await requestPasswordReset(loginId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('POST /api/auth/password-reset-request', err);
+    res.status(500).json({ success: false, error: 'Could not submit the reset request.' });
   }
 });
 

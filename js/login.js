@@ -49,6 +49,7 @@ function openLoginFloater() {
 }
 
 function closeLoginFloater() {
+  if (document.body.classList.contains('pms-signing-in')) return;
   loginFloater?.classList.add('hidden');
   document.body.style.overflow = '';
 }
@@ -58,8 +59,48 @@ loginCloseBtn?.addEventListener('click', closeLoginFloater);
 loginBackdrop?.addEventListener('click', closeLoginFloater);
 
 document.getElementById('forgot-password-btn')?.addEventListener('click', () => {
-  if (typeof window.showLandingToast === 'function') {
-    window.showLandingToast('Contact your system administrator to reset your password.', 'error');
+  form?.classList.add('hidden');
+  document.getElementById('forgot-form')?.classList.remove('hidden');
+  document.getElementById('forgot-identifier').value = emailInput?.value.trim() || '';
+  document.getElementById('forgot-identifier')?.focus();
+});
+
+document.getElementById('forgot-back-btn')?.addEventListener('click', () => {
+  document.getElementById('forgot-form')?.classList.add('hidden');
+  form?.classList.remove('hidden');
+  emailInput?.focus();
+});
+
+document.getElementById('forgot-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const identifier = document.getElementById('forgot-identifier')?.value.trim();
+  const errEl = document.getElementById('forgot-error');
+  const btn = document.getElementById('forgot-submit-btn');
+  if (!identifier) {
+    if (errEl) errEl.textContent = 'Username is required';
+    return;
+  }
+  if (errEl) errEl.textContent = '';
+  if (btn) btn.disabled = true;
+  try {
+    if (typeof PMSApi !== 'undefined' && PMSApi.requestPasswordReset) {
+      try {
+        await PMSApi.requestPasswordReset(identifier);
+      } catch (_) { /* still record locally so the admin inbox is updated */ }
+    }
+    if (typeof PMSStorage !== 'undefined') {
+      await PMSStorage.ensureLoaded();
+      PMSStorage.requestPasswordReset(identifier);
+    }
+    if (typeof window.showLandingToast === 'function') {
+      window.showLandingToast('If that account exists, the system administrator has been notified.', 'success');
+    }
+    document.getElementById('forgot-form')?.classList.add('hidden');
+    form?.classList.remove('hidden');
+  } catch (err) {
+    if (errEl) errEl.textContent = err.message || 'Could not submit the request.';
+  } finally {
+    if (btn) btn.disabled = false;
   }
 });
 
@@ -110,18 +151,29 @@ function setLoading(loading) {
   submitBtn.querySelector('.btn-text').textContent = loading ? 'Signing in…' : 'Sign In';
 }
 
-function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`${label} timed out. The server may be unavailable.`)), ms);
-    }),
-  ]);
+function showSignInTransition(user) {
+  const veil = document.getElementById('pms-signin-veil');
+  const title = document.getElementById('pms-signin-veil-title');
+  const detail = document.getElementById('pms-signin-veil-detail');
+  const name = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+  const label = typeof PMSAuth !== 'undefined'
+    ? PMSAuth.getDashboardLabelForRole(user?.role)
+    : 'Dashboard';
+  if (title) title.textContent = 'Opening your workspace';
+  if (detail) detail.textContent = name ? `${name} · ${label}` : label;
+  if (veil) {
+    veil.hidden = false;
+    veil.classList.remove('hidden');
+    veil.classList.add('is-open');
+    veil.setAttribute('aria-hidden', 'false');
+  }
+  document.body.classList.add('pms-signing-in');
+  loginFloater?.setAttribute('aria-busy', 'true');
 }
 
 function handleLoginSuccess(user) {
-  closeLoginFloater();
-  PMSAuth.redirectAfterLogin(user);
+  showSignInTransition(user);
+  window.setTimeout(() => PMSAuth.redirectAfterLogin(user), 180);
 }
 
 [emailInput, passwordInput].forEach((input) => {
@@ -136,10 +188,21 @@ function handleLoginSuccess(user) {
     if (typeof PMSStorage === 'undefined') return;
     await PMSStorage.ensureLoaded();
     const session = PMSStorage.getSession();
-    if (!session || typeof window.showLoginWelcome !== 'function') return;
+    if (!session) return;
     const user = PMSStorage.getUserById(session.id) || session;
     const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email;
-    window.showLoginWelcome(name);
+    const banner = document.getElementById('login-welcome-banner');
+    if (!banner) return;
+    banner.classList.remove('hidden');
+    banner.replaceChildren();
+    const msg = document.createElement('span');
+    msg.textContent = name ? `Signed in as ${name}` : 'You have an active session.';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lp-welcome-continue';
+    btn.textContent = 'Continue to dashboard';
+    btn.addEventListener('click', () => handleLoginSuccess(user));
+    banner.append(msg, btn);
   } catch (_) { /* ignore */ }
 })();
 
@@ -157,7 +220,7 @@ form?.addEventListener('submit', async (e) => {
       try {
         const { token, user } = await PMSApi.login(identifier, password);
         PMSStorage.setSession(user, token);
-        await withTimeout(PMSStorage.reloadAll(), 12000, 'Syncing data');
+        PMSStorage.reloadAll?.().catch(() => {});
         redirecting = true;
         handleLoginSuccess(user);
         return;

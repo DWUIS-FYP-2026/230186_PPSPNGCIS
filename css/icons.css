@@ -1,5 +1,6 @@
 /* PMS — Flaticon Uicons (uniform icon set across the application) */
 @import url('https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1/css/regular/rounded.css');
+@import url('https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1/css/solid/rounded.css');
 
 :root {
   --pms-icon-color: var(--pngcs-gold, #c8922a);

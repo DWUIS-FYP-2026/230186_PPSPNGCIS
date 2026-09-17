@@ -32,6 +32,8 @@
           <article class="stat-card stat-card--alert"><span class="stat-label">Active Cases</span><strong class="stat-value" id="stat-eligible">0</strong></article>
           <article class="stat-card"><span class="stat-label">Under Review</span><strong class="stat-value" id="stat-prisoners">0</strong></article>
           <article class="stat-card stat-card--warn"><span class="stat-label">Form 2 / PPR Pending</span><strong class="stat-value" id="stat-drafts">0</strong></article>
+          <article class="stat-card stat-card--success"><span class="stat-label">Parole Granted</span><strong class="stat-value" id="stat-granted">0</strong></article>
+          <article class="stat-card stat-card--alert"><span class="stat-label">Parole Refused</span><strong class="stat-value" id="stat-refused">0</strong></article>
           <article class="stat-card stat-card--warn"><span class="stat-label">Pending Alerts</span><strong class="stat-value" id="stat-notifications">0</strong></article>
         </div>
         <div class="overview-grid">
@@ -69,6 +71,16 @@
           <p class="toolbar-note">Workflow alerts for your role. Open a notification to view the related record.</p>
         </div>
         <div class="notification-list" id="notification-list"></div>
+      </section>
+
+      <section class="panel" id="panel-archive">
+        <div class="panel-toolbar">
+          <p class="toolbar-note">Archived Form 4 grants. After the Jail Commander authorizes release, the parolee is recorded here with date, time, and who authorized.</p>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>Granted Parole</h2></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Prisoner</th><th>Case</th><th>Form 4</th><th>Granted</th><th>Release Date</th><th>Release Time</th><th>Authorized By</th><th>Status</th></tr></thead><tbody id="granted-archive-tbody"></tbody></table></div>
+        </div>
       </section>
 
       <section class="panel" id="panel-reports">

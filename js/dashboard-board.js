@@ -11,7 +11,11 @@
     : ['DJAG Secretary', 'System Administrator'].includes(actor.role);
 
   function schedulingQueue() {
-    return PMSStorage.getParoleApplications().filter((a) => a.status === 'Pre-Parole Report Prepared');
+    return PMSStorage.getParoleApplications().filter((a) => {
+      if (a.status !== 'Pre-Parole Report Prepared' && a.status !== 'Hearing Scheduled') return false;
+      const hearing = PMSStorage.getHearingsByApplication(a.id).find((h) => h.scheduledDate && !['Cancelled', 'Completed'].includes(h.status));
+      return !hearing;
+    });
   }
 
   function schedulePortalHref(appId) {
@@ -54,7 +58,7 @@
       : 'Review applications ready for board consideration'],
     hearings: [canScheduleHearings ? 'Hearing Management' : 'Hearing Schedule', canScheduleHearings ? 'Schedule and review parole hearings' : 'Upcoming and completed parole hearings'],
     decisions: ['Board Vote', PMSBoardVote.getRoleConfig(actor).portalSubtitle],
-    history: ['Decision History', 'Historical parole decisions and hearing records'],
+    history: ['Archived Cases', 'Granted parole archive — Form 4 grants and authorized releases'],
     reports: ['Board Reports', 'Meeting summaries and board statistics'],
     notifications: ['Notifications', 'Hearing, review, and decision alerts'],
     profile: ['Profile', 'Your account information'],
@@ -133,7 +137,7 @@
           <td>${action}</td>
         </tr>`;
       }).join('')
-      : '<tr><td colspan="5" class="empty-state">No grants waiting for approval.</td></tr>';
+      : '<tr><td colspan="5" class="empty-state">No grants waiting for approval. Issue Form 4 first — granted cases stay here until both you and the CS Parole Clerk approve.</td></tr>';
   }
 
   function renderPrisoners() {
@@ -345,17 +349,7 @@
   }
 
   function renderHistory() {
-    const archiveRows = PMSStorage.getParoleGrantedArchive();
-    document.getElementById('granted-archive-tbody').innerHTML = archiveRows.length
-      ? archiveRows.map((row) => `<tr>
-          <td><strong>${PMSUI.esc(row.prisonerName || '—')}</strong><span class="meta">${PMSUI.esc(row.prisonerNumber || '')}</span></td>
-          <td>${PMSUI.esc(row.caseNumber || row.applicationId)}</td>
-          <td>${PMSUI.esc(row.paroleOrderNo || '—')}</td>
-          <td>${PMSUI.esc(row.issuedBy || '—')}</td>
-          <td>${PMSUI.fmtDate(row.grantedAt)}</td>
-          <td>${PMSUI.fmtDate(row.archivedAt)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="6" class="empty-state">No parole granted records archived yet. Cases appear here when Form 4 is issued.</td></tr>';
+    PMSUI.renderGrantedParoleArchive('granted-archive-tbody');
 
     document.getElementById('history-tbody').innerHTML = PMSStorage.getAllParoleApplications({ includeArchived: true })
       .filter((a) => a.boardDecision)

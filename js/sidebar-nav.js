@@ -22,18 +22,20 @@ const PMSSidebar = (() => {
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Tracking', ids: ['cases', 'eligibility'] },
       { label: 'Prisoners', ids: ['prisoners'] },
+      { label: 'Administration', ids: ['users'] },
       { label: 'Reports & Analytics', ids: ['reports', 'analytics', 'audit'] },
       { label: 'Account', ids: ['profile'] },
     ],
     'CS Parole Clerk': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1', 'form2', 'form3'] },
+      { label: 'Release', ids: ['approvals', 'archive'] },
       { label: 'Prisoners', ids: ['prisoners'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
     'Jail Commander': [
       { label: 'Dashboard', ids: ['overview'] },
-      { label: 'Institution', ids: ['verification', 'release', 'applications', 'prisoners'] },
+      { label: 'Institution', ids: ['verification', 'release', 'applications', 'prisoners', 'archive'] },
       { label: 'Account', ids: ['profile'] },
     ],
     'CS Parole Officer': [
@@ -47,19 +49,19 @@ const PMSSidebar = (() => {
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form2', 'form4'] },
       { label: 'Prisoners', ids: ['prisoners'] },
       { label: 'Hearings', ids: ['hearing-schedule', 'hearings'] },
-      { label: 'Reports', ids: ['reports', 'profile'] },
+      { label: 'Reports', ids: ['reports', 'archive', 'profile'] },
     ],
     'DJAG Secretary': [
       { label: 'Dashboard', ids: ['overview'] },
       {
         label: 'Hearing Scheduling',
-        hint: 'Set parole hearing dates after Form 3',
+        hint: 'Set parole hearing dates after commander verification',
         ids: ['hearing-schedule', 'applications', 'hearings'],
       },
       {
         label: 'Parole Board',
         hint: 'Vote, decisions, and outcome forms',
-        ids: ['board-decisions', 'decisions', 'form4', 'form5'],
+        ids: ['board-decisions', 'decisions', 'approvals', 'form4', 'form5', 'history'],
       },
       { label: 'Account', ids: ['profile'] },
     ],
@@ -84,6 +86,7 @@ const PMSSidebar = (() => {
       { id: 'cases', module: 'cases', panel: 'prisoners', label: 'Parole Process Track', icon: 'fi fi-rr-route' },
       { id: 'eligibility', module: 'eligibility', panel: 'prisoners', label: 'Eligibility', icon: 'fi fi-rr-check-circle' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-user-lock' },
+      { id: 'users', module: 'users', panel: 'users', label: 'User Accounts', icon: 'fi fi-rr-users' },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'analytics', module: 'analytics', panel: 'reports', label: 'Analytics', icon: 'fi fi-rr-chart-pie' },
       { id: 'audit', module: 'audit', panel: 'audit', label: 'Audit Trail', icon: 'fi fi-rr-journal' },
@@ -96,6 +99,8 @@ const PMSSidebar = (() => {
       { id: 'form1', module: 'forms', href: 'forms/form1.html', label: 'Form 1', icon: 'fi fi-rr-document' },
       { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
       { id: 'form3', module: 'forms', href: 'forms/form3.html', label: 'Form 3', icon: 'fi fi-rr-document' },
+      { id: 'approvals', module: 'release', panel: 'approvals', label: 'Grant Approvals', icon: 'fi fi-rr-badge-check' },
+      { id: 'archive', module: 'archive', panel: 'archive', label: 'Archived Cases', icon: 'fi fi-rr-box' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
@@ -109,6 +114,7 @@ const PMSSidebar = (() => {
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'board-decisions', module: 'hearings', href: 'forms/board-decisions.html', label: 'Board Vote', icon: 'fi fi-rr-gavel' },
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
+      { id: 'archive', module: 'archive', panel: 'archive', label: 'Archived Cases', icon: 'fi fi-rr-box' },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
@@ -128,8 +134,10 @@ const PMSSidebar = (() => {
       { id: 'hearings', module: 'hearings', panel: 'hearings', label: 'Hearing Calendar', icon: 'fi fi-rr-calendar' },
       { id: 'board-decisions', module: 'decisions', href: 'forms/board-decisions.html', label: 'Board Vote Portal', icon: 'fi fi-rr-gavel' },
       { id: 'decisions', module: 'decisions', panel: 'decisions', label: 'Cases Awaiting Vote', icon: 'fi fi-rr-list-check' },
+      { id: 'approvals', module: 'decisions', panel: 'approvals', label: 'Grant Approvals', icon: 'fi fi-rr-badge-check' },
       { id: 'form4', module: 'forms', href: 'forms/form4.html', label: 'Form 4 — Parole Grant', icon: 'fi fi-rr-document' },
       { id: 'form5', module: 'forms', href: 'forms/form5.html', label: 'Form 5 — Parole Refusal', icon: 'fi fi-rr-document' },
+      { id: 'history', module: 'archive', panel: 'history', label: 'Archived Cases', icon: 'fi fi-rr-box' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
     ],
     'Doctor': [
@@ -151,6 +159,7 @@ const PMSSidebar = (() => {
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'verification', module: 'verification', panel: 'verification', label: 'Case Verification', icon: 'fi fi-rr-shield-check' },
       { id: 'release', module: 'release', panel: 'release', label: 'Authorize Release', icon: 'fi fi-rr-door-open' },
+      { id: 'archive', module: 'archive', panel: 'archive', label: 'Archived Cases', icon: 'fi fi-rr-box' },
       { id: 'applications', module: 'applications', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'profile', panel: 'profile', label: 'Profile', icon: 'fi fi-rr-user' },
@@ -439,8 +448,8 @@ const PMSSidebar = (() => {
     document.getElementById('sidebar-collapse-btn')?.addEventListener('click', toggleCollapse);
 
     document.getElementById('logout-btn')?.addEventListener('click', async () => {
+      await PMSStorage.clearSession();
       if (typeof PMSApi !== 'undefined') await PMSApi.logout().catch(() => {});
-      PMSStorage.clearSession();
       window.location.href = 'index.html';
     });
 

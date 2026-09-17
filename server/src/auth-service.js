@@ -42,19 +42,32 @@ function verifyPassword(stored, password) {
   return stored === password;
 }
 
-async function login(identifier, password) {
-  const loginId = identifier.trim().toLowerCase();
-  const rows = await query(
+async function findUserRowsByLogin(loginId, { activeOnly = false } = {}) {
+  const id = String(loginId || '').trim().toLowerCase();
+  if (!id) return [];
+  const activeClause = activeOnly ? ` AND u.status = 'Active'` : '';
+  const exact = await query(
     `SELECT u.*, c.password AS credential_password
      FROM users u
-     INNER JOIN user_credentials c ON c.username = u.username
-     WHERE u.status = 'Active'
-       AND (LOWER(u.username) = ? OR LOWER(u.email) = ?)
-     LIMIT 1`,
-    [loginId, loginId]
+     LEFT JOIN user_credentials c ON c.username = u.username
+     WHERE (LOWER(u.username) = ? OR LOWER(u.email) = ?)${activeClause}`,
+    [id, id]
   );
+  if (exact.length) return exact;
+  if (id.includes('@')) return [];
+  return query(
+    `SELECT u.*, c.password AS credential_password
+     FROM users u
+     LEFT JOIN user_credentials c ON c.username = u.username
+     WHERE (LOWER(u.username) LIKE ? OR LOWER(u.email) LIKE ?)${activeClause}`,
+    [`${id}@%`, `${id}@%`]
+  );
+}
 
-  if (!rows.length) return null;
+async function login(identifier, password) {
+  const loginId = identifier.trim().toLowerCase();
+  const rows = await findUserRowsByLogin(loginId, { activeOnly: true });
+  if (rows.length !== 1) return null;
   const row = rows[0];
   if (row.employment_status === 'Inactive' || row.account_status === 'Suspended') return null;
   if (!verifyPassword(row.credential_password, password)) return null;
@@ -154,6 +167,38 @@ function canModifyPrisoners(user) {
   return PRISONER_MODIFY_ROLES.includes(normalizeRole(user?.role));
 }
 
+async function requestPasswordReset(identifier) {
+  const loginId = String(identifier || '').trim().toLowerCase();
+  if (!loginId) return { ok: true };
+  const rows = await findUserRowsByLogin(loginId);
+  if (rows.length !== 1) return { ok: true };
+  const user = rows[0];
+  const existing = await query(
+    `SELECT id FROM notifications
+     WHERE type = 'system' AND is_resolved = 0 AND title = 'Password Reset Request'
+       AND message LIKE ?
+     LIMIT 1`,
+    [`%${user.username}%`]
+  );
+  if (existing.length) return { ok: true };
+  const id = `NOT-${crypto.randomBytes(4).toString('hex')}`;
+  const name = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username;
+  const meta = JSON.stringify({ linkPanel: 'users', dedupeKey: `password-reset:${user.id}` });
+  await query(
+    `INSERT INTO notifications
+      (id, type, title, message, recipient_role, institution_id, is_read, is_resolved, meta, created_at)
+     VALUES (?, 'system', 'Password Reset Request', ?, 'System Administrator', ?, 0, 0, ?, ?)`,
+    [
+      id,
+      `${name} (${user.username}) requested a password reset.`,
+      user.institution_id || null,
+      meta,
+      toMysqlDatetime(new Date().toISOString()),
+    ]
+  );
+  return { ok: true };
+}
+
 module.exports = {
   login,
   logout,
@@ -162,6 +207,7 @@ module.exports = {
   requireAuth,
   requireRole,
   canModifyPrisoners,
+  requestPasswordReset,
   normalizeRole,
   ADMIN_ROLES,
   PRISONER_MODIFY_ROLES,

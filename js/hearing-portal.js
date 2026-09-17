@@ -92,15 +92,18 @@ const PMSHearingPortal = (() => {
   function resolvePortalHref(app, user) {
     const role = user?.role;
     const appId = app?.id;
-    if (app && ['Pre-Parole Report Prepared'].includes(app.status) && SCHEDULE_ROLES.includes(role)) {
-      return schedulePortalHref(appId);
-    }
-    if (app && DECISION_STATUSES.includes(app.status) && getActiveHearing(appId)) {
+    if (app && getActiveHearing(appId)?.scheduledDate && DECISION_STATUSES.includes(app.status)) {
       return decisionsPortalHref(appId);
     }
+    if (app && ['Pre-Parole Report Prepared'].includes(app.status) && SCHEDULE_ROLES.includes(role) && isScheduleCandidate(app)) {
+      return schedulePortalHref(appId);
+    }
     if (SCHEDULE_ROLES.includes(role) && app && isScheduleCandidate(app)) return schedulePortalHref(appId);
+    if (['Doctor', 'CS Commissioner', 'DJAG Secretary'].includes(role) && app && getActiveHearing(appId)) {
+      return decisionsPortalHref(appId);
+    }
     if (['Doctor', 'CS Commissioner'].includes(role)) return decisionsPortalHref(appId);
-    if (role === 'DJAG Secretary') return schedulePortalHref(appId);
+    if (role === 'DJAG Secretary') return isScheduleCandidate(app) ? schedulePortalHref(appId) : decisionsPortalHref(appId);
     return legacyPortalHref(appId);
   }
 
@@ -199,13 +202,18 @@ const PMSHearingPortal = (() => {
 
   function isScheduleCandidate(app) {
     if (!app || app.status === 'Draft' || CLOSED_STATUSES.includes(app.status)) return false;
-    if (SCHEDULABLE_STATUSES.includes(app.status)) return true;
+    if (['Parole Granted', 'Parole Refused', 'Pending Approval', 'Pending Board Review', 'Hearing In Progress', 'Approved', 'Released'].includes(app.status)) {
+      return false;
+    }
+    const hearing = getActiveHearing(app.id);
+    if (hearing?.scheduledDate) return false;
+    if (app.status === 'Pre-Parole Report Prepared') return true;
     if (typeof PMSWorkflow !== 'undefined' && PMSWorkflow.canAdvanceApplication(app, 'Hearing Scheduled').allowed) {
       return true;
     }
     return PMSStorage.isCommanderVerified(app)
       && PMSStorage.isForm2Complete(app.formData?.form2)
-      && !getActiveHearing(app.id);
+      && !hearing;
   }
 
   function eligibleForSchedule() {
@@ -863,6 +871,7 @@ const PMSHearingPortal = (() => {
   }
 
   function isClaimVerificationPersisted(app) {
+    if (!isPsychiatristActor()) return true;
     const saved = PMSStorage.getBoardAssessmentForActor(app, actor);
     if (!saved?.digitalSignature?.verified) return false;
     const claims = saved.claimVerification || [];
@@ -1147,10 +1156,12 @@ const PMSHearingPortal = (() => {
 
   function isVotingOpen(app) {
     if (!app) return false;
-    if (typeof PMSStorage.isHearingSessionOpen === 'function') {
-      return PMSStorage.isHearingSessionOpen(app);
+    if (['Parole Granted', 'Parole Refused', 'Pending Approval', 'Approved', 'Released', 'Refused'].includes(app.status)) {
+      return !!app.boardDecision?.outcome;
     }
-    return ['Hearing In Progress', 'Pending Board Review'].includes(app.status);
+    if (['Hearing In Progress', 'Pending Board Review', 'Hearing Scheduled'].includes(app.status)) return true;
+    if (typeof PMSStorage.isHearingSessionOpen === 'function' && PMSStorage.isHearingSessionOpen(app)) return true;
+    return !!getActiveHearing(app.id)?.scheduledDate;
   }
 
   function votingClosedReason(app) {
@@ -1188,7 +1199,7 @@ const PMSHearingPortal = (() => {
     const app = currentAppId ? PMSStorage.getApplicationById(currentAppId) : null;
     if (!app) return false;
     if (!isVotingOpen(app)) return false;
-    if (!isClaimVerificationPersisted(app)) return false;
+    if (isPsychiatristActor() && !isClaimVerificationPersisted(app)) return false;
     if (isPsychiatristActor() && !isPsychObservationPersisted(app)) return false;
     return getSubmitVoteValidation().valid;
   }
@@ -1580,7 +1591,7 @@ const PMSHearingPortal = (() => {
     area.hidden = !inReview && !finalized;
     if (!inReview && !finalized) return;
 
-    if (uniformBoardVote && chairForm) {
+    if (uniformBoardVote && chairForm && !canGrantOutcome) {
       chairForm.hidden = true;
     }
 
@@ -1602,7 +1613,7 @@ const PMSHearingPortal = (() => {
 
     if (canAssess) {
       assessorForm.hidden = false;
-      if (chairForm) chairForm.hidden = true;
+      if (chairForm) chairForm.hidden = !(canGrantOutcome && progress.complete && !finalized);
       if (assessSaveBtn) assessSaveBtn.hidden = !votingOpen;
       if (assessSubmitBtn) assessSubmitBtn.hidden = !votingOpen;
       if (recordBtn) recordBtn.hidden = true;
@@ -1620,9 +1631,7 @@ const PMSHearingPortal = (() => {
       }
       noteEl.hidden = false;
       if (!votingOpen) {
-        noteEl.textContent = app.status === 'Hearing Scheduled'
-          ? 'The DJAG Secretary must start the hearing session before board votes can be recorded.'
-          : 'Board voting is not open for this case yet.';
+        noteEl.textContent = votingClosedReason(app);
       } else if (portalMode === 'decisions' && isPsychiatristActor()) {
         const claimsOk = isClaimVerificationPersisted(app);
         const psychOk = isPsychObservationPersisted(app);
@@ -1727,17 +1736,18 @@ const PMSHearingPortal = (() => {
       ? PMSStorage.getHearingSession(app)
       : { open: isVotingOpen(app), scheduledDate: null };
     el.hidden = false;
-    el.classList.toggle('hearing-session-banner--pending', !session.open);
-    if (session.open) {
+    const votingOpen = isVotingOpen(app);
+    el.classList.toggle('hearing-session-banner--pending', !votingOpen);
+    if (votingOpen) {
       const when = formatSessionWhen(session);
       el.textContent = when
-        ? `Hearing session is live for this prisoner — started ${when}. All board members may submit their votes now.`
-        : 'Hearing session is live for this prisoner. All board members may submit their votes now.';
+        ? `Board voting is open for this prisoner${when ? ` — ${when}` : ''}. Submit Approve, Deny, or Defer below.`
+        : 'Board voting is open for this prisoner. Submit Approve, Deny, or Defer below.';
     } else {
       const when = formatSessionWhen(session);
       el.textContent = when
-        ? `Waiting for the DJAG Secretary to start this prisoner's hearing session (scheduled ${when}).`
-        : 'Waiting for the DJAG Secretary to start this prisoner\'s hearing session. Votes unlock for every board member at the same time.';
+        ? `A hearing date is needed before votes can be recorded (scheduled ${when}).`
+        : 'A hearing date must be set before board votes can be recorded.';
     }
   }
 
@@ -2008,7 +2018,7 @@ const PMSHearingPortal = (() => {
     if (!currentAppId || !canAssess) return;
     const app = PMSStorage.getApplicationById(currentAppId);
     if (portalMode === 'decisions' && app && !isVotingOpen(app)) {
-      showToast('The hearing must be started before you can save your vote.');
+      showToast(votingClosedReason(app));
       return;
     }
     const values = typeof PMSBoardVote !== 'undefined'
@@ -2068,7 +2078,9 @@ const PMSHearingPortal = (() => {
     const conditions = $('hearing-conditions').value.trim();
 
     if (submitAssessorVote && canAssess) {
-      if (portalMode === 'decisions' && !isClaimVerificationPersisted(app)) {
+      if (portalMode === 'decisions' && !isPsychiatristActor()) {
+        /* Secretary and Commissioner vote without the psychiatrist claim workflow. */
+      } else if (portalMode === 'decisions' && !isClaimVerificationPersisted(app)) {
         showToast('Save Form 2 verification (all claims + PIN) before submitting your vote.');
         $('claim-verification-section')?.setAttribute('open', '');
         $('claim-verification-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });

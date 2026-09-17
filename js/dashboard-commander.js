@@ -8,7 +8,8 @@
   const panelTitles = {
     overview: ['Overview', `Jail Commander — ${inst?.name || 'Institution'}`],
     verification: ['Case Verification', 'Prisoners awaiting your institutional verification'],
-    release: ['Authorize Release', 'Release prisoners after board interviews and parole approval'],
+    release: ['Authorize Release', 'Open Form 4 and authorize release after grant approvals'],
+    archive: ['Archived Cases', 'Granted parole records and authorized releases'],
     applications: ['Parole Applications', 'Institution parole cases (read-only overview)'],
     prisoners: ['Prisoner Records', 'Prisoners at your institution'],
     notifications: ['Notifications', 'Verification and workflow alerts'],
@@ -201,7 +202,9 @@
   }
 
   function releaseCandidates() {
-    return scopeApps(true).filter((a) => a.status !== 'Released' && !['Refused', 'Parole Refused'].includes(a.status));
+    return scopeApps(true).filter((a) => PMSStorage.isForm4Issued(a)
+      && a.status !== 'Released'
+      && !['Refused', 'Parole Refused'].includes(a.status));
   }
 
   function releaseReadyQueue() {
@@ -231,6 +234,7 @@
       overview: renderOverview,
       verification: renderVerification,
       release: renderRelease,
+      archive: renderArchive,
       applications: renderApplications,
       prisoners: renderPrisoners,
       notifications: renderNotifications,
@@ -393,9 +397,27 @@
       ? rows.map((a) => {
         const p = PMSStorage.getPrisonerById(a.prisonerId);
         const canRelease = PMSStorage.canAuthorizeRelease(a, actor);
-        return `<tr><td>${PMSUI.esc(a.caseNumber || a.id)}</td><td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${boardInterviewLabel(a)}</td><td>${releaseReadinessLabel(a)}</td><td>${canRelease ? `<button type="button" class="btn-primary btn-sm" data-release="${PMSUI.esc(a.id)}">Authorize Release</button>` : ''} ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}</td></tr>`;
+        const form4 = PMSStorage.isForm4Issued(a)
+          ? `<a href="${PMSUI.form4Href(a.id)}" class="btn-icon">View Form 4</a>`
+          : '<span class="meta">Not issued</span>';
+        const authorize = canRelease
+          ? `<button type="button" class="btn-primary btn-sm" data-release="${PMSUI.esc(a.id)}">Authorize Release</button>`
+          : '';
+        return `<tr>
+          <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
+          <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+          <td>${form4}</td>
+          <td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td>
+          <td>${releaseReadinessLabel(a)}</td>
+          <td>${authorize} ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}</td>
+        </tr>`;
       }).join('')
-      : '<tr><td colspan="6" class="empty-state">No cases in release workflow.</td></tr>';
+      : '<tr><td colspan="6" class="empty-state">No Form 4 grants awaiting release. Cases appear here after Form 4 is issued and both grant approvals are recorded.</td></tr>';
+    PMSUI.renderReleaseReport('release-report', { institutionId: actor.institutionId });
+  }
+
+  function renderArchive() {
+    PMSUI.renderGrantedParoleArchive('granted-archive-tbody', { institutionId: actor.institutionId });
   }
 
   function renderApplications() {
@@ -459,11 +481,14 @@
     const p = PMSStorage.getPrisonerById(app.prisonerId);
     document.getElementById('release-app-id').value = appId;
     document.getElementById('release-date').value = new Date().toISOString().slice(0, 10);
+    const timeEl = document.getElementById('release-time');
+    if (timeEl) timeEl.value = new Date().toTimeString().slice(0, 5);
     document.getElementById('release-notes').value = '';
     document.getElementById('release-content').innerHTML = `
       <p><strong>Case:</strong> ${PMSUI.esc(app.caseNumber || app.id)}</p>
       <p><strong>Prisoner:</strong> ${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</p>
       <p><strong>Status:</strong> ${PMSUI.esc(app.status)}</p>
+      <p>${PMSStorage.isForm4Issued(app) ? `<a href="${PMSUI.form4Href(app.id)}" class="btn-icon">View Form 4</a>` : ''}</p>
       <h3 class="case-subheading">Release checklist</h3>
       ${releaseRequirementsList(app)}`;
     document.getElementById('release-modal').showModal();
@@ -721,7 +746,7 @@
     history.replaceState(null, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : ''));
   }
 
-  function submitVerification() {
+  async function submitVerification() {
     const appId = document.getElementById('verify-app-id').value;
     const decision = document.getElementById('verify-decision').value;
     const comments = document.getElementById('verify-comments').value.trim();
@@ -747,7 +772,7 @@
       submitBtn.textContent = 'Recording…';
     }
     try {
-      PMSStorage.saveCommanderCaseReview(appId, { decision, comments }, actor);
+      await PMSStorage.saveCommanderCaseReview(appId, { decision, comments }, actor);
       clearVerifyDraft(appId);
       document.getElementById('verify-modal').close();
       clearVerificationDeepLink();
@@ -810,7 +835,7 @@
 
     document.getElementById('verify-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      submitVerification();
+      void submitVerification();
     });
 
     modal.addEventListener('click', (e) => {
@@ -847,19 +872,25 @@
     e.preventDefault();
     const appId = document.getElementById('release-app-id').value;
     const releaseDate = document.getElementById('release-date').value;
+    const releaseTime = document.getElementById('release-time')?.value || '';
     const notes = document.getElementById('release-notes').value.trim();
     if (!releaseDate) {
       PMSUI.showError('Please set the release date.');
       return;
     }
+    if (!releaseTime) {
+      PMSUI.showError('Please set the release time.');
+      return;
+    }
     try {
-      PMSStorage.authorizeRelease(appId, { releaseDate, notes }, actor);
+      await PMSStorage.authorizeRelease(appId, { releaseDate, releaseTime, notes }, actor);
       document.getElementById('release-modal').close();
       refresh('release');
+      refresh('archive');
       refresh('overview');
       refresh('applications');
       refresh('prisoners');
-      PMSUI.showSuccess('Release authorized successfully.');
+      PMSUI.showSuccess('Release authorized. The parolee is now recorded in Granted Parole.');
     } catch (err) {
       PMSUI.showError(err.message || 'Release authorization failed.');
     }

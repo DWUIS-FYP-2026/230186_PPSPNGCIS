@@ -11,6 +11,7 @@
     notifications: ['Notifications', 'Application and workflow alerts'],
     reports: ['Operational Reports', 'Pre-parole and hearing reports'],
     hearings: ['Hearing Calendar', 'View scheduled hearings — DJAG Secretary sets hearing dates'],
+    archive: ['Archived Cases', 'Granted parole records and authorized releases'],
     profile: ['Profile', 'Your account information'],
   };
 
@@ -111,6 +112,7 @@
       applications: renderApplications,
       reports: renderReports,
       hearings: renderHearings,
+      archive: renderArchive,
       notifications: renderNotifications,
     })[panel]?.();
   }
@@ -197,6 +199,7 @@
         title: 'Parole Granted',
         columns: ['Case', 'Name', 'Institution', 'Granted', ''],
         getRows: () => outcomeStatRows('granted'),
+        onClick: () => PMSUI.switchPanel('archive', panelTitles, refresh, 'archive'),
       },
       {
         statId: 'stat-refused',
@@ -251,6 +254,10 @@
 
   function renderApplications() {
     document.getElementById('applications-tbody').innerHTML = djagApps().map(appRow).join('') || '<tr><td colspan="5" class="empty-state">No applications.</td></tr>';
+  }
+
+  function renderArchive() {
+    PMSUI.renderGrantedParoleArchive('granted-archive-tbody');
   }
 
   function renderReports() {
