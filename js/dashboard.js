@@ -10,6 +10,16 @@
   const usersPager = PMSUI.createPaginator({ pageSize: 12, onPageChange: () => renderUsers(usersOfficersOnly) });
   const prisonersPager = PMSUI.createPaginator({ pageSize: 15, onPageChange: renderPrisoners });
 
+  function notice(message, type = 'info', title) {
+    if (typeof PMSUI !== 'undefined' && PMSUI.notify) {
+      if (type === 'error') return PMSUI.showError(message, title || 'Unable to continue');
+      if (type === 'success') return PMSUI.showAlertDialog(message, { title: title || 'Completed', type: 'success', buttonLabel: 'Close' });
+      return PMSUI.notify(message, type, { title });
+    }
+    window.alert(message);
+    return Promise.resolve();
+  }
+
   const adminViewOnly = typeof PMSRBAC !== 'undefined' && PMSRBAC.isAdminViewOnly(actor);
 
   const panelTitles = {
@@ -485,15 +495,24 @@
     prisonersPager.renderControls('prisoners-pagination', prisoners.length);
     tbody.innerHTML = pageRows.map((p) => {
       const prog = PMSStorage.getPrisonerProgress(p);
+      const process = typeof PMSStorage.getParoleProcessProgress === 'function'
+        ? PMSStorage.getParoleProcessProgress(p)
+        : null;
       const months = PMSStorage.getSentenceDurationMonths(p);
       const app = appByPrisoner.get(p.id);
-      const paroleStage = app?.paroleProgress?.currentStage
+      const paroleStage = process?.currentStage
+        || app?.paroleProgress?.currentStage
         || (app ? PMSStorage.getCaseTracker(app.id).find((s) => s.status === 'current')?.label : null)
         || (app ? app.status : '—');
-      const stageMeta = app?.paroleProgress
-        ? `<span class="meta">${app.paroleProgress.completedStages}/${app.paroleProgress.totalStages} stages</span>`
-        : '';
+      const stageMeta = process
+        ? `<span class="meta">${process.percent}% complete</span>`
+        : (app?.paroleProgress
+          ? `<span class="meta">${app.paroleProgress.completedStages}/${app.paroleProgress.totalStages} stages</span>`
+          : '');
       const rowClass = prog.eligible ? 'row-eligible' : '';
+      const barPct = process ? process.percent : prog.percent;
+      const barTone = process?.tone || (prog.eligible ? 'eligible' : '');
+      const barLabel = process ? process.label : `${prog.percent.toFixed(0)}% served`;
       return `<tr class="${rowClass}">
         <td><strong>${esc(p.prisonerNumber)}</strong></td>
         <td>${esc(p.firstName)} ${esc(p.lastName)}</td>
@@ -502,8 +521,8 @@
         <td>${fmtDate(p.sentenceEndDate)}</td>
         <td>${Math.floor(months / 12)}y ${months % 12}m</td>
         <td class="progress-cell">
-          <div class="progress-bar"><div class="progress-fill${prog.eligible ? ' eligible' : ''}" style="width:${prog.percent.toFixed(0)}%"></div></div>
-          <span class="progress-label">${prog.percent.toFixed(0)}% served</span>
+          <div class="progress-bar" title="${esc(process?.detail || barLabel)}"><div class="progress-fill${barTone ? ` progress-fill--${barTone}` : ''}${!process && prog.eligible ? ' eligible' : ''}" style="width:${Math.max(0, Math.min(100, barPct))}%"></div></div>
+          <span class="progress-label">${esc(barLabel)}</span>
         </td>
         <td>${fmtDate(prog.eligibilityDate)}${prog.eligible ? ' <span class="eligible-tag">ELIGIBLE</span>' : ''}</td>
         <td><strong>${esc(paroleStage)}</strong>${stageMeta ? `<br>${stageMeta}` : ''}</td>
@@ -720,10 +739,10 @@
         const created = PMSStorage.getUsers().at(-1);
         if (created) {
           const pin = PMSStorage.getSigningPinForUser(created);
-          alert(`User created successfully.\nUser ID: ${created.id}${created.officerId ? `\nOfficer ID: ${created.officerId}` : ''}\nUsername: ${created.username}\nSigning PIN: ${pin}\n\nGive the password and PIN to the officer. The PIN is required to sign Forms 1–5.`);
+          notice(`User ID: ${created.id}${created.officerId ? `\nOfficer ID: ${created.officerId}` : ''}\nUsername: ${created.username}\nSigning PIN: ${pin}\nProvide the password and PIN to the officer. The PIN is required to sign Forms 1–5.`, 'success', 'User account created');
         }
       }
-    } catch (err) { alert(err.message); }
+    } catch (err) { notice(err.message, 'error'); }
   });
 
   // Reset password
@@ -732,8 +751,8 @@
     try {
       PMSStorage.resetPassword(document.getElementById('reset-user-id').value, document.getElementById('reset-password').value, actor);
       document.getElementById('reset-password-modal').close();
-      alert('Password reset successfully.');
-    } catch (err) { alert(err.message); }
+      notice('The password has been reset. Provide the new password to the officer.', 'success', 'Password reset');
+    } catch (err) { notice(err.message, 'error'); }
   });
 
   // Institution management moved to institutions.html
@@ -749,7 +768,7 @@
       paroleEligibilityLabel: labels[fraction] || `${fraction * 100}% of total sentence`,
       systemName: document.getElementById('system-name').value.trim(),
     }, actor);
-    alert('Settings saved. Eligibility notifications will use the updated rule.');
+    notice('Settings saved. Eligibility notifications will use the updated rule.', 'success', 'Settings updated');
     refreshAll();
   });
 
@@ -774,9 +793,9 @@
       if (!u || !confirm(`Generate a new 6-digit signing PIN for ${u.username}? The previous PIN will stop working.`)) return;
       try {
         const pin = PMSStorage.resetSigningPin(u.id, actor);
-        alert(`New signing PIN for ${u.username}:\n${pin}\n\nGive this PIN to the officer. It will not be shown again.`);
+        notice(`New signing PIN for ${u.username}:\n${pin}\nProvide this PIN to the officer. It will not be shown again.`, 'success', 'Signing PIN issued');
       } catch (err) {
-        alert(err.message);
+        notice(err.message, 'error');
       }
       return;
     }
@@ -792,7 +811,7 @@
     const deleteUser = e.target.closest('[data-delete-user]');
     if (deleteUser && confirm('Delete this user account?')) {
       try { PMSStorage.deleteUser(deleteUser.dataset.deleteUser, actor); refreshAll(); }
-      catch (err) { alert(err.message); }
+      catch (err) { notice(err.message, 'error'); }
       return;
     }
 

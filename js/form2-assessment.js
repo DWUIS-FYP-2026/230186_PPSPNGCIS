@@ -63,12 +63,14 @@ const PMSForm2Assessment = (() => {
   }
 
   function showToast(message, type = 'info') {
+    if (typeof PMSUI !== 'undefined' && PMSUI.notify) {
+      PMSUI.notify(message, type);
+      return;
+    }
     const existing = document.querySelector('.custom-toast');
     if (existing) existing.remove();
-    const colors = { success: '#1a7a5a', error: '#b22234', info: '#003366', warning: '#b8860b' };
     const toast = document.createElement('div');
-    toast.className = 'custom-toast';
-    toast.style.background = colors[type] || colors.info;
+    toast.className = `custom-toast custom-toast--${type || 'info'}`;
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => {
@@ -1060,8 +1062,8 @@ const PMSForm2Assessment = (() => {
     app = PMSStorage.getApplicationById(appId);
     prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
     if (!app || !prisoner) {
-      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application or detainee record not found.');
-      else alert('Application or detainee record not found.');
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('This application or detainee record could not be found.', 'Record not found');
+      else window.alert('This application or detainee record could not be found.');
       window.location.href = typeof PMSPageChrome !== 'undefined'
         ? PMSPageChrome.getDashboardHref('../')
         : '../dashboard.html';
@@ -1144,8 +1146,8 @@ const PMSForm2Assessment = (() => {
         || f1?.status === 'submitted'
         || ['REPORT_PREPARATION', 'Pending Commander Review'].includes(checkApp?.status);
       if (!form1Ready && typeof PMSFormWorkflow !== 'undefined' && !PMSFormWorkflow.canAccess(resolvedAppId, 2)) {
-        if (typeof PMSUI !== 'undefined') PMSUI.showError('Form 1 must be completed before accessing Form 2.');
-        else alert('Form 1 must be completed before accessing Form 2.');
+        if (typeof PMSUI !== 'undefined') PMSUI.showError('Form 1 must be completed before Form 2 can be opened.', 'Form 2 is not available yet');
+        else window.alert('Form 1 must be completed before Form 2 can be opened.');
         window.location.href = `form1.html?appId=${encodeURIComponent(resolvedAppId)}`;
         return;
       }

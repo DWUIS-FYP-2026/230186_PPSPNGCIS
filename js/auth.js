@@ -148,11 +148,14 @@ const PMSAuth = (() => {
 
   function showPermissionError(err) {
     const msg = err?.message || 'You do not have permission to perform this action.';
-    if (err?.code === 403) {
-      alert(`${msg}\n\nThis incident has been recorded in the audit log.`);
-    } else {
-      alert(msg);
+    const detail = err?.code === 403
+      ? `${msg}\nThis incident has been recorded in the audit log.`
+      : msg;
+    if (typeof PMSUI !== 'undefined' && PMSUI.showError) {
+      PMSUI.showError(detail, 'Access restricted');
+      return;
     }
+    window.alert(detail);
   }
 
   function redirectAfterLogin(user) {

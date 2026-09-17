@@ -926,20 +926,38 @@
     .lp-toast {
       pointer-events: auto;
       min-width: 280px;
-      max-width: 360px;
-      padding: 0.85rem 1rem;
+      max-width: 380px;
+      padding: 0.95rem 1.1rem;
       background: var(--lp-card);
-      border-radius: 10px;
-      box-shadow: 0 8px 32px rgba(13, 43, 78, 0.15);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(13, 43, 78, 0.16);
       font-size: 0.875rem;
       font-weight: 500;
       color: var(--lp-text);
       border-left: 4px solid var(--lp-secondary);
       animation: lpToastIn 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .lp-toast__title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .lp-toast__message {
+      line-height: 1.45;
+      color: var(--lp-text);
     }
 
     .lp-toast--error { border-left-color: #c53030; }
+    .lp-toast--error .lp-toast__title { color: #b91c1c; }
     .lp-toast--success { border-left-color: var(--lp-secondary); }
+    .lp-toast--warning { border-left-color: #d97706; }
 
     @keyframes lpToastIn {
       from { opacity: 0; transform: translateX(20px); }
@@ -1347,13 +1365,16 @@
         if (!wrap) return;
         const toast = document.createElement('div');
         toast.className = `lp-toast lp-toast--${type}`;
-        toast.textContent = message;
+        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        const title = type === 'error' ? 'Unable to sign in' : (type === 'warning' ? 'Action required' : 'Notice');
+        toast.innerHTML = `<strong class="lp-toast__title">${title}</strong><span class="lp-toast__message"></span>`;
+        toast.querySelector('.lp-toast__message').textContent = message;
         wrap.appendChild(toast);
         setTimeout(() => {
           toast.style.opacity = '0';
           toast.style.transition = 'opacity 0.35s';
           setTimeout(() => toast.remove(), 400);
-        }, 4000);
+        }, 5000);
       };
 
       window.showLoginWelcome = function(name) {

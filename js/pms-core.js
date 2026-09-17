@@ -25,6 +25,7 @@ const PMSCore = (() => {
 
   const FORM_CHAIN = [
     'id-generator.js',
+    'eligibility-engine.js',
     'storage.js',
     'auth.js',
     'rbac.js',
@@ -87,9 +88,9 @@ const PMSCore = (() => {
     } catch (err) {
       console.error('Dashboard boot failed:', err);
       const msg = document.createElement('div');
-      msg.className = 'cal-error';
-      msg.style.margin = '2rem';
-      msg.textContent = `Failed to load dashboard: ${err.message || 'Unknown error'}. Try refreshing the page.`;
+      msg.className = 'pms-boot-error';
+      msg.style.cssText = 'margin:2rem auto;max-width:32rem;padding:1.25rem 1.5rem;background:#fff;border:1px solid #e2e8f0;border-left:4px solid #b91c1c;border-radius:12px;color:#0f172a;font-family:Inter,system-ui,sans-serif;';
+      msg.innerHTML = `<strong style="display:block;margin-bottom:0.35rem;">Dashboard could not be loaded</strong><span>${(err.message || 'An unexpected error occurred').replace(/</g, '')}. Refresh the page and try again.</span>`;
       document.body.prepend(msg);
       throw err;
     }

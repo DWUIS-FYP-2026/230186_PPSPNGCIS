@@ -96,7 +96,11 @@ const PMSForm4Grant = (() => {
       }
     }
 
-    function showToast(msg) {
+    function showToast(msg, type) {
+      if (typeof PMSUI !== 'undefined' && PMSUI.notify) {
+        PMSUI.notify(msg, type || 'info');
+        return;
+      }
       toast.textContent = msg;
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 3500);

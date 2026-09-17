@@ -2206,17 +2206,23 @@ body.pms-portal-page {
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
-  padding: 0.875rem 1.25rem;
-  border-radius: 8px;
-  color: #fff;
+  padding: 0.95rem 1.2rem;
+  border-radius: 12px;
+  color: #0f172a;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.45;
   z-index: 9999;
-  box-shadow: var(--shadow-md);
-  background: var(--lp-primary, var(--pngcs-navy));
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.16);
+  background: #fff;
+  border: 1px solid #e2e8f0;
   border-left: 4px solid var(--lp-secondary, var(--pngcs-gold));
   max-width: 24rem;
 }
+
+.pms-form-page .custom-toast--error { border-left-color: #dc2626; }
+.pms-form-page .custom-toast--warning { border-left-color: #d97706; }
+.pms-form-page .custom-toast--success { border-left-color: #15803d; }
 
 @media (max-width: 1024px) {
   .pms-form-page--form2 .reports-hub__grid { grid-template-columns: 1fr; }

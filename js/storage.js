@@ -1309,27 +1309,83 @@ const PMSStorage = (() => {
     })[0];
   }
 
+  function applicationHasDatedHearing(app) {
+    if (!app) return false;
+    if (['Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review'].includes(app.status)) return true;
+    return getHearingsByApplication(app.id).some((h) => h.scheduledDate && h.status !== 'Cancelled');
+  }
+
+  function applicationAssessmentStarted(app) {
+    if (!app) return false;
+    if (['Submitted', 'Under DJAG Review', 'Returned for Correction', 'Pending Commander Review', 'Pre-Parole Report Prepared'].includes(app.status)) {
+      return true;
+    }
+    return app.status === 'Draft' && isForm1Complete(app.formData?.form1);
+  }
+
   function prisonerStatusFromApplication(prisoner, app) {
     if (!prisoner) return null;
     if (prisoner.releasedOnParoleAt || app?.status === 'Released' || app?.releaseInfo?.authorizedAt) {
       return 'Released on Parole';
     }
-    if (!app) return prisoner.status;
+    if (!app) {
+      const prog = getPrisonerProgress(prisoner);
+      if (prog.eligible) return 'Eligible for Parole Application';
+      return prisoner.status || 'Awaiting Eligibility';
+    }
     const status = app.status;
     if (status === 'Released') return 'Released on Parole';
     if (status === 'Approved' || status === 'Parole Granted' || status === 'Pending Approval') return 'Approved';
     if (status === 'Refused' || status === 'Parole Refused') return 'Refused';
-    if (status === 'Hearing Scheduled' || status === 'Hearing In Progress') return 'Hearing Scheduled';
     if (status === 'Pending Board Review') return 'Board Review';
-    if (['Pre-Parole Report Prepared', 'Pending Commander Review', 'Submitted', 'Under DJAG Review', 'Returned for Correction'].includes(status)) {
-      return 'Assessment in Progress';
-    }
-    if (status === 'Draft') {
+    if (applicationHasDatedHearing(app)) return 'Hearing Scheduled';
+    if (applicationAssessmentStarted(app)) return 'Assessment in Progress';
+    if (status === 'Draft' || status === 'Deferred') {
       const prog = getPrisonerProgress(prisoner);
       return prog.eligible ? 'Eligible for Parole Application' : (prisoner.status || 'Awaiting Eligibility');
     }
-    if (status === 'Deferred') return 'Eligible for Parole Application';
     return prisoner.status;
+  }
+
+  function getParoleProcessProgress(prisoner) {
+    const sentence = getPrisonerProgress(prisoner);
+    const app = prisoner?.id ? getCanonicalApplication(prisoner.id) : null;
+    if (!app) {
+      if (sentence.eligible) {
+        return {
+          percent: 10,
+          label: 'Eligible · Form 1 pending',
+          detail: `Sentence served ${sentence.percent.toFixed(0)}%. Start Form 1 to open a parole case.`,
+          currentStage: 'Eligible for Parole Application',
+          tone: 'eligible',
+        };
+      }
+      return {
+        percent: Math.min(8, Math.round(sentence.percent / 12)),
+        label: `Awaiting eligibility · ${sentence.percent.toFixed(0)}% served`,
+        detail: sentence.eligibilityDate
+          ? `Eligible from ${sentence.eligibilityDate}`
+          : 'Eligibility date is not yet available.',
+        currentStage: 'Awaiting Eligibility',
+        tone: '',
+      };
+    }
+    const tracker = getCaseTracker(app.id);
+    const done = tracker.filter((s) => s.done).length;
+    const total = tracker.length || 1;
+    const current = tracker.find((s) => s.status === 'current') || tracker.find((s) => !s.done);
+    let percent = Math.round((done / total) * 100);
+    if (percent === 0 && isForm1Complete(app.formData?.form1)) percent = 20;
+    const refused = ['Refused', 'Parole Refused'].includes(app.status);
+    const granted = ['Approved', 'Parole Granted', 'Released', 'Pending Approval'].includes(app.status)
+      || prisoner.status === 'Released on Parole';
+    return {
+      percent,
+      label: current ? `${current.label} · ${done}/${total}` : `${done}/${total} stages`,
+      detail: `${app.status} · ${done} of ${total} process stages complete`,
+      currentStage: current?.label || app.status,
+      tone: refused ? 'refused' : (granted ? 'complete' : (percent >= 20 ? 'active' : 'eligible')),
+    };
   }
 
   function syncPrisonerParoleStatus(prisoner, app) {
@@ -1911,7 +1967,7 @@ const PMSStorage = (() => {
       { id: 'form2', label: 'Form 2', done: summary.checks.form2 },
       { id: 'form3', label: 'Form 3', done: summary.checks.form3 },
       { id: 'commander', label: 'Institutional Verification', done: isCommanderVerified(app) },
-      { id: 'hearing', label: 'Hearing Scheduled', done: getHearingsByApplication(appId).some((h) => !['Cancelled', 'Pending'].includes(h.status)) },
+      { id: 'hearing', label: 'Hearing Scheduled', done: getHearingsByApplication(appId).some((h) => h.scheduledDate && h.status !== 'Cancelled') },
       { id: 'assessment', label: 'Board Assessment', done: requiredBoardAssessmentsComplete(app) },
       { id: 'decision', label: 'Decision', done: score.complete || isForm4Complete(app.formData?.form4) || isForm5Complete(app.formData?.form5) },
       { id: 'approval', label: 'Approval', done: requiredApprovalsComplete(app) || app.status === 'Approved' },
@@ -2566,7 +2622,14 @@ const PMSStorage = (() => {
 
   function syncApplicationWorkflowState(app) {
     if (!app) return false;
-    let changed = promoteToCommanderReviewIfReady(app);
+    let changed = false;
+    if (app.status === 'Draft' && isForm1Complete(app.formData?.form1)) {
+      app.status = 'Submitted';
+      app.updatedAt = new Date().toISOString();
+      if (!app.submittedAt) app.submittedAt = app.updatedAt;
+      changed = true;
+    }
+    if (promoteToCommanderReviewIfReady(app)) changed = true;
     if (reconcileCommanderVerification(app)) changed = true;
     const hearing = findActiveHearingRecord(app.id);
     if (hearing?.scheduledDate && ['Pre-Parole Report Prepared', 'Pending Commander Review', 'Submitted', 'Under DJAG Review'].includes(app.status)) {
@@ -6227,6 +6290,7 @@ const PMSStorage = (() => {
     getPrisonersByInstitution, getInstitutionStats,
     assignJailCommander, saveInstitution, deleteInstitution, getOfficersByInstitution,
     getPrisoners, getPrisonerById, getCanonicalApplication, getSentenceDurationMonths, getParoleEligibilityDate, getPrisonerProgress,
+    getParoleProcessProgress, prisonerStatusFromApplication,
     hasMetEligibilityThreshold, isEligibleParoleApplicant, getEligibleParoleApplicants, countEligibleParoleApplicants,
     isParoleGrantComplete, isParoleApplicationRefused, notifyDataChange,
     savePrisoner, deletePrisoner, addPrisonerDocument, removePrisonerDocument, addCaseDocument, getCaseDocuments,

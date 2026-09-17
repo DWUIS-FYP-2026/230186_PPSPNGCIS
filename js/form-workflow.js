@@ -54,8 +54,8 @@ const PMSFormWorkflow = (() => {
   ];
 
   function showWorkflowAlert(message) {
-    if (typeof PMSUI !== 'undefined') PMSUI.showError(message);
-    else alert(message);
+    if (typeof PMSUI !== 'undefined' && PMSUI.showError) PMSUI.showError(message);
+    else window.alert(message);
   }
 
   function getSessionUser() {

@@ -77,7 +77,7 @@ document.getElementById('forgot-form')?.addEventListener('submit', async (e) => 
   const errEl = document.getElementById('forgot-error');
   const btn = document.getElementById('forgot-submit-btn');
   if (!identifier) {
-    if (errEl) errEl.textContent = 'Username is required';
+    if (errEl) errEl.textContent = 'Enter your username to continue.';
     return;
   }
   if (errEl) errEl.textContent = '';
@@ -227,9 +227,9 @@ form?.addEventListener('submit', async (e) => {
       } catch (apiErr) {
         const canUseLocalAuth = !apiErr.status || apiErr.status === 401 || apiErr.status >= 500;
         if (!canUseLocalAuth) {
-          setFieldError(passwordInput, passwordError, apiErr.message || 'Login failed.');
+          setFieldError(passwordInput, passwordError, apiErr.message || 'Sign-in could not be completed. Please try again.');
           if (typeof window.showLandingToast === 'function') {
-            window.showLandingToast(apiErr.message || 'Login failed.', 'error');
+            window.showLandingToast(apiErr.message || 'Sign-in could not be completed. Please try again.', 'error');
           }
           return;
         }
@@ -239,9 +239,9 @@ form?.addEventListener('submit', async (e) => {
     await PMSStorage.ensureLoaded();
     const user = PMSStorage.authenticate(identifier, password);
     if (!user) {
-      setFieldError(passwordInput, passwordError, 'Invalid credentials or inactive account');
+      setFieldError(passwordInput, passwordError, 'Sign-in unsuccessful. Check your username and password, or contact the system administrator if the account is inactive.');
       if (typeof window.showLandingToast === 'function') {
-        window.showLandingToast('Invalid credentials or inactive account', 'error');
+        window.showLandingToast('Sign-in unsuccessful. Check your username and password, or contact the system administrator if the account is inactive.', 'error');
       }
       return;
     }
@@ -249,9 +249,9 @@ form?.addEventListener('submit', async (e) => {
     redirecting = true;
     handleLoginSuccess(user);
   } catch (err) {
-    setFieldError(passwordInput, passwordError, err.message || 'Login failed.');
+    setFieldError(passwordInput, passwordError, err.message || 'Sign-in could not be completed. Please try again.');
     if (typeof window.showLandingToast === 'function') {
-      window.showLandingToast(err.message || 'Login failed.', 'error');
+      window.showLandingToast(err.message || 'Sign-in could not be completed. Please try again.', 'error');
     }
   } finally {
     if (!redirecting) setLoading(false);

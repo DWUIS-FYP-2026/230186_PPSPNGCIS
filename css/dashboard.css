@@ -1339,13 +1339,27 @@ body.sidebar-collapsed .main-content {
   transition: width 0.3s;
 }
 
-.progress-fill.eligible {
+.progress-fill.eligible,
+.progress-fill--eligible {
   background: var(--color-red);
+}
+
+.progress-fill--active {
+  background: linear-gradient(90deg, var(--pngcs-navy, #0d2b4e), var(--color-burgundy-light, #9b2335));
+}
+
+.progress-fill--complete {
+  background: #15803d;
+}
+
+.progress-fill--refused {
+  background: #b91c1c;
 }
 
 .progress-label {
   font-size: 0.6875rem;
   color: var(--color-text-muted);
+  line-height: 1.35;
 }
 
 /* Status pills */

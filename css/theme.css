@@ -674,6 +674,19 @@ a:hover {
   font-size: 0.9375rem;
   line-height: 1.45;
   color: #0f172a;
+  white-space: pre-wrap;
+}
+
+.pms-toast__list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.pms-toast__list li + li {
+  margin-top: 0.2rem;
 }
 
 .pms-toast__close {
@@ -776,6 +789,19 @@ a:hover {
   line-height: 1.55;
   color: #475569;
   white-space: pre-line;
+}
+
+.pms-alert-dialog__list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.15rem;
+  text-align: left;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.pms-alert-dialog__list li + li {
+  margin-top: 0.3rem;
 }
 
 .pms-alert-dialog__actions {

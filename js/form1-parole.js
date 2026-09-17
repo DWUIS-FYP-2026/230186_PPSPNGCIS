@@ -210,7 +210,7 @@ const PMSForm1Parole = (() => {
     }
     if (!PMSFormOfficerAuth.requireVerified(officerAuth, {
       showToast,
-      message: 'Enter your 6-digit PIN and click Verify & Sign before submitting Form 1.',
+      message: 'Enter your 6-digit signing PIN and select Verify & Sign before submitting Form 1.',
     })) {
       return false;
     }
@@ -218,12 +218,14 @@ const PMSForm1Parole = (() => {
   }
 
   function showToast(message, type = 'info') {
+    if (typeof PMSUI !== 'undefined' && PMSUI.notify) {
+      PMSUI.notify(message, type);
+      return;
+    }
     const existing = document.querySelector('.custom-toast');
     if (existing) existing.remove();
-    const colors = { success: '#2a9d8f', error: '#e63946', info: '#1a1a2e', warning: '#b8860b' };
     const toast = document.createElement('div');
-    toast.className = 'custom-toast';
-    toast.style.background = colors[type] || colors.info;
+    toast.className = `custom-toast custom-toast--${type || 'info'}`;
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => {
@@ -385,8 +387,8 @@ const PMSForm1Parole = (() => {
     app = PMSStorage.getApplicationById(appId);
     prisoner = app ? PMSStorage.getPrisonerById(app.prisonerId) : null;
     if (!app || !prisoner) {
-      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application or detainee record not found.');
-      else alert('Application or detainee record not found.');
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('This application or detainee record could not be found.', 'Record not found');
+      else window.alert('This application or detainee record could not be found.');
       window.location.href = typeof PMSPageChrome !== 'undefined'
         ? PMSPageChrome.getDashboardHref('../')
         : '../dashboard.html';

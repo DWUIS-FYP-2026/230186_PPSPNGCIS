@@ -399,11 +399,9 @@
     const validation = PMSEligibility.validateSentenceDates(ssd, sed);
 
     if (!validation.valid) {
-
-      alert(validation.error);
-
+      if (typeof PMSUI !== 'undefined' && PMSUI.showError) PMSUI.showError(validation.error, 'Check sentence dates');
+      else window.alert(validation.error);
       return;
-
     }
 
     const submitBtn = e.target.querySelector('[type="submit"]');

@@ -150,7 +150,8 @@ const PMSUI = (() => {
       Active: 'active', 'Awaiting Eligibility': 'in-custody', 'In Custody': 'in-custody',
       'Eligible for Parole Application': 'eligible', 'Eligible for Parole': 'eligible',
       'Assessment in Progress': 'pending', 'Parole Application Pending': 'pending',
-      'Hearing Scheduled': 'pending', 'Hearing In Progress': 'pending', Approved: 'active', 'On Parole': 'parole',
+      'Hearing Scheduled': 'pending', 'Hearing In Progress': 'pending', 'Board Review': 'pending',
+      Approved: 'active', 'On Parole': 'parole', 'Released on Parole': 'released',
       Rejected: 'eligible', Refused: 'eligible', Released: 'released',
       'Sentence Completed': 'inactive', Deferred: 'leave',
       Draft: 'inactive', Submitted: 'pending', 'Returned for Correction': 'eligible',
@@ -648,26 +649,56 @@ const PMSUI = (() => {
     });
   }
 
-  function showToast(message, type = 'success', durationMs = 4000) {
+  const NOTICE_TITLES = {
+    success: 'Completed',
+    error: 'Unable to continue',
+    warning: 'Action required',
+    info: 'Notice',
+  };
+
+  function inferNoticeType(message, fallback = 'info') {
+    if (fallback && fallback !== 'info') return fallback;
+    const t = String(message || '').toLowerCase();
+    if (/required|please |must |select |enter |complete |provide /.test(t)) return 'warning';
+    if (/fail|invalid|denied|unable|could not|not found|error|unauthori[sz]ed/.test(t)) return 'error';
+    if (/saved|success|issued|recorded|signed|scheduled|verified|updated/.test(t)) return 'success';
+    return fallback || 'info';
+  }
+
+  function formatNoticeLines(message) {
+    return String(message || '')
+      .replace(/\r/g, '')
+      .split('\n')
+      .map((line) => line.replace(/^[\s•\-]+/, '').trim())
+      .filter(Boolean);
+  }
+
+  function showToast(message, type = 'success', durationMs = 4500, title) {
+    const kind = inferNoticeType(message, type);
     let host = document.getElementById('pms-toast-host');
     if (!host) {
       host = document.createElement('div');
       host.id = 'pms-toast-host';
       host.className = 'pms-toast-host';
-      host.setAttribute('aria-live', 'polite');
+      host.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
       document.body.appendChild(host);
     }
     const toast = document.createElement('div');
-    toast.className = `pms-toast pms-toast--${type}`;
+    toast.className = `pms-toast pms-toast--${kind}`;
+    toast.setAttribute('role', kind === 'error' || kind === 'warning' ? 'alert' : 'status');
     const icons = {
       success: 'fi fi-rr-check-circle',
       error: 'fi fi-rr-cross-circle',
       warning: 'fi fi-rr-triangle-warning',
       info: 'fi fi-rr-info',
     };
-    const titles = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Notice' };
-    toast.innerHTML = `<div class="pms-toast__icon"><i class="${icons[type] || icons.info}" aria-hidden="true"></i></div>
-      <div class="pms-toast__body"><strong class="pms-toast__title">${esc(titles[type] || 'Notice')}</strong><span class="pms-toast__message">${esc(message)}</span></div>
+    const heading = title || NOTICE_TITLES[kind] || 'Notice';
+    const lines = formatNoticeLines(message);
+    const body = lines.length > 1
+      ? `<span class="pms-toast__message">${esc(lines[0])}</span><ul class="pms-toast__list">${lines.slice(1).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`
+      : `<span class="pms-toast__message">${esc(lines[0] || String(message || ''))}</span>`;
+    toast.innerHTML = `<div class="pms-toast__icon"><i class="${icons[kind] || icons.info}" aria-hidden="true"></i></div>
+      <div class="pms-toast__body"><strong class="pms-toast__title">${esc(heading)}</strong>${body}</div>
       <button type="button" class="pms-toast__close" aria-label="Dismiss">&times;</button>`;
     host.appendChild(toast);
     toast.querySelector('.pms-toast__close')?.addEventListener('click', () => {
@@ -682,7 +713,8 @@ const PMSUI = (() => {
   }
 
   function showAlertDialog(message, options = {}) {
-    const { title = 'Notice', type = 'info', buttonLabel = 'OK' } = options;
+    const kind = inferNoticeType(message, options.type || 'info');
+    const { title = NOTICE_TITLES[kind] || 'Notice', buttonLabel = 'OK' } = options;
     return new Promise((resolve) => {
       let overlay = document.getElementById('pms-alert-modal');
       if (!overlay) {
@@ -693,7 +725,7 @@ const PMSUI = (() => {
           <div class="pms-alert-dialog__icon" id="pms-alert-icon"></div>
           <div class="pms-alert-dialog__content">
             <h2 class="pms-alert-dialog__title" id="pms-alert-title"></h2>
-            <p class="pms-alert-dialog__message" id="pms-alert-message"></p>
+            <div class="pms-alert-dialog__body" id="pms-alert-message"></div>
           </div>
           <div class="pms-alert-dialog__actions">
             <button type="button" class="btn-primary" id="pms-alert-ok">OK</button>
@@ -707,10 +739,16 @@ const PMSUI = (() => {
         info: 'fi fi-rr-info',
         warning: 'fi fi-rr-triangle-warning',
       };
-      overlay.className = `pms-alert-overlay pms-alert-overlay--${type}`;
-      overlay.querySelector('#pms-alert-icon').innerHTML = `<i class="${icons[type] || icons.info}" aria-hidden="true"></i>`;
+      overlay.className = `pms-alert-overlay pms-alert-overlay--${kind}`;
+      overlay.querySelector('#pms-alert-icon').innerHTML = `<i class="${icons[kind] || icons.info}" aria-hidden="true"></i>`;
       overlay.querySelector('#pms-alert-title').textContent = title;
-      overlay.querySelector('#pms-alert-message').textContent = message;
+      const lines = formatNoticeLines(message);
+      const bodyEl = overlay.querySelector('#pms-alert-message');
+      if (lines.length > 1) {
+        bodyEl.innerHTML = `<p class="pms-alert-dialog__message">${esc(lines[0])}</p><ul class="pms-alert-dialog__list">${lines.slice(1).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`;
+      } else {
+        bodyEl.innerHTML = `<p class="pms-alert-dialog__message">${esc(lines[0] || String(message || ''))}</p>`;
+      }
       overlay.querySelector('#pms-alert-ok').textContent = buttonLabel;
       overlay.classList.remove('hidden');
       const cleanup = () => {
@@ -724,12 +762,30 @@ const PMSUI = (() => {
     });
   }
 
-  function showError(message, title = 'Unable to complete action') {
+  function showError(message, title = 'Unable to continue') {
     return showAlertDialog(message, { title, type: 'error', buttonLabel: 'Dismiss' });
   }
 
-  function showSuccess(message, title = 'Success') {
-    showToast(message, 'success');
+  function showWarning(message, title = 'Action required') {
+    showToast(message, 'warning', 5500, title);
+    return Promise.resolve();
+  }
+
+  function showSuccess(message, title = 'Completed') {
+    showToast(message, 'success', 4000, title);
+    return Promise.resolve();
+  }
+
+  function notify(message, type = 'info', options = {}) {
+    const kind = inferNoticeType(message, type);
+    const title = options.title || NOTICE_TITLES[kind];
+    if (options.modal || (kind === 'error' && options.blocking !== false && String(message || '').length > 160)) {
+      return showAlertDialog(message, { title, type: kind, buttonLabel: options.buttonLabel || (kind === 'error' ? 'Dismiss' : 'OK') });
+    }
+    if (kind === 'error' && options.modal !== false && options.blocking) {
+      return showAlertDialog(message, { title, type: kind, buttonLabel: options.buttonLabel || 'Dismiss' });
+    }
+    showToast(message, kind, options.durationMs || (kind === 'error' ? 6000 : 4500), title);
     return Promise.resolve();
   }
 
@@ -833,9 +889,18 @@ const PMSUI = (() => {
   }
 
   function progressBar(prisoner) {
+    const process = typeof PMSStorage.getParoleProcessProgress === 'function'
+      ? PMSStorage.getParoleProcessProgress(prisoner)
+      : null;
     const prog = PMSStorage.getPrisonerProgress(prisoner);
-    return `<div class="progress-bar"><div class="progress-fill${prog.eligible ? ' eligible' : ''}" style="width:${prog.percent.toFixed(0)}%"></div></div>
-      <span class="progress-label">${prog.percent.toFixed(0)}% · Eligible ${fmtDate(prog.eligibilityDate)}</span>`;
+    const percent = process ? process.percent : prog.percent;
+    const tone = process?.tone || (prog.eligible ? 'eligible' : '');
+    const label = process
+      ? process.label
+      : `${prog.percent.toFixed(0)}% · Eligible ${fmtDate(prog.eligibilityDate)}`;
+    const title = process?.detail || label;
+    return `<div class="progress-bar" title="${esc(title)}"><div class="progress-fill${tone ? ` progress-fill--${tone}` : ''}${!process && prog.eligible ? ' eligible' : ''}" style="width:${Math.max(0, Math.min(100, percent))}%"></div></div>
+      <span class="progress-label">${esc(label)}</span>`;
   }
 
   function applyDeepLinkNav(switchFn) {
@@ -1132,7 +1197,7 @@ const PMSUI = (() => {
     getActionMessageCount, resolveNotificationLink,
     renderOverviewNotificationRow, syncOverviewNotifHeader, notificationStatusBadge, bindOverviewNotifications,
     bindModalClose, progressBar, applyDeepLinkNav, highlightDeepLinkRow, getDeepLinkParam, showToast,
-    showAlertDialog, showError, showSuccess, bindStatCards, showStatDrilldown, hideStatDrilldown,
+    showAlertDialog, showError, showWarning, showSuccess, notify, bindStatCards, showStatDrilldown, hideStatDrilldown,
     prisonerDrilldownRow, appDrilldownRow,
     confirmDialog, showLoading, hideLoading, createPaginator,
     renderCaseTracker, renderApplicationActionButtons, applicationRowAttributes,

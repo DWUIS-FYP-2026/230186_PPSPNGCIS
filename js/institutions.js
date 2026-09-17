@@ -173,7 +173,8 @@
       populateFilters();
       renderTable();
     } catch (err) {
-      alert(err.message);
+      if (typeof PMSUI !== 'undefined' && PMSUI.showError) PMSUI.showError(err.message, 'Could not save institution');
+      else window.alert(err.message);
     }
   });
 

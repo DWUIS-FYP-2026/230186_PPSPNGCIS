@@ -173,7 +173,11 @@ const PMSHearingPortal = (() => {
     if (modal) modal.hidden = true;
   }
 
-  function showToast(msg) {
+  function showToast(msg, type) {
+    if (typeof PMSUI !== 'undefined' && PMSUI.notify) {
+      PMSUI.notify(msg, type || 'info');
+      return;
+    }
     const el = $('toast');
     if (!el) return;
     el.textContent = msg;
@@ -504,7 +508,7 @@ const PMSHearingPortal = (() => {
       alert.textContent = `Hearing scheduled ${PMSUI.fmtDate(hearing.scheduledDate)}${hearing.scheduledTime ? ` at ${hearing.scheduledTime}` : ''} · Deadline ${PMSUI.fmtDate(info.deadlineAt)}`;
     } else if (info.overdue) {
       alert.classList.add('overdue');
-      alert.textContent = `Hearing deadline exceeded (${Math.abs(info.daysRemaining)} days overdue). Schedule immediately or record an authorized exception.`;
+      alert.textContent = `The 14-day hearing window has passed (${Math.abs(info.daysRemaining)} days overdue). Please schedule a hearing or record an authorised exception.`;
     } else {
       alert.textContent = `${info.daysRemaining} day(s) remaining to schedule within the 14-day requirement (deadline: ${PMSUI.fmtDate(info.deadlineAt)}).`;
     }

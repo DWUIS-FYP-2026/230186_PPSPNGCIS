@@ -90,7 +90,7 @@ const PMSEligibility = (() => {
       const now = new Date(today);
       now.setHours(0, 0, 0, 0);
       if (now > sed) {
-        if (p.status === 'Approved' || p.status === 'Released') return 'Released';
+        if (p.status === 'Approved' || p.status === 'Released' || p.status === 'Released on Parole') return 'Released';
         return 'Sentence Completed';
       }
     }
@@ -98,6 +98,10 @@ const PMSEligibility = (() => {
     if (p.status === 'Released' || p.status === 'Released on Parole') return p.status === 'Released' ? 'Released' : 'Released on Parole';
 
     const app = getActiveApplication(p.id, applications);
+    if (typeof PMSStorage?.prisonerStatusFromApplication === 'function') {
+      const fromApp = PMSStorage.prisonerStatusFromApplication(p, app);
+      if (fromApp) return fromApp;
+    }
     if (app) {
       if (app.status === 'Released' || app.releaseInfo?.authorizedAt) return 'Released on Parole';
       if (app.status === 'Approved' || app.status === 'Parole Granted' || app.status === 'Pending Approval') return 'Approved';

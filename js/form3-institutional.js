@@ -16,7 +16,11 @@ const PMSForm3Institutional = (() => {
   let officerAuth = null;
   let submitGate = null;
 
-  function showToast(msg) {
+  function showToast(msg, type) {
+    if (typeof PMSUI !== 'undefined' && PMSUI.notify) {
+      PMSUI.notify(msg, type || 'info');
+      return;
+    }
     const toast = $('toast');
     if (!toast) return;
     toast.textContent = msg;
@@ -166,7 +170,7 @@ const PMSForm3Institutional = (() => {
     }
     if (info.overdue) {
       alert.classList.add('overdue');
-      alert.textContent = `Hearing deadline exceeded (${Math.abs(info.daysRemaining)} days overdue). Awaiting DJAG Secretary to schedule.`;
+      alert.textContent = `The 14-day hearing window has passed (${Math.abs(info.daysRemaining)} days overdue). The DJAG Secretary must schedule the hearing.`;
       return;
     }
     alert.textContent = `${info.daysRemaining} day(s) remaining to schedule within the 14-day requirement (deadline: ${fmtDate(info.deadlineAt)}).`;

@@ -70,16 +70,16 @@ const PMSForms = (() => {
     }
 
     if (!appId) {
-      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application ID required');
-      else alert('Application ID required');
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('An application ID is required to open this form.', 'Form cannot be opened');
+      else window.alert('An application ID is required to open this form.');
       window.history.back();
       return null;
     }
 
     const app = PMSStorage.getApplicationById(appId);
     if (!app) {
-      if (typeof PMSUI !== 'undefined') PMSUI.showError('Application not found');
-      else alert('Application not found');
+      if (typeof PMSUI !== 'undefined') PMSUI.showError('This application could not be found. Return to the dashboard and open the case again.', 'Application not found');
+      else window.alert('This application could not be found.');
       window.history.back();
       return null;
     }
@@ -199,8 +199,8 @@ const PMSForms = (() => {
   async function saveAsync(formKey, ctx) {
     const data = collectFormData();
     await PMSStorage.saveFormData(ctx.appId, formKey, data, ctx.user);
-    if (typeof PMSUI !== 'undefined') PMSUI.showSuccess('Form saved successfully.');
-    else alert('Form saved successfully.');
+    if (typeof PMSUI !== 'undefined') PMSUI.showSuccess('The form has been saved.');
+    else window.alert('The form has been saved.');
   }
 
   function openForm(formNumber, appId) {

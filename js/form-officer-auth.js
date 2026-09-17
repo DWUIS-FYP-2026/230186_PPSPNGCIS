@@ -62,8 +62,8 @@ const PMSFormOfficerAuth = (() => {
           <input type="password" class="officer-auth__pin-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="••••••" aria-label="6-digit signing PIN">
           <button type="button" class="officer-auth__verify-btn">Verify &amp; Sign</button>
         </div>
-        <div class="officer-auth__success hidden" role="status">Identity verified successfully.</div>
-        <div class="officer-auth__error hidden" role="alert">Invalid PIN. Please try again.</div>
+        <div class="officer-auth__success hidden" role="status">Identity verified. This form is now digitally signed.</div>
+        <div class="officer-auth__error hidden" role="alert">The PIN entered is not recognised. Enter your 6-digit signing PIN and try again.</div>
       </div>
     </div>
     <aside class="officer-auth__id-block" aria-live="polite">
@@ -275,7 +275,7 @@ const PMSFormOfficerAuth = (() => {
         qs(root, '.officer-auth__id-status-text').textContent = 'Awaiting Verification';
         qs(root, '.officer-auth__id-timestamp').textContent = '—';
         qs(root, '.officer-auth__hash').textContent = 'SHA-256: —';
-        if (successMsg) successMsg.textContent = 'Identity verified successfully.';
+        if (successMsg) successMsg.textContent = 'Identity verified. This form is now digitally signed.';
         pinInput.value = '';
         pinInput.disabled = readOnly;
         verifyBtn.disabled = readOnly;
@@ -297,7 +297,7 @@ const PMSFormOfficerAuth = (() => {
       section?.querySelector('.officer-auth__pin-input')?.focus();
     }
     const msg = options.message
-      || 'Enter your 6-digit PIN and click Verify & Sign before submitting.';
+      || 'Enter your 6-digit signing PIN and select Verify & Sign before submitting.';
     if (typeof options.showToast === 'function') {
       options.showToast(msg, options.type || 'error');
     }
