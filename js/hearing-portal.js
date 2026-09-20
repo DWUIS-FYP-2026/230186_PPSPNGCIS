@@ -199,9 +199,61 @@ const PMSHearingPortal = (() => {
     return `png_hearing_draft_${appId}`;
   }
 
+  function getMyBoardVote(app) {
+    if (!app || !actor) return null;
+    const hearing = getActiveHearing(app.id);
+    return PMSStorage.getBoardAssessmentForActor(app, actor, { hearingId: hearing?.id ?? null });
+  }
+
+  function hasAlreadySubmittedVote(app) {
+    if (!app || !actor) return false;
+    const hearing = getActiveHearing(app.id);
+    if (typeof PMSStorage.hasSubmittedBoardVoteForHearing === 'function') {
+      return PMSStorage.hasSubmittedBoardVoteForHearing(app, actor, hearing?.id ?? null);
+    }
+    return PMSStorage.hasSubmittedBoardAssessment(app, actor);
+  }
+
+  function applySubmittedVoteReadOnly(mine) {
+    const submitted = !!(mine?.submissionStatus === 'Submitted' && mine?.vote);
+    const assessorForm = $('assessor-form');
+    if (!submitted) {
+      assessorForm?.classList.remove('assessor-form--submitted');
+      return false;
+    }
+    assessorForm?.classList.add('assessor-form--submitted');
+    const ids = ['assessment-vote', 'assessment-score', 'assessment-feedback', 'assessment-denial-reason', 'assessment-conditions'];
+    ids.forEach((id) => {
+      const el = $(id);
+      if (el) el.disabled = true;
+    });
+    document.querySelectorAll('#vote-choice-grid .vote-choice-btn, #vote-choice-grid button').forEach((btn) => {
+      btn.disabled = true;
+      btn.setAttribute('aria-disabled', 'true');
+    });
+    const saveBtn = $('btn-save-assessment');
+    const submitBtn = $('btn-record-decision');
+    if (saveBtn) saveBtn.hidden = true;
+    if (submitBtn) submitBtn.hidden = true;
+    const authHost = $('assessor-vote-auth');
+    if (authHost) authHost.hidden = true;
+    return true;
+  }
+
   function getActiveHearing(appId) {
+    if (typeof PMSStorage.findActiveHearingRecord === 'function') {
+      return PMSStorage.findActiveHearingRecord(appId) || null;
+    }
     return PMSStorage.getHearingsByApplication(appId)
       .find((h) => !['Cancelled', 'Completed'].includes(h.status)) || null;
+  }
+
+  function appsWithPersistedSchedule() {
+    return PMSStorage.getParoleApplications().filter((app) => {
+      if (!app?.id || CLOSED_STATUSES.includes(app.status)) return false;
+      const hearing = getActiveHearing(app.id);
+      return !!hearing?.scheduledDate && !isScheduleCandidate(app);
+    });
   }
 
   function isScheduleCandidate(app) {
@@ -230,8 +282,8 @@ const PMSHearingPortal = (() => {
       return { cls: 'status-upcoming', label: `Scheduled ${PMSUI.fmtDate(item.hearing.scheduledDate)}` };
     }
     if (portalMode === 'decisions' && actor && item.app) {
-      const mine = PMSStorage.getBoardAssessmentForActor(item.app, actor);
-      if (mine?.submissionStatus === 'Submitted') return { cls: 'status-done', label: 'Voted' };
+      const mine = getMyBoardVote(item.app);
+      if (mine?.submissionStatus === 'Submitted' && mine?.vote) return { cls: 'status-done', label: 'Voted' };
       if (mine?.submissionStatus === 'Draft') return { cls: 'status-pending', label: 'Draft' };
     }
     if (item.app?.boardDecision || ['Refused', 'Approved', 'Parole Granted', 'Parole Refused'].includes(item.app?.status)) {
@@ -244,12 +296,31 @@ const PMSHearingPortal = (() => {
 
   function buildQueue() {
     if (portalMode === 'schedule') {
-      return eligibleForSchedule().map((app) => ({
-        appId: app.id,
-        app,
-        prisoner: PMSStorage.getPrisonerById(app.prisonerId),
-        hearing: getActiveHearing(app.id),
-      }));
+      const seen = new Set();
+      const items = [];
+      const pushApp = (app) => {
+        if (!app?.id || seen.has(app.id)) return;
+        seen.add(app.id);
+        items.push({
+          appId: app.id,
+          app,
+          prisoner: PMSStorage.getPrisonerById(app.prisonerId),
+          hearing: getActiveHearing(app.id),
+        });
+      };
+      eligibleForSchedule().forEach(pushApp);
+      appsWithPersistedSchedule()
+        .sort((a, b) => {
+          const da = getActiveHearing(a.id)?.scheduledDate || '';
+          const db = getActiveHearing(b.id)?.scheduledDate || '';
+          return String(da).localeCompare(String(db));
+        })
+        .forEach(pushApp);
+      if (currentAppId && !seen.has(currentAppId)) {
+        const app = PMSStorage.getApplicationById(currentAppId);
+        if (app) pushApp(app);
+      }
+      return items;
     }
 
     const seen = new Set();
@@ -383,7 +454,7 @@ const PMSHearingPortal = (() => {
     const docs = [
       { label: 'Form 1', ok: summary.checks.form1 },
       { label: 'Form 2 DDR/PPR', ok: summary.checks.form2 },
-      { label: 'Form 3 — Hearing Record', ok: summary.checks.form3 },
+      { label: 'Parole hearing record', ok: summary.checks.hearing || summary.checks.form3 },
       { label: 'Commander Verified', ok: PMSStorage.isCommanderVerified(app) },
       { label: 'Form 4', ok: summary.checks.form4 },
       { label: 'Form 5', ok: summary.checks.form5 },
@@ -546,8 +617,25 @@ const PMSHearingPortal = (() => {
     area.hidden = !canSchedule;
     if (!canSchedule) return;
 
-    const showForm = !hearing || SCHEDULABLE_STATUSES.includes(app.status) || app.status === 'Hearing Scheduled';
+    const hasSchedule = !!hearing?.scheduledDate;
+    const showForm = portalMode === 'schedule'
+      ? (isScheduleCandidate(app) || hasSchedule || app.status === 'Hearing Scheduled')
+      : (!hearing || SCHEDULABLE_STATUSES.includes(app.status) || app.status === 'Hearing Scheduled');
     area.style.display = showForm ? 'block' : 'none';
+
+    let savedBanner = area.querySelector('.schedule-saved-banner');
+    if (portalMode === 'schedule' && hasSchedule) {
+      if (!savedBanner) {
+        savedBanner = document.createElement('p');
+        savedBanner.className = 'schedule-saved-banner schedule-readonly-note';
+        const grid = area.querySelector('.schedule-grid');
+        area.insertBefore(savedBanner, grid || area.firstChild);
+      }
+      savedBanner.hidden = false;
+      savedBanner.textContent = `Hearing scheduled for ${PMSUI.fmtDate(hearing.scheduledDate)}${hearing.scheduledTime ? ` at ${hearing.scheduledTime}` : ''} · ${hearing.location || 'venue TBD'}. Update below if needed.`;
+    } else if (savedBanner) {
+      savedBanner.hidden = true;
+    }
 
     const draft = JSON.parse(localStorage.getItem(draftKey(app.id)) || 'null');
     const split = typeof PMSStorage.splitHearingScheduleNotes === 'function'
@@ -817,6 +905,40 @@ const PMSHearingPortal = (() => {
     return typeof PMSBoardVote !== 'undefined' && PMSBoardVote.isPsychiatrist(actor);
   }
 
+  /** Form 2 claim verification is completed by the Chairman and Commissioner only. */
+  function canEditClaimVerification() {
+    return canAssess && !isPsychiatristActor();
+  }
+
+  function getMemberForm2Assessment(app, role) {
+    const entry = typeof PMSStorage.getBoardAssessmentEntryForRole === 'function'
+      ? PMSStorage.getBoardAssessmentEntryForRole(app, role)
+      : null;
+    const claims = entry?.claimVerification || [];
+    const marked = claims.filter((c) => c.status).length;
+    const user = entry?.assessorId
+      ? PMSStorage.getUserById(entry.assessorId)
+      : PMSStorage.getUsers().find((u) => u.role === role && u.status === 'Active');
+    return {
+      role,
+      label: seatLabel(role),
+      name: entry?.assessorName || (user ? `${user.firstName} ${user.lastName}` : ''),
+      claims,
+      marked,
+      signed: !!(entry?.claimVerificationSavedAt || (entry?.digitalSignature?.verified && marked)),
+      vote: entry?.submissionStatus === 'Submitted' ? entry.vote : null,
+      score: entry?.score,
+      feedback: entry?.feedback || entry?.interviewNotes || '',
+    };
+  }
+
+  function getChairAndCommissionerAssessments(app) {
+    return [
+      getMemberForm2Assessment(app, 'DJAG Secretary'),
+      getMemberForm2Assessment(app, 'CS Commissioner'),
+    ];
+  }
+
   function getDoctorAssessment(app) {
     if (!app) return null;
     if (isPsychiatristActor()) {
@@ -858,8 +980,14 @@ const PMSHearingPortal = (() => {
         parts.push(`Behavioral indicators: ${rated.map(([k, v]) => `${k}=${v}`).join(', ')}`);
       }
     }
-    if (claims.length) {
-      parts.push(`Verification: ${claims.map((c) => `${c.label}=${c.status}`).join('; ')}`);
+    if (canEditClaimVerification()) {
+      const claims = readClaimVerificationFromDom().filter((c) => c.status);
+    if (canEditClaimVerification()) {
+      const claims = readClaimVerificationFromDom().filter((c) => c.status);
+      if (claims.length) {
+        parts.push(`Verification: ${claims.map((c) => `${c.label}=${c.status}`).join('; ')}`);
+      }
+    }
     }
     return parts.join('\n');
   }
@@ -875,7 +1003,7 @@ const PMSHearingPortal = (() => {
   }
 
   function isClaimVerificationPersisted(app) {
-    if (!isPsychiatristActor()) return true;
+    if (!canEditClaimVerification()) return true;
     const saved = PMSStorage.getBoardAssessmentForActor(app, actor);
     if (!saved?.digitalSignature?.verified) return false;
     const claims = saved.claimVerification || [];
@@ -885,10 +1013,19 @@ const PMSHearingPortal = (() => {
   function updateClaimVerificationStatus(app = null) {
     const statusEl = $('claim-verification-status');
     if (!statusEl) return;
+    const resolvedApp = app || (currentAppId ? PMSStorage.getApplicationById(currentAppId) : null);
+    if (isPsychiatristActor() && resolvedApp) {
+      const members = getChairAndCommissionerAssessments(resolvedApp);
+      const recorded = members.filter((m) => m.signed || m.marked || m.vote).length;
+      statusEl.textContent = recorded === 2
+        ? 'Chairman & Commissioner recorded'
+        : (recorded ? `${recorded} of 2 panel assessments recorded` : 'Awaiting Chairman & Commissioner');
+      syncInterviewSubmitGate();
+      return;
+    }
     const claims = readClaimVerificationFromDom();
     const verified = claims.filter((c) => c.status).length;
     let label = verified ? `${verified} of ${claims.length} verified` : 'Not started';
-    const resolvedApp = app || (currentAppId ? PMSStorage.getApplicationById(currentAppId) : null);
     if (resolvedApp && isClaimVerificationPersisted(resolvedApp)) label += ' · saved';
     statusEl.textContent = label;
     syncInterviewSubmitGate();
@@ -955,7 +1092,7 @@ const PMSHearingPortal = (() => {
 
   function mountInterviewOfficerAuth(app) {
     destroyInterviewOfficerAuth();
-    if (portalMode !== 'decisions' || !canAssess || typeof PMSFormOfficerAuth === 'undefined') return;
+    if (portalMode !== 'decisions' || !canEditClaimVerification() || typeof PMSFormOfficerAuth === 'undefined') return;
     const mount = $('claim-verification-auth-mount');
     if (!mount) return;
     const saved = PMSStorage.getBoardAssessmentForActor(app, actor);
@@ -996,11 +1133,11 @@ const PMSHearingPortal = (() => {
     if (host) host.hidden = false;
     const mount = $('vote-officer-auth-mount');
     if (!mount) return;
-    const saved = PMSStorage.getBoardAssessmentForActor(app, actor);
+    const saved = getMyBoardVote(app);
     const roleLabel = typeof PMSBoardVote !== 'undefined'
       ? PMSBoardVote.getBoardMemberLabel(actor.role)
       : (actor.role || 'Board Member');
-    const readOnly = saved?.submissionStatus === 'Submitted';
+    const readOnly = hasAlreadySubmittedVote(app);
     try {
       voteOfficerAuth = PMSFormOfficerAuth.create({
         mount,
@@ -1185,6 +1322,7 @@ const PMSHearingPortal = (() => {
     if (portalMode !== 'decisions' || !canAssess) return false;
     const app = currentAppId ? PMSStorage.getApplicationById(currentAppId) : null;
     if (!app) return false;
+    if (hasAlreadySubmittedVote(app)) return false;
     return isVotingOpen(app);
   }
 
@@ -1202,8 +1340,8 @@ const PMSHearingPortal = (() => {
     if (portalMode !== 'decisions' || !canAssess) return false;
     const app = currentAppId ? PMSStorage.getApplicationById(currentAppId) : null;
     if (!app) return false;
+    if (hasAlreadySubmittedVote(app)) return false;
     if (!isVotingOpen(app)) return false;
-    if (isPsychiatristActor() && !isClaimVerificationPersisted(app)) return false;
     if (isPsychiatristActor() && !isPsychObservationPersisted(app)) return false;
     return getSubmitVoteValidation().valid;
   }
@@ -1220,9 +1358,6 @@ const PMSHearingPortal = (() => {
 
     if (btn?.id === 'btn-record-decision') {
       if (!isVotingOpen(app)) return votingClosedReason(app);
-      if (!isClaimVerificationPersisted(app)) {
-        return 'Mark all 10 Form 2 claims, sign with your PIN, then click Save Verification';
-      }
       if (isPsychiatristActor() && !isPsychObservationPersisted(app)) {
         return 'Complete the interview evaluation (all 1–5 ratings, demeanour, clinical notes), sign, then click Save Interview Evaluation';
       }
@@ -1240,8 +1375,8 @@ const PMSHearingPortal = (() => {
     return canEnableSubmitVote(btn);
   }
 
-  function saveClaimVerification() {
-    if (!currentAppId || !canAssess) return false;
+  async function saveClaimVerification() {
+    if (!currentAppId || !canEditClaimVerification()) return false;
     const app = PMSStorage.getApplicationById(currentAppId);
     if (!app) return false;
     const claims = readClaimVerificationFromDom();
@@ -1267,9 +1402,9 @@ const PMSHearingPortal = (() => {
         showToast('Verify & Sign with your PIN before saving verification.');
         return false;
       }
-      PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
+      await PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
       showToast('Form 2 verification saved and digitally signed.');
-      refreshInterviewSaveState(app);
+      refreshInterviewSaveState(PMSStorage.getApplicationById(currentAppId) || app);
       return true;
     } catch (err) {
       showToast(err.message || 'Could not save verification.');
@@ -1277,7 +1412,7 @@ const PMSHearingPortal = (() => {
     }
   }
 
-  function savePsychObservation() {
+  async function savePsychObservation() {
     if (!currentAppId || !isPsychiatristActor()) return false;
     const app = PMSStorage.getApplicationById(currentAppId);
     if (!app) return false;
@@ -1309,7 +1444,7 @@ const PMSHearingPortal = (() => {
       payload.psychiatricObservation = psych;
       payload.psychiatricObservationSavedAt = new Date().toISOString();
       payload.psychDigitalSignature = signature;
-      PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
+      await PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
       showToast('Interview evaluation saved and digitally signed.');
       refreshInterviewSaveState(PMSStorage.getApplicationById(currentAppId));
       return true;
@@ -1343,9 +1478,71 @@ const PMSHearingPortal = (() => {
     syncInterviewSubmitGate();
   }
 
+  function formatVoteReadout(member) {
+    if (!member.vote) return '';
+    const score = member.score != null ? ` · ${member.score}%` : '';
+    return ` · vote: ${member.vote}${score}`;
+  }
+
+  function renderReadonlyPanelClaimVerifications(app) {
+    const members = getChairAndCommissionerAssessments(app);
+    const overview = members.map((m) => {
+      const verify = m.signed
+        ? `${m.marked}/${FORM2_CLAIMS.length} verified`
+        : (m.marked ? `${m.marked}/${FORM2_CLAIMS.length} in progress` : 'not yet recorded');
+      return `<article class="claim-member-summary">
+        <div class="claim-member-summary__head">
+          <strong>${esc(m.label)}</strong>
+          <span>${esc(m.name || '—')}</span>
+        </div>
+        <p class="claim-member-summary__meta">${esc(verify)}${esc(formatVoteReadout(m))}</p>
+        ${m.feedback ? `<p class="claim-member-summary__notes">${esc(m.feedback)}</p>` : ''}
+      </article>`;
+    }).join('');
+
+    const claims = FORM2_CLAIMS.map((claim) => {
+      const sectionLabel = claim.section === 'ppr' ? 'PPR' : 'DAR';
+      const rows = members.map((m) => {
+        const saved = (m.claims || []).find((c) => c.id === claim.id);
+        const status = saved?.status || 'Not recorded';
+        return `<div class="claim-member-row">
+          <span class="claim-member-row__who">${esc(m.label)}</span>
+          <span class="claim-toggle is-selected is-readonly" data-status="${esc(saved?.status || '')}">${esc(status)}</span>
+          ${saved?.notes ? `<p class="claim-member-row__notes">${esc(saved.notes)}</p>` : ''}
+        </div>`;
+      }).join('');
+      return `<article class="claim-card claim-card--readonly" data-claim-id="${esc(claim.id)}">
+        <div class="claim-card__header">
+          <span class="claim-card__label">${esc(claim.label)}</span>
+          <span class="claim-card__source">${esc(sectionLabel)}</span>
+        </div>
+        <div class="claim-card__reported">${esc(getClaimReportedText(app, claim))}</div>
+        <div class="claim-card__panel-rows">${rows}</div>
+      </article>`;
+    }).join('');
+
+    return `<div class="claim-panel-overview">${overview}</div>${claims}`;
+  }
+
   function renderClaimVerification(app) {
     const listEl = $('claims-list');
     if (!listEl) return;
+    const section = $('claim-verification-section');
+    const note = section?.querySelector(':scope > .board-interview-note');
+    const readonly = !canEditClaimVerification();
+
+    if (note) {
+      note.textContent = readonly
+        ? 'Read-only. Form 2 verification is completed by the DJAG Secretary (Chairman) and PNGCS Commissioner. Review their assessments below, then complete the interview evaluation.'
+        : 'Cross-check each Form 2 claim against the live interview. Mark Consistent, Partial, or Inconsistent, then sign with your PIN to save.';
+    }
+
+    if (readonly) {
+      listEl.innerHTML = renderReadonlyPanelClaimVerifications(app);
+      updateClaimVerificationStatus(app);
+      return;
+    }
+
     const saved = PMSStorage.getBoardAssessmentForActor(app, actor)?.claimVerification || [];
     const savedById = Object.fromEntries(saved.map((c) => [c.id, c]));
     listEl.innerHTML = FORM2_CLAIMS.map((claim) => {
@@ -1482,7 +1679,10 @@ const PMSHearingPortal = (() => {
     mountInterviewOfficerAuth(app);
     mountPsychOfficerAuth(app);
     const claimActions = $('claim-verification-actions');
-    if (claimActions) claimActions.hidden = !canAssess;
+    if (claimActions) claimActions.hidden = !canEditClaimVerification();
+    if (isPsychiatristActor()) {
+      $('claim-verification-section')?.setAttribute('open', '');
+    }
   }
 
   function hasInterviewDraftData() {
@@ -1528,6 +1728,7 @@ const PMSHearingPortal = (() => {
     host.addEventListener('click', (e) => {
       const toggle = e.target.closest('.claim-toggle');
       if (toggle) {
+        if (!canEditClaimVerification() || toggle.classList.contains('is-readonly')) return;
         const card = toggle.closest('.claim-card');
         card.querySelectorAll('.claim-toggle').forEach((b) => b.classList.remove('is-selected'));
         toggle.classList.add('is-selected');
@@ -1582,7 +1783,8 @@ const PMSHearingPortal = (() => {
     const outcome = PMSStorage.getBoardDecisionOutcome(app);
     const finalized = PMSStorage.isBoardDecisionFinalized(app);
     const inReview = ['Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review', 'Parole Granted', 'Parole Refused', 'Pending Approval', 'Refused'].includes(app.status);
-    const mine = PMSStorage.getBoardAssessmentForActor(app, actor);
+    const mine = getMyBoardVote(app);
+    const voteLocked = hasAlreadySubmittedVote(app);
     const noteEl = $('decision-area-note');
     const assessorForm = $('assessor-form');
     const chairForm = $('chair-decision-form');
@@ -1618,8 +1820,8 @@ const PMSHearingPortal = (() => {
     if (canAssess) {
       assessorForm.hidden = false;
       if (chairForm) chairForm.hidden = !(canGrantOutcome && progress.complete && !finalized);
-      if (assessSaveBtn) assessSaveBtn.hidden = !votingOpen;
-      if (assessSubmitBtn) assessSubmitBtn.hidden = !votingOpen;
+      if (assessSaveBtn) assessSaveBtn.hidden = !votingOpen || voteLocked;
+      if (assessSubmitBtn) assessSubmitBtn.hidden = !votingOpen || voteLocked;
       if (recordBtn) recordBtn.hidden = true;
       updateOpenFormButton(app);
       applyMedicalFieldVisibility();
@@ -1637,11 +1839,10 @@ const PMSHearingPortal = (() => {
       if (!votingOpen) {
         noteEl.textContent = votingClosedReason(app);
       } else if (portalMode === 'decisions' && isPsychiatristActor()) {
-        const claimsOk = isClaimVerificationPersisted(app);
         const psychOk = isPsychObservationPersisted(app);
         const voteOk = mine?.submissionStatus === 'Submitted';
         const voteDraft = mine?.vote || mine?.score != null || mine?.feedback;
-        noteEl.textContent = `Your workflow: Form 2 verification ${claimsOk ? '✓ saved' : '→ complete & save above'} · Interview evaluation ${psychOk ? '✓ signed & saved' : '→ save before final submit'} · Board vote ${voteOk ? '✓ submitted' : (voteDraft ? 'draft saved — submit when ready' : (claimsOk ? '→ select vote, score, and PIN below' : '→ after verification'))}`;
+        noteEl.textContent = `Your workflow: Interview evaluation ${psychOk ? '✓ signed & saved' : '→ complete & save above'} · Board vote ${voteOk ? '✓ submitted' : (voteDraft ? 'draft saved — submit when ready' : (psychOk ? '→ select vote, score, and PIN below' : '→ after interview evaluation'))}. Form 2 verification is read-only — review the Chairman and Commissioner assessments above.`;
       } else {
         noteEl.textContent = typeof PMSBoardVote !== 'undefined'
           ? PMSBoardVote.progressNote(progress)
@@ -1651,7 +1852,9 @@ const PMSHearingPortal = (() => {
       }
 
       const statusEl = $('assessor-form-status');
-      const statusMsg = typeof PMSBoardVote !== 'undefined' ? PMSBoardVote.statusMessage(mine) : '';
+      const statusMsg = typeof PMSBoardVote !== 'undefined'
+        ? PMSBoardVote.statusMessage(mine, { readOnly: voteLocked })
+        : '';
       if (statusMsg) {
         statusEl.hidden = false;
         statusEl.innerHTML = statusMsg;
@@ -1659,8 +1862,10 @@ const PMSHearingPortal = (() => {
         statusEl.hidden = true;
       }
       if (typeof PMSBoardVote !== 'undefined') {
-        PMSBoardVote.bindVoteChoiceButtons();
-        PMSBoardVote.bindVoteFieldVisibility();
+        if (!voteLocked) {
+          PMSBoardVote.bindVoteChoiceButtons();
+          PMSBoardVote.bindVoteFieldVisibility();
+        }
         PMSBoardVote.populateForm({
           vote: mine?.vote || '',
           score: mine?.score ?? '',
@@ -1674,10 +1879,15 @@ const PMSHearingPortal = (() => {
         $('assessment-feedback').value = mine?.feedback || '';
       }
 
-      if (assessSubmitBtn) {
+      if (assessSubmitBtn && !voteLocked) {
         assessSubmitBtn.textContent = mine?.submissionStatus === 'Submitted' ? 'Update My Vote' : 'Submit My Vote';
       }
-      mountVoteOfficerAuth(app);
+      if (voteLocked) {
+        applySubmittedVoteReadOnly(mine);
+      } else {
+        $('assessor-form')?.classList.remove('assessor-form--submitted');
+        mountVoteOfficerAuth(app);
+      }
       syncInterviewSubmitGate();
       return;
     }
@@ -1776,20 +1986,45 @@ const PMSHearingPortal = (() => {
     syncInterviewSubmitGate();
   }
 
-  async function syncSharedHearingSession() {
-    if (portalMode !== 'decisions' || typeof PMSStorage.pullRemoteHearingSessions !== 'function') return;
-    try {
-      const changed = await PMSStorage.pullRemoteHearingSessions();
-      if (!currentAppId) return;
-      const app = PMSStorage.getApplicationById(currentAppId);
-      if (!app) return;
-      if (changed) {
-        renderQueue();
-        if ($('vote-tracker')) renderVotes(app);
-        renderFinalOutcome(app);
+  function refreshOpenCaseFromStore() {
+    if (!currentAppId) return;
+    const app = PMSStorage.getApplicationById(currentAppId);
+    if (!app) return;
+    const hearing = getActiveHearing(currentAppId);
+    renderQueue();
+    if (portalMode === 'schedule') {
+      renderDeadline(app, hearing);
+      renderScheduleForm(app, hearing);
+      const dossierStatus = $('dossier-status');
+      if (dossierStatus && hearing?.scheduledDate) {
+        dossierStatus.textContent = `Hearing ${PMSUI.fmtDate(hearing.scheduledDate)}${hearing.scheduledTime ? ` · ${hearing.scheduledTime}` : ''}`;
       }
+    } else if (portalMode === 'decisions') {
+      if ($('vote-tracker')) renderVotes(app);
+      renderFinalOutcome(app);
+      if ($('decision-area')) renderDecisionArea(app);
       applyLiveSessionChrome(app);
       updateHearingProgressBadge(app);
+    }
+  }
+
+  async function syncSharedHearingSession() {
+    if (!['schedule', 'decisions'].includes(portalMode)) return;
+    if (typeof PMSStorage.pullRemoteHearingSessions !== 'function') return;
+    try {
+      let changed = await PMSStorage.pullRemoteHearingSessions();
+      if (currentAppId && typeof PMSStorage.refreshParoleCaseFromDatabase === 'function') {
+        const caseRefresh = await PMSStorage.refreshParoleCaseFromDatabase(currentAppId);
+        changed = changed || caseRefresh;
+      }
+      if (changed) refreshOpenCaseFromStore();
+      else if (currentAppId && portalMode === 'decisions') {
+        const app = PMSStorage.getApplicationById(currentAppId);
+        if (app) {
+          applyLiveSessionChrome(app);
+          updateHearingProgressBadge(app);
+        }
+      }
     } catch (_) { /* keep the current view if sync is briefly unavailable */ }
   }
 
@@ -1804,7 +2039,7 @@ const PMSHearingPortal = (() => {
   }
 
   function startSessionSync() {
-    if (sessionSyncBound || portalMode !== 'decisions') return;
+    if (sessionSyncBound || !['schedule', 'decisions'].includes(portalMode)) return;
     sessionSyncBound = true;
     const tick = () => { syncSharedHearingSession(); };
     sessionSyncTimer = window.setInterval(tick, 4000);
@@ -1820,15 +2055,18 @@ const PMSHearingPortal = (() => {
     }
   }
 
-  function selectCase(index) {
+  async function selectCase(index) {
     if (index < 0 || index >= queue.length) return;
     destroyAllInterviewAuth();
     currentIndex = index;
     const item = queue[index];
     currentAppId = item.appId;
     renderQueue();
+    if (currentAppId && typeof PMSStorage.refreshParoleCaseFromDatabase === 'function') {
+      await PMSStorage.refreshParoleCaseFromDatabase(currentAppId);
+    }
     const live = queue[currentIndex] || item;
-    const app = PMSStorage.getApplicationById(currentAppId) || live.app;
+    let app = PMSStorage.getApplicationById(currentAppId) || live.app;
     const prisoner = PMSStorage.getPrisonerById(app?.prisonerId) || live.prisoner;
     const hearing = getActiveHearing(currentAppId) || live.hearing;
     const institution = prisoner ? PMSStorage.getInstitutionById(prisoner.institutionId) : null;
@@ -1939,7 +2177,20 @@ const PMSHearingPortal = (() => {
     const notes = $('hearing-notes').value.trim();
     const exceptionReason = $('exception-reason').value.trim();
 
-    if (!scheduledDate || !location) {
+    const scheduleRoot = document.getElementById('schedule-form') || document.querySelector('.hearing-schedule-panel') || document;
+    if (typeof PMSFieldValidation !== 'undefined') {
+      const issues = [];
+      if (!scheduledDate) issues.push({ fieldId: 'hearing-date', message: 'This field is required.' });
+      if (!location) issues.push({ fieldId: 'hearing-venue', message: 'This field is required.' });
+      if (deadlineException && !exceptionReason) {
+        issues.push({ fieldId: 'exception-reason', message: 'This field is required.' });
+      }
+      const result = PMSFieldValidation.applyIssues(scheduleRoot, issues);
+      if (!result.valid) {
+        showToast('Please complete all required fields.');
+        return;
+      }
+    } else if (!scheduledDate || !location) {
       showToast('Hearing date and venue are required.');
       return;
     }
@@ -1948,6 +2199,12 @@ const PMSHearingPortal = (() => {
       const v = PMSValidation.validateHearingDate(scheduledDate, app);
       if (!v.valid) {
         showToast(v.errors[0]);
+        if (typeof PMSFieldValidation !== 'undefined') {
+          PMSFieldValidation.applyIssues(scheduleRoot, [{
+            fieldId: 'hearing-date',
+            message: v.errors[0] || 'This field is required.',
+          }]);
+        }
         return;
       }
     }
@@ -2015,12 +2272,23 @@ const PMSHearingPortal = (() => {
     } else if (interviewOfficerAuth?.isVerified()) {
       payload.digitalSignature = interviewOfficerAuth.getRecord();
     }
+    const app = currentAppId ? PMSStorage.getApplicationById(currentAppId) : null;
+    const existing = app ? getMyBoardVote(app) : null;
+    const hearing = app ? getActiveHearing(app.id) : null;
+    if (app?.id) payload.applicationId = app.id;
+    payload.hearingId = hearing?.id || existing?.hearingId || null;
+    if (existing?.id) payload.id = existing.id;
     return payload;
   }
 
-  function saveAssessmentDraft() {
+  async function saveAssessmentDraft() {
     if (!currentAppId || !canAssess) return;
     const app = PMSStorage.getApplicationById(currentAppId);
+    if (app && hasAlreadySubmittedVote(app)) {
+      showToast('Your vote for this hearing is already on record.');
+      renderDecisionArea(app);
+      return;
+    }
     if (portalMode === 'decisions' && app && !isVotingOpen(app)) {
       showToast(votingClosedReason(app));
       return;
@@ -2041,7 +2309,7 @@ const PMSHearingPortal = (() => {
     }
     try {
       attachPendingPsychFile();
-      PMSStorage.saveBoardAssessment(currentAppId, buildAssessmentPayload('Draft'), actor);
+      await PMSStorage.saveBoardAssessment(currentAppId, buildAssessmentPayload('Draft'), actor);
       showToast('Your decision has been saved. Submit when you are ready.');
       refreshInterviewSaveState(PMSStorage.getApplicationById(currentAppId));
     } catch (err) {
@@ -2082,6 +2350,11 @@ const PMSHearingPortal = (() => {
     const conditions = $('hearing-conditions').value.trim();
 
     if (submitAssessorVote && canAssess) {
+      if (hasAlreadySubmittedVote(app)) {
+        showToast('Your vote for this hearing is already on record.');
+        renderDecisionArea(app);
+        return;
+      }
       if (portalMode === 'decisions' && !isPsychiatristActor()) {
         /* Secretary and Commissioner vote without the psychiatrist claim workflow. */
       } else if (portalMode === 'decisions' && !isClaimVerificationPersisted(app)) {
@@ -2124,11 +2397,12 @@ const PMSHearingPortal = (() => {
       const payload = buildAssessmentPayload('Submitted');
       try {
         attachPendingPsychFile();
-        PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
+        await PMSStorage.saveBoardAssessment(currentAppId, payload, actor);
         await mirrorAssessmentToApi(payload);
         showToast('Your vote has been recorded. Other members may vote when ready.');
         const updated = PMSStorage.getApplicationById(currentAppId);
         refreshInterviewSaveState(updated);
+        renderQueue();
         if ($('vote-tracker')) renderVotes(updated);
         renderFinalOutcome(updated);
       } catch (err) {
@@ -2319,6 +2593,9 @@ const PMSHearingPortal = (() => {
 
   async function init() {
     await PMSStorage.ensureLoaded();
+    if (typeof PMSStorage.pullRemoteHearingSessions === 'function') {
+      await PMSStorage.pullRemoteHearingSessions();
+    }
 
     portalMode = getPortalMode();
     actor = PMSAuth.requireRole(PORTAL_ROLES);

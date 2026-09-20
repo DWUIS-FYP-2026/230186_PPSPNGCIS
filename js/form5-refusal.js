@@ -139,6 +139,18 @@ const PMSForm5Refusal = (() => {
     }
 
     function validateForm() {
+      const root = document.querySelector('.page-main') || document;
+      if (typeof PMSFieldValidation !== 'undefined') {
+        const result = PMSFieldValidation.validateControls(root, [
+          { fieldId: 'reapply-date', message: 'This field is required.' },
+          { name: 'refusal-reason', message: 'This field is required.' },
+        ]);
+        if (!result.valid) {
+          showToast('Please complete all required fields before continuing.');
+          return false;
+        }
+        return true;
+      }
       if (!reapplyDate.value) { showToast('Please set the date eligible to reapply.'); reapplyDate.focus(); return false; }
       if (!checkedValues('refusal-reason').length) {
         showToast('Please select at least one reason for refusal.');
@@ -265,10 +277,15 @@ const PMSForm5Refusal = (() => {
       }
     });
 
-    $('btn-prev-form')?.addEventListener('click', () => { if (app?.id) PMSFormWorkflow.openForm(3, app.id); });
+    $('btn-prev-form')?.addEventListener('click', () => {
+      if (app?.id) window.location.href = PMSFormWorkflow.hearingPortalHref(app.id);
+    });
     $('btn-print').addEventListener('click', () => { if (validateForm()) window.print(); });
 
     loadState();
+    if (typeof PMSFieldValidation !== 'undefined') {
+      PMSFieldValidation.bindLiveClear(document.querySelector('.page-main') || document);
+    }
     mountOfficerAuth();
     updateSummaryBanner();
     submitGate?.sync();

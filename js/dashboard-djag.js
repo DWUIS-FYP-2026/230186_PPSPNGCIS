@@ -35,9 +35,8 @@
   const FORM_WORKFLOW = [
     { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', prereqs: [] },
     { n: 2, key: 'form2', label: 'Form 2 — Assessment (PPR)', prereqs: ['form1'] },
-    { n: 3, key: 'form3', label: 'Form 3 — Parole Hearing Record', prereqs: ['form1', 'form2'] },
-    { n: 4, key: 'form4', label: 'Form 4 — Discharge of Parole Order', prereqs: ['form1', 'form2', 'form3'] },
-    { n: 5, key: 'form5', label: 'Form 5 — Applications After Refusal', prereqs: ['form1', 'form2', 'form3'] },
+    { n: 4, key: 'form4', label: 'Form 4 — Discharge of Parole Order', prereqs: ['form1', 'form2'] },
+    { n: 5, key: 'form5', label: 'Form 5 — Applications After Refusal', prereqs: ['form1', 'form2'] },
   ];
 
   function prereqsMet(checks, prereqs) {
@@ -67,6 +66,10 @@
       return { formN: 2, appId: app.id, label: 'Form 2 — PPR section' };
     }
 
+    const eligibilityLabel = typeof PMSStorage.resolveEligibilityWorkflowLabel === 'function'
+      ? PMSStorage.resolveEligibilityWorkflowLabel(app)
+      : 'Review application';
+
     const checks = PMSStorage.getFormCompletionSummary(app).checks;
     const activeFormNumber = getActiveFormNumber(app, checks);
     if (activeFormNumber) {
@@ -89,10 +92,15 @@
       }
     }
 
-    return { formN: null, appId: app.id, label: 'Review application', openReview: true };
+    return { formN: null, appId: app.id, label: eligibilityLabel, openReview: true };
   }
 
   function openPrisonerWorkflowForm(prisonerId) {
+    const app = findApplicationForPrisoner(prisonerId);
+    if (app && typeof PMSUI.navigateToApplicationEdit === 'function') {
+      PMSUI.navigateToApplicationEdit(app.id, actor);
+      return;
+    }
     const target = resolveWorkflowFormForPrisoner(prisonerId);
     if (target.openReview && target.appId) {
       openReview(target.appId);
@@ -331,7 +339,7 @@
     const note = toolbar?.querySelector('.toolbar-note');
     if (note) {
       note.textContent = canScheduleHearings
-        ? 'Set parole board hearing dates in the Hearing Portal. Form 3 then shows those details to parole clerks.'
+        ? 'Set parole board hearing dates in the Hearing Portal. Board members and clerks complete the hearing process there.'
         : 'View scheduled hearings. Only the DJAG Secretary may set hearing dates — stakeholders are notified automatically.';
     }
     if (btn) {

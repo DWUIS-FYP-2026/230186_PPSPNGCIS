@@ -37,7 +37,6 @@
     const blockers = [];
     if (!summary.checks.form1) blockers.push('Form 1 incomplete');
     if (!summary.checks.form2) blockers.push('Form 2 incomplete');
-    if (!summary.checks.form3) blockers.push('Form 3 incomplete');
     return { ready: blockers.length === 0, blockers };
   }
 

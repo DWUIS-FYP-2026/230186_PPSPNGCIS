@@ -37,7 +37,7 @@ const PMSFormWorkflow = (() => {
       n: 4,
       key: 'form4',
       title: 'Form 4 — Discharge of Parole Order',
-      prereqs: ['form1', 'form2', 'form3'],
+      prereqs: ['form1', 'form2'],
       dashboard: '../dashboard.html',
       dataKey: 'png_form4_granted',
       path: 'forms/form4.html',
@@ -46,7 +46,7 @@ const PMSFormWorkflow = (() => {
       n: 5,
       key: 'form5',
       title: 'Form 5 — Applications After Refusal',
-      prereqs: ['form1', 'form2', 'form3'],
+      prereqs: ['form1', 'form2'],
       dashboard: '../dashboard.html',
       dataKey: 'png_form5_refused',
       path: 'forms/form5.html',
@@ -111,6 +111,7 @@ const PMSFormWorkflow = (() => {
 
     document.querySelectorAll('input:not([type="hidden"]), select, textarea, button').forEach((el) => {
       if (el.closest('.wf-gate') || el.closest('.wf-readonly-banner')) return;
+      if (el.closest('.officer-auth') || el.closest('#officer-auth-mount')) return;
       if (el.classList.contains('back-link') || el.classList.contains('pms-dashboard-btn')) return;
       if (el.id && (el.id.includes('print') || el.id === 'btn-print' || el.id === 'btn-print-conditions')) return;
       if (el.type === 'checkbox' || el.type === 'radio') el.disabled = true;
@@ -255,6 +256,7 @@ const PMSFormWorkflow = (() => {
     if (!canUserViewForm(formN)) return false;
     if (canAccess(appId, formN)) return true;
     if (formN === 1) return true;
+    if (formN === 3) return false;
     if (hasFormData(formN, appId)) return true;
     return false;
   }
@@ -267,7 +269,7 @@ const PMSFormWorkflow = (() => {
     if (!appId || appId === '_default' || typeof PMSStorage === 'undefined') return true;
     const app = PMSStorage.getApplicationById(appId);
     if (!app) return false;
-    if (formN === 3) return true;
+    if (formN === 3) return false;
     if (formN === 4) return PMSStorage.canProceedToForm4(app);
     if (formN === 5) return PMSStorage.canProceedToForm5(app);
     return true;
@@ -332,6 +334,10 @@ const PMSFormWorkflow = (() => {
 
   function openForm(formN, appId, options = {}) {
     const id = appId || getAppId();
+    if (formN === 3) {
+      window.location.href = hearingPortalHref(id);
+      return;
+    }
     const def = getDef(formN);
     if (!def) return;
     const editable = canAccess(id, formN);
@@ -356,11 +362,11 @@ const PMSFormWorkflow = (() => {
 
   /** Forms 4 and 5 are mutually exclusive — only the board-outcome form appears in the workflow. */
   function getWorkflowSteps(appId) {
-    const base = FORM_DEFS.filter((f) => f.n <= 3);
+    const base = FORM_DEFS.filter((f) => f.n <= 2);
     const outcomeN = getOutcomeFormN(appId);
     if (outcomeN === 4) return [...base, getDef(4)];
     if (outcomeN === 5) return [...base, getDef(5)];
-    if (!appId || appId === '_default') return FORM_DEFS;
+    if (!appId || appId === '_default') return FORM_DEFS.filter((f) => f.n !== 3);
     return base;
   }
 
@@ -381,7 +387,7 @@ const PMSFormWorkflow = (() => {
   }
 
   function getPrevForm(formN) {
-    if (formN === 4 || formN === 5) return getDef(3);
+    if (formN === 4 || formN === 5) return getDef(2);
     return FORM_DEFS.find((f) => f.n === formN - 1) || null;
   }
 
@@ -398,7 +404,7 @@ const PMSFormWorkflow = (() => {
     markComplete(formN, appId, { submitted: true });
     const go = () => {
       if (formN === 1) openForm(2, appId);
-      else if (formN === 2) openForm(3, appId);
+      else if (formN === 2) window.location.href = getDashboardHref();
       else if (formN === 3) {
         if (canScheduleHearing()) window.location.href = schedulePortalHref(appId);
         else if (canAccessHearingPortal()) window.location.href = hearingPortalHref(appId);
@@ -528,7 +534,7 @@ const PMSFormWorkflow = (() => {
       if (mount) mount.appendChild(navHost);
     }
 
-    const showHearing = currentFormN <= 3 && checks.form3 && canAccessHearingPortal();
+    const showHearing = currentFormN <= 2 && checks.form2 && canAccessHearingPortal();
     const outcomeBtn = outcomeN && currentFormN === 3 && currentFormN !== outcomeN
       ? `<button type="button" class="wf-form-nav__btn wf-form-nav__btn--primary" data-wf-nav="outcome">Open Form ${outcomeN} →</button>`
       : '';
@@ -587,8 +593,13 @@ const PMSFormWorkflow = (() => {
         <h2>Form Locked</h2>
         <p>${blocker?.key === 'board'
           ? `All three board members (DJAG Secretary, PNGCS Commissioner, and Psychiatrist) must submit their Approve, Deny, or Defer votes before <strong>${def?.title || 'this form'}</strong> can be opened.`
-          : `Complete <strong>${blocker?.title || 'the previous form'}</strong> before accessing <strong>${def?.title || 'this form'}</strong>.`}</p>
+          : blocker?.key === 'commander'
+            ? `The Jail Commander must complete <strong>institutional verification</strong> before <strong>${def?.title || 'Form 3'}</strong> can be opened.`
+            : blocker?.key === 'hearing'
+              ? `The DJAG Secretary must <strong>set the parole hearing date</strong> before <strong>${def?.title || 'Form 3'}</strong> can be opened.`
+              : `Complete <strong>${blocker?.title || 'the previous form'}</strong> before accessing <strong>${def?.title || 'this form'}</strong>.`}</p>
         <div class="wf-gate__actions">
+          ${blocker?.key === 'hearing' && canScheduleHearing() ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-schedule">Schedule Hearing</button>` : ''}
           ${blocker?.key === 'board' ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-hearing">Open Hearing Portal</button>` : ''}
           ${blocker && blocker.n > 0 ? `<button type="button" class="wf-gate__btn wf-gate__btn--primary" id="wf-gate-open-blocker">Open ${blocker.title}</button>` : ''}
           <button type="button" class="wf-gate__btn wf-gate__btn--secondary" id="wf-gate-back">Back to Dashboard</button>
@@ -598,6 +609,7 @@ const PMSFormWorkflow = (() => {
     document.getElementById('wf-gate-back')?.addEventListener('click', () => { window.location.href = getDashboardHref(); });
     document.getElementById('wf-gate-open-blocker')?.addEventListener('click', () => { if (blocker?.n) openForm(blocker.n, appId); });
     document.getElementById('wf-gate-open-hearing')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
+    document.getElementById('wf-gate-open-schedule')?.addEventListener('click', () => { window.location.href = schedulePortalHref(appId); });
   }
 
   function showContinueBanner(formN, appId) {
@@ -614,16 +626,8 @@ const PMSFormWorkflow = (() => {
         || document.getElementById('form2-root')?.appendChild(banner);
     }
 
-    if (formN === 3 && canAccessHearingPortal()) {
-      banner.innerHTML = `<span class="wf-continue__text">Form 3 submitted — board members can record their votes in the hearing portal</span>
-        <button type="button" class="wf-continue__btn" id="wf-continue-btn">Open Hearing Portal →</button>`;
-      banner.classList.add('show');
-      document.getElementById('wf-continue-btn')?.addEventListener('click', () => { window.location.href = hearingPortalHref(appId); });
-      return;
-    }
-
-    if (formN === 3) {
-      banner.innerHTML = `<span class="wf-continue__text">Form 3 submitted — the Parole Board will vote, then the DJAG Secretary issues Form 4 or Form 5</span>`;
+    if (formN === 2) {
+      banner.innerHTML = `<span class="wf-continue__text">Form 2 complete — the Jail Commander must verify this case, then the DJAG Secretary schedules the parole hearing. Board members work in the hearing portal.</span>`;
       banner.classList.add('show');
       return;
     }
@@ -660,6 +664,10 @@ const PMSFormWorkflow = (() => {
     injectStyles();
     document.body.classList.add('pms-form-page');
     const appId = getAppId();
+    if (formN === 3) {
+      window.location.replace(hearingPortalHref(appId));
+      return { appId, blocked: true, markCompleteAndAdvance: () => {}, refreshProgress: () => {} };
+    }
     const params = new URLSearchParams(window.location.search);
     const reviewMode = params.get('mode') === 'review';
     if (redirectToOutcomeFormIfNeeded(formN, appId)) {

@@ -21,10 +21,10 @@ const PMSBoardVote = (() => {
   const ROLE_CONFIG = Object.freeze({
     Doctor: {
       portalTitle: 'Board Vote',
-      portalSubtitle: 'Verify Form 2 claims, complete the interview evaluation (1–5), and submit your vote with clinical score',
+      portalSubtitle: 'Complete the interview evaluation (1–5) and submit your vote with a clinical score. Form 2 verification is read-only.',
       roleLabel: 'Psychiatrist',
       formTitle: 'Your Board Vote',
-      formNote: 'Complete Form 2 verification and interview evaluation above, then choose Approve, Deny, or Defer and submit your vote.',
+      formNote: 'Review the Chairman and Commissioner Form 2 assessments above, complete the interview evaluation, then choose Approve, Deny, or Defer.',
       dashboardNote: 'Each of the three parole board members votes independently.',
       roleNote: 'You must include a clinical score (0–100) with your vote.',
       showMedicalScore: true,
@@ -282,10 +282,16 @@ const PMSBoardVote = (() => {
     if (!show && els.scoreInput) els.scoreInput.value = '';
   }
 
-  function statusMessage(assessment) {
+  function statusMessage(assessment, opts = {}) {
     if (assessment?.submissionStatus === 'Submitted') {
       const scorePart = assessment.score != null ? ` (${assessment.score}%)` : '';
-      return `<strong>Your vote recorded:</strong> ${formatVoteLabel(assessment.vote)}${scorePart} on ${PMSUI.fmtDate(assessment.submittedAt)}. You may change it below if needed.`;
+      const when = assessment.submittedAt
+        ? PMSUI.fmtDateTime?.(assessment.submittedAt) || PMSUI.fmtDate(assessment.submittedAt)
+        : PMSUI.fmtDate(assessment.updatedAt);
+      if (opts.readOnly) {
+        return `<strong>Vote already submitted:</strong> ${formatVoteLabel(assessment.vote)}${scorePart} · ${when}. No further vote is required for this hearing.`;
+      }
+      return `<strong>Your vote recorded:</strong> ${formatVoteLabel(assessment.vote)}${scorePart} on ${when}. You may change it below if needed.`;
     }
     if (assessment?.submissionStatus === 'Draft') {
       const scorePart = assessment.score != null ? ` (${assessment.score}%)` : '';
@@ -303,6 +309,20 @@ const PMSBoardVote = (() => {
   const FORM2_CLAIM_TOTAL = 10;
   const PSYCH_INDICATOR_TOTAL = 5;
 
+  function getPanelForm2ReviewProgress(app) {
+    const roles = ['DJAG Secretary', 'CS Commissioner'];
+    const records = roles.map((role) => (
+      typeof PMSStorage.getBoardAssessmentEntryForRole === 'function'
+        ? PMSStorage.getBoardAssessmentEntryForRole(app, role)
+        : null
+    ));
+    const recorded = records.filter((r) => {
+      const claims = r?.claimVerification || [];
+      return claims.filter((c) => c.status).length > 0 || r?.submissionStatus === 'Submitted';
+    }).length;
+    return { recorded, total: roles.length, complete: recorded === roles.length };
+  }
+
   function getInterviewWorkflowProgress(app, actor) {
     const mine = PMSStorage.getBoardAssessmentForActor(app, actor);
     const claims = mine?.claimVerification || [];
@@ -318,6 +338,39 @@ const PMSBoardVote = (() => {
     const voteSubmitted = mine?.submissionStatus === 'Submitted';
     const voteDraft = mine?.submissionStatus === 'Draft'
       && !!(mine?.vote || mine?.feedback || mine?.score != null || claimsSigned || psychComplete);
+
+    if (isPsychiatrist(actor)) {
+      const review = getPanelForm2ReviewProgress(app);
+      let currentStep = 'psych';
+      if (psychSigned) currentStep = voteSubmitted ? 'complete' : 'vote';
+      return {
+        claims: {
+          done: review.recorded,
+          total: review.total,
+          signed: review.complete,
+          reviewOnly: true,
+          status: review.complete ? 'completed' : (review.recorded ? 'current' : 'pending'),
+        },
+        psych: {
+          rated: psychRated,
+          total: PSYCH_INDICATOR_TOTAL,
+          complete: psychComplete,
+          signed: psychSigned,
+          status: psychSigned ? 'completed' : 'current',
+          docs,
+        },
+        vote: {
+          submitted: voteSubmitted,
+          draft: voteDraft,
+          label: voteSubmitted ? formatVoteLabel(mine?.vote) : (voteDraft ? 'Draft saved' : 'Awaiting vote'),
+          status: voteSubmitted ? 'completed' : (psychSigned ? 'current' : 'pending'),
+          score: mine?.score,
+        },
+        currentStep,
+        interviewComplete: psychSigned && voteSubmitted,
+      };
+    }
+
     let currentStep = 'form2';
     if (claimsSigned) currentStep = psychSigned ? (voteSubmitted ? 'complete' : 'vote') : 'psych';
     return {
@@ -359,9 +412,13 @@ const PMSBoardVote = (() => {
     const p = PMSStorage.getPrisonerById(app.prisonerId);
     const hearing = PMSStorage.getHearingsByApplication(app.id).find((h) => !['Cancelled', 'Completed'].includes(h.status));
     const wf = getInterviewWorkflowProgress(app, actor);
-    const claimsDetail = wf.claims.signed
-      ? 'Signed & saved'
-      : `${wf.claims.done}/${wf.claims.total} claims marked`;
+    const claimsDetail = wf.claims.reviewOnly
+      ? (wf.claims.signed
+        ? 'Chairman & Commissioner recorded'
+        : `${wf.claims.done}/${wf.claims.total} panel assessments recorded`)
+      : (wf.claims.signed
+        ? 'Signed & saved'
+        : `${wf.claims.done}/${wf.claims.total} claims marked`);
     const psychDetail = wf.psych.signed
       ? `Signed & saved${wf.psych.docs ? ` · ${wf.psych.docs} doc(s)` : ''}`
       : (wf.psych.complete
@@ -384,11 +441,13 @@ const PMSBoardVote = (() => {
         <span class="status-pill status-pill--${PMSUI.statusClass(app.status)}">${PMSUI.esc(app.status)}</span>
       </div>
       <ol class="eval-workflow-steps">
-        ${renderWorkflowStep('Form 2 verification', claimsDetail, wf.claims.status)}
+        ${renderWorkflowStep(wf.claims.reviewOnly ? 'Form 2 assessments (read-only)' : 'Form 2 verification', claimsDetail, wf.claims.status)}
         ${renderWorkflowStep('Interview evaluation (1–5)', psychDetail, wf.psych.status)}
         ${renderWorkflowStep('Board vote', voteDetail, wf.vote.status)}
       </ol>
-      <p class="eval-queue-card__hint">Verify Form 2 claims, complete the 1–5 interview evaluation, sign with your PIN, then submit your vote in the portal.</p>
+      <p class="eval-queue-card__hint">${wf.claims.reviewOnly
+        ? 'Review the Chairman and Commissioner Form 2 assessments, complete the 1–5 interview evaluation, sign with your PIN, then submit your vote.'
+        : 'Verify Form 2 claims, complete the 1–5 interview evaluation, sign with your PIN, then submit your vote in the portal.'}</p>
       <div class="eval-queue-card__actions">
         <a href="${hrefFn(app.id)}" class="btn-primary btn-sm">${btnLabel}</a>
         ${typeof PMSRBAC !== 'undefined' ? `<a href="${PMSRBAC.prisonerProfileUrl(app.prisonerId)}" class="btn-icon">Case File</a>` : ''}
@@ -420,7 +479,7 @@ const PMSBoardVote = (() => {
 
     return `
       <p class="toolbar-note">${PMSUI.esc(cfg.dashboardNote)}</p>
-      <p class="toolbar-note toolbar-note--role">Use the Board Evaluation Portal to cross-check Form 2 claims, complete the 1–5 interview evaluation, sign with your PIN, and submit your vote.</p>
+      <p class="toolbar-note toolbar-note--role">Use the Board Evaluation Portal to review Chairman and Commissioner Form 2 assessments, complete the 1–5 interview evaluation, sign with your PIN, and submit your vote.</p>
       ${summary}
       ${pendingHtml}
       ${completeHtml}
@@ -518,6 +577,7 @@ const PMSBoardVote = (() => {
     renderDecisionsList,
     renderDecisionCard,
     getInterviewWorkflowProgress,
+    getPanelForm2ReviewProgress,
     renderPsychiatristEvaluationQueue,
     renderPsychiatristEvaluationCard,
     FORM2_CLAIM_TOTAL,

@@ -204,6 +204,13 @@ const PMSForms = (() => {
   }
 
   function openForm(formNumber, appId) {
+    if (formNumber === 3) {
+      const href = typeof PMSStorage !== 'undefined' && PMSStorage.getParoleHearingPortalHref
+        ? PMSStorage.getParoleHearingPortalHref(appId)
+        : `forms/board-decisions.html?appId=${encodeURIComponent(appId)}`;
+      window.location.href = href;
+      return;
+    }
     if (typeof PMSFormWorkflow !== 'undefined') {
       PMSFormWorkflow.openForm(formNumber, appId);
       return;

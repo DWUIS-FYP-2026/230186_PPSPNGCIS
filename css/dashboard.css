@@ -3573,6 +3573,29 @@ dialog.modal[open] .modal-form {
 @keyframes pms-spin { to { transform: rotate(360deg); } }
 .field-error { color: var(--color-red, #dc2626); font-size: 0.8125rem; margin: 0.25rem 0; }
 
+.pms-field-error-msg {
+  color: var(--color-red, #dc2626);
+  font-size: 0.8125rem;
+  margin: 0.35rem 0 0;
+}
+
+.modal-form .form-group.pms-field-invalid {
+  border-radius: 8px;
+  outline: 1px solid rgba(220, 38, 38, 0.35);
+  outline-offset: 2px;
+  padding: 0.35rem 0.5rem;
+  background: rgba(254, 242, 242, 0.35);
+}
+
+.modal-form .pms-field-invalid-control,
+.modal-form .form-group.pms-field-invalid input,
+.modal-form .form-group.pms-field-invalid select,
+.modal-form .form-group.pms-field-invalid textarea {
+  border-color: var(--color-red, #dc2626) !important;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.25);
+  background-color: rgba(254, 242, 242, 0.65);
+}
+
 .score-panel {
   margin-top: 0.75rem;
   padding: 0.75rem 1rem;

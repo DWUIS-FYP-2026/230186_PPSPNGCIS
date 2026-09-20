@@ -113,12 +113,8 @@ const PMSValidation = (() => {
   }
 
   function validateForm3(data) {
-    if (data?.checkpointPassed && data?.submitted) return { valid: true, errors: [] };
-    const errors = [];
-    errors.push(required(data.hearingProceedings, 'Hearing proceedings summary'));
-    errors.push(required(data.boardMembersPresent, 'Board members present'));
-    errors.push(required(data.officerName || data.commanderName, 'Recording officer name'));
-    return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
+    if (data?.checkpointPassed && data?.submitted) return { valid: true, errors: [], issues: [] };
+    return validateForm3Fields(data);
   }
 
   function validateForm3Checkpoint(app) {
@@ -147,7 +143,7 @@ const PMSValidation = (() => {
         ? `Outcome: ${f1.eligibilityOutcome || 'recorded'} · Officer: ${f1.officerName || '—'} · Date: ${f1.screeningDate || '—'}`
         : f1FieldErrors.slice(0, 3).join('; ');
     } else if (!f1Complete) {
-      f1FieldErrors = ['Form 1 must be submitted before Form 3.'];
+      f1FieldErrors = ['Form 1 must be submitted before the parole hearing record.'];
     }
 
     items.push({
@@ -210,6 +206,29 @@ const PMSValidation = (() => {
     });
     if (!pprSubmitted || !pprValid) errors.push(...pprErrors);
 
+    const commanderOk = PMSStorage.isCommanderVerified(app);
+    items.push({
+      id: 'commander',
+      label: 'Institutional Verification (Jail Commander)',
+      ok: commanderOk,
+      detail: commanderOk ? 'Verified' : 'Awaiting Commander verification',
+      errors: commanderOk ? [] : ['Jail Commander must verify Forms 1–2 before the hearing.'],
+      fixForm: null,
+    });
+    if (!commanderOk) errors.push('Institutional verification is required before the hearing.');
+
+    const hearingOk = typeof PMSStorage.hasScheduledParoleHearing === 'function'
+      && PMSStorage.hasScheduledParoleHearing(app);
+    items.push({
+      id: 'hearing',
+      label: 'Parole hearing scheduled',
+      ok: hearingOk,
+      detail: hearingOk ? 'Hearing date set' : 'DJAG Secretary must schedule the hearing',
+      errors: hearingOk ? [] : ['A scheduled hearing date is required before the hearing record.'],
+      fixForm: null,
+    });
+    if (!hearingOk) errors.push('Hearing must be scheduled before recording proceedings.');
+
     items.push({
       id: 'case-link',
       label: 'Application linked to detainee record',
@@ -246,8 +265,41 @@ const PMSValidation = (() => {
     return { valid: !errors.filter(Boolean).length, errors: errors.filter(Boolean) };
   }
 
-  function showFieldErrors(container, errors) {
+  function collectRequiredFieldIssues(data, specs, { message = 'This field is required.' } = {}) {
+    const issues = [];
+    (specs || []).forEach(([key, label]) => {
+      const value = data?.[key];
+      if (required(value, label)) {
+        issues.push({ fieldId: key, message, label });
+      }
+    });
+    return issues;
+  }
+
+  function validateForm3Fields(data) {
+    const issues = [];
+    const add = (fieldId, value, label) => {
+      if (required(value, label)) issues.push({ fieldId, message: 'This field is required.' });
+    };
+    add('hearingProceedings', data?.hearingProceedings, 'Hearing proceedings summary');
+    add('boardMembersPresent', data?.boardMembersPresent, 'Board members present');
+    add('officerName', data?.officerName || data?.commanderName, 'Recording officer name');
+    const errors = issues.map((i) => i.message);
+    return { valid: !issues.length, errors, issues };
+  }
+
+  function showFieldErrors(container, errors, issues) {
     if (!container) return;
+    if (typeof PMSFieldValidation !== 'undefined') {
+      if (issues?.length) {
+        PMSFieldValidation.applyIssues(container, issues);
+        return;
+      }
+      if (errors?.length === 1) {
+        PMSFieldValidation.applyIssues(container, [{ selector: '.field, .form-group', message: errors[0] }]);
+        return;
+      }
+    }
     container.querySelectorAll('.field-error').forEach((el) => el.remove());
     errors.forEach((msg) => {
       const p = document.createElement('p');
@@ -271,6 +323,8 @@ const PMSValidation = (() => {
     validateForm3Checkpoint,
     validateAssessment,
     validateGuarantor,
+    collectRequiredFieldIssues,
+    validateForm3Fields,
     showFieldErrors,
     MAX_FILE_BYTES,
     ALLOWED_FILE_TYPES,

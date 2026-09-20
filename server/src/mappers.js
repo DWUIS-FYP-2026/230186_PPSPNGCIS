@@ -137,6 +137,18 @@ function mapApplicationRow(row) {
   };
 }
 
+function normalizeHearingDateFromDb(value) {
+  if (value == null || value === '') return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toISOString().slice(0, 10);
+}
+
 function mapHearingRow(row) {
   let notes = row.notes || '';
   let extra = {};
@@ -154,7 +166,7 @@ function mapHearingRow(row) {
     applicationId: row.application_id,
     prisonerId: row.prisoner_id,
     institutionId: row.institution_id,
-    scheduledDate: row.scheduled_date,
+    scheduledDate: normalizeHearingDateFromDb(row.scheduled_date),
     scheduledTime: row.scheduled_time,
     location: row.location,
     notes,

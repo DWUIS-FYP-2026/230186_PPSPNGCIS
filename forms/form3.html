@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
   <script src="../js/auth-guard.js"></script>
   <script src="../js/page-zoom.js"></script>
+  <script>
+    (function () {
+      var p = new URLSearchParams(window.location.search);
+      var appId = p.get('appId');
+      var q = appId ? '?appId=' + encodeURIComponent(appId) : '';
+      window.location.replace('board-decisions.html' + q);
+    })();
+  </script>
   <link rel="icon" type="image/jpeg" href="../images/NationalEmblem.jpg">
   <title>Form 3 — Parole Hearing Record | PNG Parole System</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

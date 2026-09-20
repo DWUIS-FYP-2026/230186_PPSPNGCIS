@@ -223,7 +223,7 @@ const PMSStorage = (() => {
   const PAROLE_FORMS = [
     { number: 1, name: 'Form 1 — Parole Eligibility Screening' },
     { number: 2, name: 'Form 2 — Assessment Records (DDR & PPR)' },
-    { number: 3, name: 'Form 3 — Parole Hearing Record' },
+    { number: 3, name: 'Parole Hearing Record', hidden: true },
     { number: 4, name: 'Form 4 — Parole Granted' },
     { number: 5, name: 'Form 5 — Parole Refused' },
   ];
@@ -390,6 +390,7 @@ const PMSStorage = (() => {
     } catch (_) { /* PUT the in-memory union if GET fails */ }
     packHearingSyncFields();
     dedupeStoreIds(data);
+    dedupeActiveHearingsPerApplication();
     try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) { console.warn('Storage persist failed', e); }
     const snapshot = {
       settings: { ...(data.settings || {}), paroleGrantedArchive: data.paroleGrantedArchive || [] },
@@ -963,7 +964,12 @@ const PMSStorage = (() => {
     };
     unpackHearingSyncFields(normalized);
     (normalized.hearings || []).forEach((h, i) => {
-      normalized.hearings[i] = unpackHearingNotes(h);
+      normalized.hearings[i] = normalizeHearingRecord(h);
+    });
+    (normalized.applications || []).forEach((app, i) => {
+      if (!Array.isArray(app.boardAssessments)) return;
+      normalized.applications[i].boardAssessments = app.boardAssessments.map(normalizeBoardAssessmentRecord);
+      dedupeBoardVotesForApplication(normalized.applications[i], resolveVotingHearingId(app.id, null));
     });
     return normalized;
   }
@@ -999,13 +1005,7 @@ const PMSStorage = (() => {
           const { demoPasswords, ...store } = fromDb;
           data = normalizeStore(store);
           if (demoPasswords) Object.assign(DEMO_PASSWORDS, demoPasswords);
-          const local = readLocalSnapshot();
-          if (local && ((local.applications || []).length || (local.prisoners || []).length || (local.hearings || []).length)) {
-            unpackHearingSyncFields(local);
-            if (mergeRemoteHearingSessions(local)) {
-              persist({ silent: true });
-            }
-          }
+          try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (_) { /* cache DB snapshot locally */ }
         } else {
           data = normalizeStore(seedData());
           try { await pushSnapshotToDatabase(data); } catch (_) { /* server may seed on next request */ }
@@ -1410,8 +1410,8 @@ const PMSStorage = (() => {
     'Pre-Parole Report Prepared', ...POST_HEARING_SCHEDULE_STATUSES,
   ];
 
-  function findActiveHearingRecord(applicationId) {
-    const active = (data.hearings || []).filter(
+  function findActiveHearingRecord(applicationId, store) {
+    const active = ((store || data)?.hearings || []).filter(
       (h) => h.applicationId === applicationId && !['Cancelled', 'Completed'].includes(h.status),
     );
     if (!active.length) return null;
@@ -1423,6 +1423,73 @@ const PMSStorage = (() => {
 
   function hearingRecencyScore(h) {
     return new Date(h?.updatedAt || h?.createdAt || h?.scheduledDate || 0).getTime();
+  }
+
+  function normalizeHearingScheduleDate(value) {
+    if (value == null || value === '') return '';
+    if (typeof value === 'string') {
+      const iso = value.trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso.slice(0, 10);
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value).trim();
+    return d.toISOString().slice(0, 10);
+  }
+
+  function normalizeHearingRecord(h) {
+    if (!h || typeof h !== 'object') return h;
+    const next = unpackHearingNotes(h);
+    if (next.scheduledDate) next.scheduledDate = normalizeHearingScheduleDate(next.scheduledDate);
+    return next;
+  }
+
+  /** Merge persisted hearings from a snapshot (e.g. localStorage) into the live store after bootstrap load. */
+  function mergePersistedHearings(targetStore, incomingStore) {
+    if (!targetStore || !incomingStore?.hearings?.length) return false;
+    targetStore.hearings = targetStore.hearings || [];
+    let changed = false;
+    const byId = new Map(targetStore.hearings.filter((h) => h?.id).map((h) => [h.id, h]));
+
+    incomingStore.hearings.forEach((raw) => {
+      const incoming = normalizeHearingRecord(raw);
+      if (!incoming?.applicationId || !incoming.scheduledDate) return;
+      if (['Cancelled', 'Completed'].includes(incoming.status)) return;
+
+      const existing = incoming.id ? byId.get(incoming.id) : null;
+      const activeForApp = findActiveHearingRecord(incoming.applicationId, targetStore);
+
+      if (existing) {
+        const keepIncoming = !existing.scheduledDate
+          || hearingRecencyScore(incoming) >= hearingRecencyScore(existing);
+        if (keepIncoming) {
+          Object.assign(existing, incoming);
+          changed = true;
+        }
+        return;
+      }
+
+      if (!activeForApp?.scheduledDate) {
+        targetStore.hearings.push({ ...incoming });
+        if (incoming.id) byId.set(incoming.id, incoming);
+        changed = true;
+        return;
+      }
+
+      if (hearingRecencyScore(incoming) > hearingRecencyScore(activeForApp)) {
+        activeForApp.scheduledDate = incoming.scheduledDate;
+        activeForApp.scheduledTime = incoming.scheduledTime || activeForApp.scheduledTime;
+        activeForApp.location = incoming.location || activeForApp.location;
+        activeForApp.notes = incoming.notes ?? activeForApp.notes;
+        activeForApp.updatedAt = incoming.updatedAt || new Date().toISOString();
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      dedupeActiveHearingsPerApplication();
+      syncHearingApplicationStatuses();
+    }
+    return changed;
   }
 
   function dedupeActiveHearingsPerApplication() {
@@ -1563,8 +1630,9 @@ const PMSStorage = (() => {
       if (!summary.checks.form1) app2.formData.form1 = { ...app2Template.formData.form1, ...(app2.formData.form1 || {}) };
       if (!summary.checks.form2) app2.formData.form2 = { ...app2Template.formData.form2, ...(app2.formData.form2 || {}) };
       if (!summary.checks.form3) app2.formData.form3 = { ...app2Template.formData.form3, ...(app2.formData.form3 || {}) };
-      if (!summary.checks.form1 || !summary.checks.form2 || !summary.checks.form3) {
-        if (!isCommanderVerified(app2) && app2.status !== 'Released' && !app2.releaseInfo?.authorizedAt) {
+      if (!summary.checks.form1 || !summary.checks.form2) {
+        if (!isCommanderVerified(app2) && app2.status !== 'Released' && !app2.releaseInfo?.authorizedAt
+          && summary.checks.form1 && summary.checks.form2) {
           app2.status = 'Pending Commander Review';
         }
         app2.submittedAt = app2.submittedAt || app2Template.submittedAt;
@@ -1583,16 +1651,22 @@ const PMSStorage = (() => {
     }
 
     if (data.hearings && app2) {
-      const preHearingStatuses = ['Draft', 'Submitted', 'Pending Commander Review', 'Pre-Parole Report Prepared', 'Returned for Correction'];
-      const app2Hearing = findActiveHearingRecord('APP-000002');
-      if (preHearingStatuses.includes(app2.status) && !app2Hearing?.scheduledDate) {
-        data.hearings = data.hearings.filter((h) => h.applicationId !== 'APP-000002');
+      const hasScheduled = (data.hearings || []).some(
+        (h) => h.applicationId === 'APP-000002'
+          && h.scheduledDate
+          && !['Cancelled', 'Completed'].includes(h.status),
+      );
+      if (!hasScheduled) {
+        const preHearingStatuses = ['Draft', 'Submitted', 'Pending Commander Review', 'Pre-Parole Report Prepared', 'Returned for Correction'];
+        if (preHearingStatuses.includes(app2.status)) {
+          data.hearings = data.hearings.filter((h) => h.applicationId !== 'APP-000002');
+        }
       }
     }
 
     if (app2 && ['Draft', 'Submitted'].includes(app2.status)) {
       const summary = getFormCompletionSummary(app2);
-      if (summary.checks.form1 && summary.checks.form2 && summary.checks.form3 && !isCommanderVerified(app2)) {
+      if (summary.checks.form1 && summary.checks.form2 && !isCommanderVerified(app2)) {
         app2.status = 'Pending Commander Review';
         app2.submittedAt = app2.submittedAt || '2026-08-01';
         app2.submittedBy = app2.submittedBy || 'USR-000002';
@@ -1917,9 +1991,9 @@ const PMSStorage = (() => {
     return [
       { label: 'Form 1 — Eligibility Screening', met: s.checks.form1 },
       { label: 'Form 2 — DDR & PPR', met: s.checks.form2 },
-      { label: 'Form 3 — Parole Hearing Record', met: s.checks.form3 },
       { label: 'Institutional Verification', met: isCommanderVerified(app) },
-      { label: 'Hearing Scheduled / Completed', met: getHearingsByApplication(app.id).some((h) => !['Cancelled'].includes(h.status)) },
+      { label: 'Parole Hearing / Board Process', met: s.checks.hearing || s.checks.form3 },
+      { label: 'Hearing Scheduled', met: hasScheduledParoleHearing(app) },
       { label: 'Board Votes Complete (4 members)', met: requiredBoardAssessmentsComplete(app) },
       { label: 'Final Approval Workflow', met: requiredApprovalsComplete(app) },
       { label: 'Parole Score Calculated', met: score.complete },
@@ -1965,9 +2039,8 @@ const PMSStorage = (() => {
       { id: 'eligibility', label: 'Eligibility', done: prog.eligible || summary.checks.form1 },
       { id: 'form1', label: 'Form 1', done: summary.checks.form1 },
       { id: 'form2', label: 'Form 2', done: summary.checks.form2 },
-      { id: 'form3', label: 'Form 3', done: summary.checks.form3 },
       { id: 'commander', label: 'Institutional Verification', done: isCommanderVerified(app) },
-      { id: 'hearing', label: 'Hearing Scheduled', done: getHearingsByApplication(appId).some((h) => h.scheduledDate && h.status !== 'Cancelled') },
+      { id: 'hearing', label: 'Parole Hearing', done: hasScheduledParoleHearing(app) && (summary.checks.hearing || summary.checks.form3) },
       { id: 'assessment', label: 'Board Assessment', done: requiredBoardAssessmentsComplete(app) },
       { id: 'decision', label: 'Decision', done: score.complete || isForm4Complete(app.formData?.form4) || isForm5Complete(app.formData?.form5) },
       { id: 'approval', label: 'Approval', done: requiredApprovalsComplete(app) || app.status === 'Approved' },
@@ -1977,7 +2050,7 @@ const PMSStorage = (() => {
     let currentIdx = stageDefs.findIndex((s) => !s.done);
     if (currentIdx < 0) currentIdx = stageDefs.length - 1;
     if (returned) {
-      const returnIdx = stageDefs.findIndex((s) => ['form1', 'form2', 'form3'].includes(s.id) && !s.done);
+      const returnIdx = stageDefs.findIndex((s) => ['form1', 'form2'].includes(s.id) && !s.done);
       currentIdx = returnIdx >= 0 ? returnIdx : Math.max(0, stageDefs.findIndex((s) => s.id === 'form2'));
     }
     if (needsCommanderVerification(app)) {
@@ -1989,7 +2062,7 @@ const PMSStorage = (() => {
       let status = 'pending';
       if (s.done) status = 'completed';
       else if (i === currentIdx) status = 'current';
-      if (returned && ['form1', 'form2', 'form3'].includes(s.id) && !s.done) status = 'returned';
+      if (returned && ['form1', 'form2'].includes(s.id) && !s.done) status = 'returned';
       if (rejected && s.id === 'decision') status = 'rejected';
       if (deadline?.overdue && s.id === 'hearing' && !s.done) status = 'overdue';
       if (app.status === 'Pending Approval' && s.id === 'approval') status = 'current';
@@ -2025,8 +2098,8 @@ const PMSStorage = (() => {
           items.push({ ...base, type: 'form2_pending', message: 'Form 2 DDR section awaiting CS Parole Clerk', severity: 'low' });
         }
       }
-      if (['Draft', 'Submitted', 'Pending Commander Review'].includes(app.status) && s.checks.form2 && !s.checks.form3) {
-        items.push({ ...base, type: 'form3_pending', message: 'Form 3 hearing record awaiting completion after the parole hearing is scheduled', severity: 'medium' });
+      if (s.checks.form2 && !s.checks.hearing && isCommanderVerified(app) && hasScheduledParoleHearing(app)) {
+        items.push({ ...base, type: 'hearing_pending', message: 'Parole hearing process awaiting completion in the hearing portal', severity: 'medium' });
       }
       if (needsCommanderVerification(app)) {
         const age = now - new Date(app.updatedAt || app.submittedAt || app.createdAt).getTime();
@@ -2080,14 +2153,42 @@ const PMSStorage = (() => {
     return !!(recommendation && submitted);
   }
 
+  function hasScheduledParoleHearing(app) {
+    if (!app?.id) return false;
+    return getHearingsByApplication(app.id).some(
+      (h) => h.scheduledDate && !['Cancelled', 'Pending'].includes(h.status),
+    );
+  }
+
+  /** Form 3 opens only after Form 2, commander verification, and a scheduled hearing. */
+  function isForm3WorkflowAccessible(app) {
+    if (!app) return false;
+    if (isForm3Complete(app.formData?.form3)) return true;
+    const summary = getFormCompletionSummary(app);
+    if (!summary.checks.form1 || !summary.checks.form2) return false;
+    if (!isCommanderVerified(app)) return false;
+    return hasScheduledParoleHearing(app);
+  }
+
   function isForm3HearingPhaseOpen(app) {
     if (!app) return false;
     if (isForm3Complete(app.formData?.form3)) return true;
-    if (isCommanderVerified(app) || POST_COMMANDER_VERIFICATION_STATUSES.includes(app.status)) {
-      const hearings = getHearingsByApplication(app.id).filter((h) => !['Cancelled', 'Pending'].includes(h.status));
-      if (hearings.length) return true;
-    }
-    return ['Hearing Scheduled', 'Hearing In Progress', 'Pending Board Review'].includes(app.status);
+    return isForm3WorkflowAccessible(app);
+  }
+
+  function resolveEligibilityWorkflowLabel(app) {
+    if (!app) return 'Form 1 — start application';
+    const summary = getFormCompletionSummary(app);
+    if (!summary.checks.form1) return 'Form 1 — eligibility screening';
+    if (!summary.checks.form2) return 'Form 2 — assessments';
+    if (needsCommanderVerification(app)) return 'Awaiting Commander verification';
+    if (!hasScheduledParoleHearing(app)) return 'Awaiting hearing schedule';
+    return 'Parole hearing in progress';
+  }
+
+  function getParoleHearingPortalHref(appId) {
+    const id = encodeURIComponent(appId || '');
+    return `forms/board-decisions.html?appId=${id}`;
   }
 
   function isForm2SectionVerified(section) {
@@ -2566,7 +2667,7 @@ const PMSStorage = (() => {
     return summary.checks.form1 && summary.checks.form2;
   }
 
-  /** True when Forms 1–3 are complete and commander verification is still required. */
+  /** True when Forms 1–2 are complete and commander verification is still required. */
   function needsCommanderVerification(app) {
     if (!app) return false;
     if (isCommanderVerificationLocked(app) || isCommanderVerified(app)) return false;
@@ -2587,7 +2688,7 @@ const PMSStorage = (() => {
       ...(app.workflowNotes || []),
       {
         status: 'Pending Commander Review',
-        notes: 'Forms 1–3 complete — awaiting Jail Commander verification',
+        notes: 'Forms 1–2 complete — awaiting Jail Commander verification',
         at: new Date().toISOString(),
         by: 'system',
         actorName: 'System',
@@ -3337,23 +3438,52 @@ const PMSStorage = (() => {
       'DJAG Secretary': 'DJAG Secretary',
     };
     if (!allowed[role]) throw new Error('Your role is not authorized to submit board votes.');
+    const isDraft = assessment?.submissionStatus === 'Draft';
     if (!['Hearing In Progress', 'Pending Board Review', 'Hearing Scheduled'].includes(app.status) && !isHearingSessionOpen(app)) {
       throw new Error('Board votes can only be submitted after a hearing has been scheduled.');
     }
     if (app.status === 'Hearing Scheduled' && !isDraft) {
       try { startHearing(appId, actor); } catch (_) { /* vote can still be stored */ }
     }
-    const isDraft = assessment?.submissionStatus === 'Draft';
     const vote = assessment?.vote ? normalizeBoardVote(assessment.vote) : null;
     if (!isDraft && typeof PMSValidation !== 'undefined' && assessment) {
       const v = PMSValidation.validateAssessment({ ...assessment, vote });
       if (!v.valid) throw new Error(v.errors.join(' '));
     }
     app.boardAssessments = app.boardAssessments || [];
-    const existingForRole = app.boardAssessments.find((a) => a.role === role && a.assessorId !== actor.id && a.submissionStatus === 'Submitted');
+    const activeHearing = findActiveHearingRecord(appId);
+    const targetHearingId = assessment.hearingId || activeHearing?.id || null;
+    const existingForRole = app.boardAssessments.find((a) => a.role === role
+      && a.assessorId !== actor.id
+      && a.submissionStatus === 'Submitted'
+      && boardVoteIdentityMatches(a, {
+        applicationId: appId,
+        hearingId: targetHearingId,
+        assessorId: a.assessorId,
+        role,
+      }));
     if (existingForRole) throw new Error(`A vote for ${role} has already been submitted by ${existingForRole.assessorName}.`);
-    const idx = app.boardAssessments.findIndex((a) => a.role === role && a.assessorId === actor.id);
-    const prev = idx >= 0 ? app.boardAssessments[idx] : null;
+    const prev = getBoardAssessmentForActor(app, actor, { hearingId: targetHearingId });
+    let idx = prev ? app.boardAssessments.findIndex((a) => a.id === prev.id) : -1;
+    const attemptingVoteSubmit = !isDraft || !!vote || !!assessment?.vote;
+    if (attemptingVoteSubmit && prev?.submissionStatus === 'Submitted' && prev?.vote) {
+      throw new Error('Your vote for this hearing has already been submitted.');
+    }
+    if (!isDraft) {
+      const duplicateSubmitted = app.boardAssessments.filter((a) => a.id !== prev?.id
+        && a.assessorId === actor.id
+        && a.submissionStatus === 'Submitted'
+        && a.vote
+        && boardVoteIdentityMatches(a, {
+          applicationId: appId,
+          hearingId: targetHearingId,
+          assessorId: actor.id,
+          role,
+        }));
+      if (duplicateSubmitted.length) {
+        throw new Error('Your vote for this hearing has already been submitted.');
+      }
+    }
 
     function mergeField(key) {
       if (Object.prototype.hasOwnProperty.call(assessment, key)) {
@@ -3379,8 +3509,20 @@ const PMSStorage = (() => {
       claimVerification: mergeField('claimVerification'),
     });
 
+    if (role === 'Doctor' && assessment) {
+      delete assessment.claimVerification;
+      delete assessment.claimVerificationSavedAt;
+    }
+
+    if (role === 'Doctor' && assessment) {
+      delete assessment.claimVerification;
+      delete assessment.claimVerificationSavedAt;
+    }
+
     const entry = {
       id: assessment.id || prev?.id || `ASM-${String(app.boardAssessments.length + 1).padStart(6, '0')}`,
+      applicationId: appId,
+      hearingId: assessment.hearingId || prev?.hearingId || targetHearingId,
       role,
       boardPosition: assessment.boardPosition || actor.boardPosition || prev?.boardPosition,
       assessorId: actor.id,
@@ -3392,7 +3534,11 @@ const PMSStorage = (() => {
       denialReason: assessment.denialReason !== undefined ? (assessment.denialReason || '') : (prev?.denialReason || ''),
       recommendation: mergedVote === 'Approved' ? 'Recommend parole' : mergedVote === 'Refused' ? 'Do not recommend' : 'Defer decision',
       submissionStatus: isDraft ? 'Draft' : 'Submitted',
-      submittedAt: isDraft ? (prev?.submittedAt || null) : new Date().toISOString(),
+      submittedAt: isDraft
+        ? (prev?.submittedAt || null)
+        : (prev?.submissionStatus === 'Submitted' && prev?.submittedAt
+          ? prev.submittedAt
+          : new Date().toISOString()),
       updatedAt: new Date().toISOString(),
       claimVerification: mergeField('claimVerification'),
       claimVerificationSavedAt: mergeField('claimVerificationSavedAt'),
@@ -3413,6 +3559,8 @@ const PMSStorage = (() => {
     }
     if (idx >= 0) app.boardAssessments[idx] = entry;
     else app.boardAssessments.push(entry);
+    dedupeBoardVotesForApplication(app, targetHearingId);
+    packApplicationFormSidecar(app);
     if (!isDraft) {
       ensureBoardReviewStarted(app, actor, `${role} submitted board vote (${vote})`);
       logAudit(actor, 'SAVE', 'BoardAssessment', appId, `${role} vote submitted (${vote})`);
@@ -3545,15 +3693,184 @@ const PMSStorage = (() => {
     return items.slice().sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0];
   }
 
-  function getBoardAssessmentForActor(app, actor) {
-    if (!app || !actor) return null;
-    const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
-    return (app.boardAssessments || []).find((a) => a.role === role && a.assessorId === actor.id) || null;
+  function resolveVotingHearingId(appId, explicitHearingId) {
+    if (explicitHearingId) return explicitHearingId;
+    return findActiveHearingRecord(appId)?.id || null;
   }
 
-  function hasSubmittedBoardAssessment(app, actor) {
-    const mine = getBoardAssessmentForActor(app, actor);
+  function boardVoteIdentityMatches(entry, { applicationId, hearingId, assessorId, role }) {
+    if (!entry || !assessorId || entry.assessorId !== assessorId) return false;
+    if (role && entry.role !== role) return false;
+    if (applicationId && entry.applicationId && entry.applicationId !== applicationId) return false;
+    const entryHearing = entry.hearingId || null;
+    const targetHearing = hearingId || null;
+    if (!targetHearing) return true;
+    if (!entryHearing) return true;
+    return entryHearing === targetHearing;
+  }
+
+  function listBoardAssessmentsForActor(app, actor, hearingId) {
+    if (!app || !actor) return [];
+    const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
+    const hid = hearingId !== undefined ? hearingId : resolveVotingHearingId(app.id, null);
+    return (app.boardAssessments || []).filter((a) => boardVoteIdentityMatches(a, {
+      applicationId: app.id,
+      hearingId: hid,
+      assessorId: actor.id,
+      role,
+    }));
+  }
+
+  function getBoardAssessmentForActor(app, actor, opts = {}) {
+    if (!app || !actor) return null;
+    const candidates = listBoardAssessmentsForActor(app, actor, opts.hearingId);
+    if (!candidates.length) return null;
+    const submitted = candidates.filter((a) => a.submissionStatus === 'Submitted' && a.vote);
+    if (submitted.length) {
+      return submitted.sort(
+        (a, b) => new Date(b.submittedAt || b.updatedAt || 0) - new Date(a.submittedAt || a.updatedAt || 0),
+      )[0];
+    }
+    return candidates.sort(
+      (a, b) => new Date(b.updatedAt || b.submittedAt || 0) - new Date(a.updatedAt || a.submittedAt || 0),
+    )[0];
+  }
+
+  function hasSubmittedBoardVoteForHearing(app, actor, hearingId) {
+    const hid = hearingId !== undefined ? hearingId : resolveVotingHearingId(app?.id, null);
+    const mine = getBoardAssessmentForActor(app, actor, { hearingId: hid });
     return !!(mine && mine.submissionStatus === 'Submitted' && mine.vote);
+  }
+
+  function hasSubmittedBoardAssessment(app, actor, opts = {}) {
+    return hasSubmittedBoardVoteForHearing(app, actor, opts.hearingId);
+  }
+
+  function dedupeBoardVotesForApplication(app, hearingId) {
+    if (!app?.boardAssessments?.length) return false;
+    const hid = resolveVotingHearingId(app.id, hearingId);
+    const winners = new Map();
+    const passthrough = [];
+    app.boardAssessments.forEach((entry) => {
+      if (!entry?.assessorId || !entry?.role) {
+        passthrough.push(entry);
+        return;
+      }
+      if (!boardVoteIdentityMatches(entry, {
+        applicationId: app.id,
+        hearingId: hid,
+        assessorId: entry.assessorId,
+        role: entry.role,
+      })) {
+        passthrough.push(entry);
+        return;
+      }
+      const key = `${entry.assessorId}|${hid || 'legacy'}|${entry.role}`;
+      const prev = winners.get(key);
+      if (!prev) {
+        winners.set(key, entry);
+        return;
+      }
+      const entryRank = boardAssessmentEntryRank(entry);
+      const prevRank = boardAssessmentEntryRank(prev);
+      if (entryRank > prevRank) winners.set(key, entry);
+      else if (entryRank === prevRank) {
+        const entryTs = new Date(entry.updatedAt || entry.submittedAt || 0).getTime();
+        const prevTs = new Date(prev.updatedAt || prev.submittedAt || 0).getTime();
+        if (entryTs >= prevTs) winners.set(key, entry);
+      }
+    });
+    const next = [...passthrough, ...winners.values()];
+    if (next.length === app.boardAssessments.length) return false;
+    app.boardAssessments = next;
+    packApplicationFormSidecar(app);
+    return true;
+  }
+
+  async function refreshParoleCaseFromDatabase(appId) {
+    if (!appId || !data) return false;
+    if (!dbSyncEnabled) return false;
+    try {
+      const remote = await loadFromDatabase();
+      unpackHearingSyncFields(remote);
+      const changed = applyRemoteParoleCaseState(remote, appId);
+      if (changed) {
+        persist({ silent: true, localOnly: true, type: 'parole-case-sync' });
+      }
+      return changed;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function refreshApplicationBoardVotesFromDatabase(appId) {
+    return refreshParoleCaseFromDatabase(appId);
+  }
+
+  /** Apply authoritative DB snapshot for one case (hearing schedule + board votes + session). */
+  function applyRemoteParoleCaseState(remote, appId) {
+    if (!remote || !appId || !data) return false;
+    let changed = false;
+    const remApp = (remote.applications || []).find((a) => a.id === appId);
+    const localApp = getApplicationById(appId);
+    if (remApp && localApp) {
+      unpackHearingSyncFields({ applications: [remApp] });
+      const remoteAssess = remApp.boardAssessments
+        || remApp.formData?.__pmsBoardAssessments
+        || remApp.formData?.__pmsAppState?.boardAssessments
+        || [];
+      const mergedAssess = mergeBoardAssessmentsFromDatabase(localApp.boardAssessments, remoteAssess);
+      if (JSON.stringify(mergedAssess) !== JSON.stringify(localApp.boardAssessments || [])) {
+        localApp.boardAssessments = mergedAssess;
+        packApplicationFormSidecar(localApp);
+        changed = true;
+      }
+      const remoteSession = remApp.hearingSession || remApp.formData?.__pmsHearingSession;
+      const mergedSession = pickAdvancedHearingSession(localApp.hearingSession, remoteSession);
+      if (JSON.stringify(mergedSession || null) !== JSON.stringify(localApp.hearingSession || null)) {
+        localApp.hearingSession = mergedSession;
+        changed = true;
+      }
+      if (remApp.hearingSchedulingAt && remApp.hearingSchedulingAt !== localApp.hearingSchedulingAt) {
+        localApp.hearingSchedulingAt = remApp.hearingSchedulingAt;
+        changed = true;
+      }
+      const nextStatus = pickAdvancedStatus(localApp.status, remApp.status, APP_SESSION_RANK);
+      if (nextStatus && nextStatus !== localApp.status) {
+        localApp.status = nextStatus;
+        changed = true;
+      }
+      if (remApp.boardDecision?.outcome && !localApp.boardDecision?.outcome) {
+        localApp.boardDecision = remApp.boardDecision;
+        changed = true;
+      }
+    }
+    const remoteHearings = (remote.hearings || []).filter((h) => h.applicationId === appId);
+    remoteHearings.forEach((remRaw) => {
+      const rem = normalizeHearingRecord(unpackHearingNotes(remRaw));
+      if (!rem?.id) return;
+      data.hearings = data.hearings || [];
+      const idx = data.hearings.findIndex((h) => h.id === rem.id);
+      if (idx >= 0) {
+        const local = data.hearings[idx];
+        const next = { ...local, ...rem };
+        ['scheduledDate', 'scheduledTime', 'location', 'notes', 'status', 'startedAt', 'startedBy', 'startedByName'].forEach((key) => {
+          if (rem[key] != null && rem[key] !== '' && rem[key] !== local[key]) {
+            next[key] = rem[key];
+          }
+        });
+        if (JSON.stringify(next) !== JSON.stringify(local)) {
+          data.hearings[idx] = next;
+          changed = true;
+        }
+      } else {
+        data.hearings.push(rem);
+        changed = true;
+      }
+    });
+    if (localApp && dedupeBoardVotesForApplication(localApp, resolveVotingHearingId(appId, null))) changed = true;
+    dedupeActiveHearingsPerApplication();
+    return changed;
   }
 
   function getBoardAssessmentProgress(app) {
@@ -3704,6 +4021,15 @@ const PMSStorage = (() => {
                   : key === 'releaseInfo' ? fd.__pmsReleaseInfo
                     : undefined);
         if (packed == null) return;
+        if (key === 'boardAssessments' && Array.isArray(packed)) {
+          const normalizedPacked = packed.map(normalizeBoardAssessmentRecord);
+          if (app[key] == null || app[key] === '' || (Array.isArray(app[key]) && !app[key].length)) {
+            app[key] = normalizedPacked;
+          } else if (Array.isArray(app[key])) {
+            app[key] = mergeAssessmentLists(app[key], normalizedPacked);
+          }
+          return;
+        }
         if (app[key] == null || app[key] === '' || (Array.isArray(app[key]) && !app[key].length)) {
           app[key] = packed;
         }
@@ -3745,22 +4071,86 @@ const PMSStorage = (() => {
     return remoteRank > localRank ? remoteStatus : localStatus;
   }
 
+  function boardAssessmentMergeKey(entry) {
+    const role = entry?.role || '';
+    const assessor = entry?.assessorId || entry?.assessorName || '';
+    return `${role}|${assessor}`;
+  }
+
+  function boardAssessmentEntryRank(entry) {
+    if (entry?.submissionStatus === 'Submitted' && entry?.vote) return 3;
+    if (entry?.submissionStatus === 'Submitted') return 2;
+    if (entry?.submissionStatus === 'Draft') return 1;
+    return 0;
+  }
+
+  function normalizeBoardAssessmentRecord(entry) {
+    if (!entry || typeof entry !== 'object') return entry;
+    const next = { ...entry };
+    if (next.vote) next.vote = normalizeBoardVote(next.vote);
+    return next;
+  }
+
+  /** Merge board votes with MySQL/bootstrap as authority; keep local drafts only when DB has no submitted vote for that member. */
+  function mergeBoardAssessmentsFromDatabase(localList, dbList) {
+    const fromDb = (dbList || []).map(normalizeBoardAssessmentRecord);
+    const localDrafts = (localList || []).filter((entry) => {
+      if (!entry?.role || entry.submissionStatus !== 'Draft') return false;
+      const key = boardAssessmentMergeKey(entry);
+      const dbHasSubmitted = fromDb.some(
+        (b) => boardAssessmentMergeKey(b) === key && b.submissionStatus === 'Submitted' && b.vote,
+      );
+      return !dbHasSubmitted;
+    });
+    return mergeAssessmentLists(fromDb, localDrafts);
+  }
+
   function mergeAssessmentLists(localList, remoteList) {
     const map = new Map();
-    const rank = (entry) => (entry?.submissionStatus === 'Submitted' ? 2 : entry?.submissionStatus === 'Draft' ? 1 : 0);
-    [...(localList || []), ...(remoteList || [])].forEach((entry) => {
+    [...(localList || []), ...(remoteList || [])].forEach((raw) => {
+      const entry = normalizeBoardAssessmentRecord(raw);
       if (!entry?.role) return;
-      const prev = map.get(entry.role);
+      const key = boardAssessmentMergeKey(entry);
+      const prev = map.get(key);
       if (!prev) {
-        map.set(entry.role, entry);
+        map.set(key, entry);
         return;
       }
-      if (rank(entry) > rank(prev)) map.set(entry.role, entry);
-      else if (rank(entry) === rank(prev) && new Date(entry.updatedAt || entry.submittedAt || 0) > new Date(prev.updatedAt || prev.submittedAt || 0)) {
-        map.set(entry.role, entry);
+      const entryRank = boardAssessmentEntryRank(entry);
+      const prevRank = boardAssessmentEntryRank(prev);
+      if (entryRank > prevRank) {
+        map.set(key, { ...prev, ...entry });
+      } else if (entryRank === prevRank) {
+        const entryTs = new Date(entry.updatedAt || entry.submittedAt || 0).getTime();
+        const prevTs = new Date(prev.updatedAt || prev.submittedAt || 0).getTime();
+        if (entryTs >= prevTs) map.set(key, { ...prev, ...entry });
       }
     });
     return [...map.values()];
+  }
+
+  /** Merge persisted board votes from a snapshot (e.g. localStorage) after bootstrap load. */
+  function mergePersistedBoardAssessments(targetStore, incomingStore) {
+    if (!targetStore?.applications?.length || !incomingStore?.applications?.length) return false;
+    let changed = false;
+    const incomingById = new Map(incomingStore.applications.filter((a) => a?.id).map((a) => [a.id, a]));
+    targetStore.applications.forEach((app) => {
+      const incomingApp = incomingById.get(app.id);
+      if (!incomingApp) return;
+      unpackHearingSyncFields({ applications: [incomingApp] });
+      const incomingAssess = incomingApp.boardAssessments
+        || incomingApp.formData?.__pmsBoardAssessments
+        || incomingApp.formData?.__pmsAppState?.boardAssessments
+        || [];
+      if (!incomingAssess.length) return;
+      const merged = mergeAssessmentLists(app.boardAssessments, incomingAssess);
+      if (JSON.stringify(merged) !== JSON.stringify(app.boardAssessments || [])) {
+        app.boardAssessments = merged;
+        packApplicationFormSidecar(app);
+        changed = true;
+      }
+    });
+    return changed;
   }
 
   function pickAdvancedHearingSession(localSession, remoteSession) {
@@ -3957,9 +4347,10 @@ const PMSStorage = (() => {
         changed = true;
       }
       const remoteAssess = rem.boardAssessments || rem.formData?.__pmsBoardAssessments;
-      const mergedAssess = mergeAssessmentLists(local.boardAssessments, remoteAssess);
+      const mergedAssess = mergeBoardAssessmentsFromDatabase(local.boardAssessments, remoteAssess);
       if (JSON.stringify(mergedAssess) !== JSON.stringify(local.boardAssessments || [])) {
         local.boardAssessments = mergedAssess;
+        packApplicationFormSidecar(local);
         changed = true;
       }
       const remoteSession = rem.hearingSession || rem.formData?.__pmsHearingSession;
@@ -4073,11 +4464,9 @@ const PMSStorage = (() => {
         local.status = nextStatus;
         changed = true;
       }
-      ['startedAt', 'startedBy', 'startedByName', 'scheduledDate', 'scheduledTime', 'location', 'notes'].forEach((key) => {
-        if (!local[key] && rem[key]) {
-          local[key] = rem[key];
-          changed = true;
-        } else if (rem[key] && rem[key] !== local[key] && entityTimestamp(rem) > entityTimestamp(local)) {
+      ['startedAt', 'startedBy', 'startedByName', 'scheduledDate', 'scheduledTime', 'location', 'notes', 'status'].forEach((key) => {
+        if (rem[key] == null || rem[key] === '') return;
+        if (local[key] !== rem[key]) {
           local[key] = rem[key];
           changed = true;
         }
@@ -4101,18 +4490,28 @@ const PMSStorage = (() => {
         const remote = await loadFromDatabase();
         unpackHearingSyncFields(remote);
         if (mergeRemoteHearingSessions(remote)) changed = true;
-      } catch (_) { /* fall through to the local snapshot */ }
+      } catch (_) { /* DB unavailable — keep in-memory state */ }
+    } else {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const incoming = JSON.parse(raw);
+          unpackHearingSyncFields(incoming);
+          if (mergeRemoteHearingSessions(incoming)) changed = true;
+        }
+      } catch (_) { /* ignore malformed local snapshots */ }
     }
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const incoming = JSON.parse(raw);
-        unpackHearingSyncFields(incoming);
-        if (mergeRemoteHearingSessions(incoming)) changed = true;
-      }
-    } catch (_) { /* ignore malformed local snapshots */ }
-    if (changed) persist({ localOnly: true, silent: true, type: 'hearing-session-sync' });
+    if (changed) {
+      (data.applications || []).forEach(packApplicationFormSidecar);
+      dedupeActiveHearingsPerApplication();
+      persist({ silent: true, localOnly: true, type: 'hearing-session-sync' });
+    }
     return changed;
+  }
+
+  async function syncParoleHearingAndVotesFromDatabase(appId) {
+    if (appId) return refreshParoleCaseFromDatabase(appId);
+    return pullRemoteHearingSessions();
   }
 
   function getHearingSession(appOrId) {
@@ -5110,6 +5509,7 @@ const PMSStorage = (() => {
       : null;
     if (!formN && latest?.kind === 'form') formN = latest.formN;
     if (!formN) return null;
+    if (formN === 3) return null;
 
     const key = `form${formN}`;
     const incomplete = !summary.checks[key];
@@ -5148,8 +5548,45 @@ const PMSStorage = (() => {
     if (needsCommanderVerification(app) && typeof PMSRBAC !== 'undefined' && PMSRBAC.normalizeRole(actor?.role) === 'Jail Commander') {
       return { href: `dashboard-commander.html?panel=verification&app=${app.id}`, label: 'Record Verification', kind: 'verification' };
     }
-    if (needsDjagForm2Ppr(app) && typeof PMSRBAC !== 'undefined' && PMSRBAC.canAccessForm(actor, 2, 'edit')) {
-      return { href: `forms/form2.html?appId=${appId}`, label: 'Form 2 — PPR section', kind: 'form', formN: 2 };
+    if (needsDjagForm2Ppr(app)) {
+      const canEditPpr = typeof PMSRBAC !== 'undefined' && PMSRBAC.canEditForm2Section(actor, 'ppr');
+      if (canEditPpr) {
+        return { href: `forms/form2.html?appId=${appId}&section=ppr`, label: 'Form 2 — PPR section', kind: 'form', formN: 2 };
+      }
+      return {
+        href: `forms/form2.html?appId=${appId}`,
+        label: 'Waiting for DJAG PPR',
+        kind: 'waiting',
+        formN: null,
+      };
+    }
+    if (summary.checks.form2 && needsCommanderVerification(app)) {
+      return {
+        href: `forms/form2.html?appId=${appId}`,
+        label: 'Awaiting Commander verification',
+        kind: 'waiting',
+        formN: null,
+      };
+    }
+    if (summary.checks.form2 && isCommanderVerified(app) && !hasScheduledParoleHearing(app)) {
+      const canSchedule = typeof PMSRBAC !== 'undefined' && PMSRBAC.canScheduleHearing?.(actor);
+      if (canSchedule) {
+        return { href: `forms/hearing-schedule.html?appId=${appId}`, label: 'Schedule hearing', kind: 'hearing' };
+      }
+      return {
+        href: `forms/form2.html?appId=${appId}`,
+        label: 'Awaiting hearing schedule',
+        kind: 'waiting',
+        formN: null,
+      };
+    }
+    if (summary.checks.form2 && isCommanderVerified(app) && hasScheduledParoleHearing(app)
+      && !(summary.checks.hearing || summary.checks.form3)) {
+      return {
+        href: getParoleHearingPortalHref(app.id),
+        label: 'Parole hearing',
+        kind: 'hearing',
+      };
     }
     const resume = getResumeFormTarget(app, actor, summary);
     if (resume) return resume;
@@ -5169,6 +5606,9 @@ const PMSStorage = (() => {
 
     const latest = getApplicationModificationPoints(app)[0];
     if (latest?.kind === 'form' && latest.formN) {
+      if (latest.formN === 3) {
+        return { href: getParoleHearingPortalHref(app.id), label: 'Parole hearing', kind: 'hearing' };
+      }
       const canView = typeof PMSRBAC === 'undefined' || PMSRBAC.canAccessForm(actor, latest.formN, 'view');
       const canEdit = typeof PMSRBAC === 'undefined' || PMSRBAC.canAccessForm(actor, latest.formN, 'edit');
       if (canView || canEdit) {
@@ -5185,6 +5625,7 @@ const PMSStorage = (() => {
     }
 
     for (let n = 1; n <= 5; n += 1) {
+      if (n === 3) continue;
       const key = `form${n}`;
       if (summary.checks[key]) continue;
       if (typeof PMSRBAC !== 'undefined' && !PMSRBAC.canAccessForm(actor, n, 'edit')) continue;
@@ -5193,6 +5634,7 @@ const PMSStorage = (() => {
     }
 
     for (let n = 5; n >= 1; n -= 1) {
+      if (n === 3) continue;
       if (!summary.checks[`form${n}`]) continue;
       if (typeof PMSRBAC !== 'undefined' && !PMSRBAC.canAccessForm(actor, n, 'view')) continue;
       return { href: `forms/form${n}.html?appId=${appId}`, label: PAROLE_FORMS[n - 1]?.name || `Form ${n}`, kind: 'form', formN: n };
@@ -5259,7 +5701,7 @@ const PMSStorage = (() => {
   }
 
   function createEmptyForms() {
-    return PAROLE_FORMS.map((f) => ({
+    return PAROLE_FORMS.filter((f) => !f.hidden).map((f) => ({
       formNumber: f.number, formName: f.name, fileName: null, dataUrl: null,
       uploadedAt: null, verified: false, verifiedBy: null,
     }));
@@ -5384,14 +5826,19 @@ const PMSStorage = (() => {
     const wfChecks = (typeof PMSFormWorkflow !== 'undefined' && appId)
       ? PMSFormWorkflow.getChecks(appId)
       : {};
+    const hearingDone = isForm3Complete(fd.form3) || !!wfChecks.form3
+      || isBoardDecisionFinalized(app);
     const checks = {
       form1: isForm1Complete(fd.form1) || !!wfChecks.form1,
       form2: isForm2Complete(fd.form2) || !!wfChecks.form2,
-      form3: isForm3Complete(fd.form3) || !!wfChecks.form3,
+      form3: hearingDone,
+      hearing: hearingDone,
       form4: isForm4Complete(fd.form4) || !!wfChecks.form4,
       form5: isForm5Complete(fd.form5) || !!wfChecks.form5,
     };
-    return { completed: Object.values(checks).filter(Boolean).length, total: 5, checks };
+    const outcomeDone = checks.form4 || checks.form5;
+    const completed = [checks.form1, checks.form2, outcomeDone].filter(Boolean).length;
+    return { completed, total: 3, checks };
   }
 
   function describeFormVerification(app) {
@@ -5408,7 +5855,7 @@ const PMSStorage = (() => {
     return [
       s.checks.form1 ? 'F1 verified' : 'F1 —',
       form2Label,
-      s.checks.form3 ? 'F3 verified' : 'F3 —',
+      s.checks.hearing ? 'Hearing✓' : 'Hearing —',
       s.checks.form4 ? 'F4 issued' : (s.checks.form5 ? 'F5 issued' : null),
       commander,
     ].filter(Boolean).join(' · ');
@@ -5677,6 +6124,9 @@ const PMSStorage = (() => {
 
   function saveHearing(hearing, actor) {
     const payload = { ...hearing };
+    if (payload.scheduledDate) {
+      payload.scheduledDate = normalizeHearingScheduleDate(payload.scheduledDate);
+    }
     if (!payload.id && payload.applicationId) {
       const existing = findActiveHearingRecord(payload.applicationId);
       if (existing) payload.id = existing.id;
@@ -5829,6 +6279,9 @@ const PMSStorage = (() => {
             actorName: `${actor.firstName} ${actor.lastName}`,
           }];
         }
+      }
+      if (app && saved.scheduledDate && schedulingAction && saved.status !== 'Cancelled') {
+        app.hearingSchedulingAt = app.hearingSchedulingAt || new Date().toISOString();
       }
     }
     if (saved.applicationId) {
@@ -6304,7 +6757,8 @@ const PMSStorage = (() => {
     FORM2_ATTACHMENT_LABELS, getForm2AttachmentFiles, getForm2AttachmentFile, canDownloadForm2Attachments, downloadForm2Attachment,
     isForm4Issued, getAllParoleApplications, getGrantedParoleCases, countGrantedParole, getParoleGrantedArchive, getGrantedParoleRegister, archiveParoleGrantedCase,
     isParoleRefusedCase, getRefusedParoleCases, countRefusedParole,
-    needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm3HearingPhaseOpen, isForm4Complete, isForm5Complete,
+    needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm3HearingPhaseOpen, isForm3WorkflowAccessible,
+    hasScheduledParoleHearing, resolveEligibilityWorkflowLabel, getParoleHearingPortalHref, isForm4Complete, isForm5Complete,
     transitionApplication, recordBoardDecision, routeParoleOutcome, issueForm4Grant, issueForm5Refusal,
     getBoardDecisionOutcome, isBoardDecisionFinalized, canProceedToForm4, canProceedToForm5,
     getFormCompletionSummary, describeFormVerification, calculateParoleScore, getHearingDeadlineInfo,
@@ -6313,7 +6767,9 @@ const PMSStorage = (() => {
     startHearing, getHearingSession, isHearingSessionOpen, pullRemoteHearingSessions, pullRemoteCaseProgress,
     maybeCompleteHearingOnVoteTally, saveBoardAssessment, saveInterviewSessionMeta, getBoardAssessments, getBoardAssessmentProgress, getBoardAssessmentForActor,
     getBoardAssessmentEntryForRole,
-    hasSubmittedBoardAssessment, requiredBoardAssessmentsComplete, calculateBoardVotes, finalizeBoardVotes,
+    hasSubmittedBoardAssessment, hasSubmittedBoardVoteForHearing,
+    refreshApplicationBoardVotesFromDatabase, refreshParoleCaseFromDatabase, syncParoleHearingAndVotesFromDatabase,
+    resolveVotingHearingId, requiredBoardAssessmentsComplete, calculateBoardVotes, finalizeBoardVotes,
     saveMedicalEvaluation, getMedicalEvaluations, isVerificationReady, needsCommanderVerification,
     promoteToCommanderReviewIfReady, syncApplicationWorkflowState, syncAllApplicationWorkflowStates,
     isParoleGrantedForRelease,
@@ -6324,7 +6780,8 @@ const PMSStorage = (() => {
     getGrantApprovalQueue, roleHasApprovedGrant, isGrantApprovalPending,
     generateCaseNumber, syncBoardContracts, isCommanderVerified, isCommanderVerificationLocked,
     getCommanderVerificationRecord, getCommanderVerifiedApplications, isForm1Verified, isVerificationReady,
-    getHearings, getHearingById, getHearingsByPrisoner, getHearingsByApplication, splitHearingScheduleNotes, getScheduledHearings, saveHearing, HEARING_STATUSES,
+    getHearings, getHearingById, getHearingsByPrisoner, getHearingsByApplication, findActiveHearingRecord,
+    splitHearingScheduleNotes, getScheduledHearings, saveHearing, HEARING_STATUSES,
     getReports, createReport, previewNextId,
     getNotifications, getNotificationsForUser, getCalendarEventsForUser, syncParoleNotifications,
     markNotificationRead, resolveNotification, markAllNotificationsRead,

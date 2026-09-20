@@ -8,7 +8,6 @@ const PMSForm2Assessment = (() => {
     'pprCommunityDocs',
     'pprVictimImpactDocs',
     'pprReintegrationDocs',
-    'pprBoardInterviewDocs',
     'pprSignoffDocs',
   ];
   const DAR_FILE_IDS = ['darConductDocs', 'darTrainingDocs', 'darHealthDocs', 'darRiskDocs'];
@@ -107,6 +106,35 @@ const PMSForm2Assessment = (() => {
     document.body.classList.toggle('form2-view-workspace', !onHub);
   }
 
+  function updateHubGuidance() {
+    const intro = $('reportsHub')?.querySelector('.reports-hub__intro');
+    if (!intro) return;
+    const ddrDone = typeof PMSStorage !== 'undefined'
+      && PMSStorage.isForm2SectionVerified?.(app?.formData?.form2?.sections?.ddr);
+    const pprDone = typeof PMSStorage !== 'undefined'
+      && PMSStorage.isForm2SectionVerified?.(app?.formData?.form2?.sections?.ppr);
+    if (ddrDone && pprDone) {
+      const signed = !!(app?.formData?.form2?.packageSignature?.verified || app?.formData?.form2?.digitalSignature?.verified);
+      intro.textContent = signed
+        ? 'Form 2 is authorized. The Jail Commander verifies the case next, then the DJAG Secretary schedules the parole hearing in the hearing portal.'
+        : 'Both DAR and PPR are complete. Enter your 6-digit PIN and select Verify & Sign to authorize Form 2.';
+      return;
+    }
+    if (ddrDone && !pprDone) {
+      intro.textContent = canEditPpr
+        ? 'DAR is complete. Submit the Pre-Parole Report to finish Form 2.'
+        : 'DAR is complete. The DJAG Parole Clerk must submit the Pre-Parole Report before the case can advance.';
+      return;
+    }
+    if (!ddrDone && pprDone) {
+      intro.textContent = canEditDar
+        ? 'PPR is complete. Submit the Detainee Assessment Report to finish Form 2.'
+        : 'PPR is complete. Form 2 cannot continue until the CS Parole Clerk submits the Detainee Assessment Report.';
+      return;
+    }
+    intro.textContent = 'Form 2 has two reports. DAR is completed by the CS Parole Clerk. PPR is completed by the DJAG Parole Clerk. Both must be submitted before the case can leave Form 2.';
+  }
+
   function showReportsHub() {
     activeReportSection = null;
     $('reportsHub')?.classList.remove('hidden');
@@ -115,6 +143,7 @@ const PMSForm2Assessment = (() => {
     $('pprCard')?.classList.add('hidden');
     syncUrlSection(null);
     updateFormActionsVisibility();
+    updateHubGuidance();
     remountOfficerAuth();
   }
 
@@ -269,11 +298,6 @@ const PMSForm2Assessment = (() => {
       sponsorNotes: $('sponsorNotes')?.value.trim() || '',
       accommodationStability: $('accommodationStability')?.value || '',
       reintegrationPlan: $('reintegrationPlan')?.value.trim() || '',
-      pprInterviewConducted: document.querySelector('input[name="pprInterviewConducted"]:checked')?.value || 'pending',
-      pprBoardInterviewDate: $('pprBoardInterviewDate')?.value || '',
-      pprInterviewSummary: $('pprInterviewSummary')?.value.trim() || '',
-      pprBoardInterviewer: $('pprBoardInterviewer')?.value.trim() || '',
-      pprInmateDemeanor: $('pprInmateDemeanor')?.value || '',
       pprRecommendation: document.querySelector('input[name="pprRecommendation"]:checked')?.value || '',
       pprRecommendationJustification: $('pprRecommendationJustification')?.value.trim() || '',
       communityStatements: $('communityStatements')?.value.trim() || '',
@@ -350,56 +374,65 @@ const PMSForm2Assessment = (() => {
     };
   }
 
-  function validatePPR(data) {
-    const required = [
-      ['pprFamilyHistory', 'Family history & upbringing'],
-      ['pprCommunityLeaderName', 'Community leader name'],
-      ['pprCommunityVillage', 'Village / community'],
-      ['pprCommunityInterview', 'Community leader interview summary'],
-      ['pprPastorName', 'Pastor name'],
-      ['pprPastorChurch', 'Church / organization'],
-      ['pprPastorInterview', 'Pastor interview summary'],
-      ['victimStatements', 'Victim / family consultation'],
-      ['communityRisk', 'Tribal conflict / retaliatory risk'],
-      ['verifiedResidence', 'Proposed residence'],
-      ['pprEmploymentPlan', 'Employment / livelihood plan'],
-      ['pprVpoName', 'VPO name'],
-      ['pprVpoContact', 'VPO contact'],
-      ['accommodationStability', 'Accommodation stability'],
-      ['reintegrationPlan', 'Reintegration support plan'],
-      ['pprRecommendation', 'PPR recommendation'],
-      ['pprRecommendationJustification', 'Recommendation justification'],
-      ['pprOfficer', 'Parole officer name'],
-      ['pprDate', 'Report date'],
-    ];
-    for (const [key, label] of required) {
-      if (!data[key]?.trim?.() && !data[key]) {
-        showToast(`${label} is required (PPR).`, 'error');
-        return false;
+  const PPR_REQUIRED_SPECS = [
+    ['pprFamilyHistory', 'Family history & upbringing'],
+    ['pprCommunityLeaderName', 'Community leader name'],
+    ['pprCommunityVillage', 'Village / community'],
+    ['pprCommunityInterview', 'Community leader interview summary'],
+    ['pprPastorName', 'Pastor name'],
+    ['pprPastorChurch', 'Church / organization'],
+    ['pprPastorInterview', 'Pastor interview summary'],
+    ['victimStatements', 'Victim / family consultation'],
+    ['communityRisk', 'Tribal conflict / retaliatory risk'],
+    ['verifiedResidence', 'Proposed residence'],
+    ['pprEmploymentPlan', 'Employment / livelihood plan'],
+    ['pprVpoName', 'VPO name'],
+    ['pprVpoContact', 'VPO contact'],
+    ['accommodationStability', 'Accommodation stability'],
+    ['reintegrationPlan', 'Reintegration support plan'],
+    ['pprRecommendation', 'PPR recommendation'],
+    ['pprRecommendationJustification', 'Recommendation justification'],
+    ['pprOfficer', 'Parole officer name'],
+    ['pprDate', 'Report date'],
+  ];
+
+  const DAR_REQUIRED_SPECS = [
+    ['disciplinaryHistory', 'Disciplinary history'],
+    ['conductLog', 'Conduct log'],
+    ['adjustmentRating', 'Institutional adjustment'],
+    ['trainingProgress', 'Completed programs'],
+    ['rehabProgress', 'Rehabilitation progress'],
+    ['mentalHealth', 'Mental health assessment'],
+    ['physicalHealth', 'Physical health status'],
+    ['darOfficer', 'CS officer name'],
+    ['darDate', 'Assessment date'],
+  ];
+
+  function runSectionRequiredValidation(data, specs, root, sectionLabel) {
+    if (typeof PMSValidation === 'undefined' || typeof PMSFieldValidation === 'undefined') {
+      for (const [key, label] of specs) {
+        if (!data[key]?.trim?.() && !data[key]) {
+          showToast(`${label} is required (${sectionLabel}).`, 'error');
+          return false;
+        }
       }
+      return true;
     }
-    return true;
+    const result = PMSFieldValidation.validateRequiredData(data, specs, root || document);
+    if (!result.valid) {
+      showToast(`Please complete all required fields (${sectionLabel}).`, 'error');
+    }
+    return result.valid;
+  }
+
+  function validatePPR(data) {
+    const root = getCardBody('pprCard') || $('pprCard') || document;
+    return runSectionRequiredValidation(data, PPR_REQUIRED_SPECS, root, 'PPR');
   }
 
   function validateDAR(data) {
-    const required = [
-      ['disciplinaryHistory', 'Disciplinary history'],
-      ['conductLog', 'Conduct log'],
-      ['adjustmentRating', 'Institutional adjustment'],
-      ['trainingProgress', 'Completed programs'],
-      ['rehabProgress', 'Rehabilitation progress'],
-      ['mentalHealth', 'Mental health assessment'],
-      ['physicalHealth', 'Physical health status'],
-      ['darOfficer', 'CS officer name'],
-      ['darDate', 'Assessment date'],
-    ];
-    for (const [key, label] of required) {
-      if (!data[key]?.trim?.() && !data[key]) {
-        showToast(`${label} is required (DAR).`, 'error');
-        return false;
-      }
-    }
-    return true;
+    const root = getCardBody('darCard') || $('darCard') || document;
+    return runSectionRequiredValidation(data, DAR_REQUIRED_SPECS, root, 'DAR');
   }
 
   function resolveApplicationForPrisoner(prisonerId, apps) {
@@ -469,18 +502,69 @@ const PMSForm2Assessment = (() => {
     return activeReportSection === 'dar' && canEditDar && !darLocked;
   }
 
+  function canSignForm2Package() {
+    if (typeof PMSRBAC !== 'undefined' && PMSRBAC.canSignForm2Package) {
+      return PMSRBAC.canSignForm2Package(actor);
+    }
+    const role = normalizeRole(actor?.role);
+    return ['CS Parole Clerk', 'CS Parole Officer', 'DJAG Parole Clerk'].includes(role);
+  }
+
+  function getForm2PackageSignature() {
+    const f2 = app?.formData?.form2;
+    return f2?.packageSignature || f2?.digitalSignature || null;
+  }
+
+  function form2BothComplete() {
+    return typeof PMSStorage !== 'undefined' && PMSStorage.isForm2Complete(app?.formData?.form2);
+  }
+
+  function resolveOfficerAuthState() {
+    const sectionKey = getActiveSectionKey();
+    const packageSig = getForm2PackageSignature();
+    if (sectionKey === 'ppr') {
+      const saved = app?.formData?.form2?.sections?.ppr?.digitalSignature || null;
+      return { canSign: canEditPpr && !pprLocked, savedAuth: saved };
+    }
+    if (sectionKey === 'ddr') {
+      const saved = app?.formData?.form2?.sections?.ddr?.digitalSignature || null;
+      return { canSign: canEditDar && !darLocked, savedAuth: saved };
+    }
+    if (form2BothComplete()) {
+      const alreadySigned = !!packageSig?.verified;
+      return {
+        canSign: canSignForm2Package() && !alreadySigned,
+        savedAuth: alreadySigned ? packageSig : null,
+      };
+    }
+    return {
+      canSign: (canEditDar && !darLocked) || (canEditPpr && !pprLocked),
+      savedAuth: null,
+    };
+  }
+
+  async function savePackageSignature(record) {
+    if (!appId || !record?.verified) return;
+    try {
+      app = PMSStorage.getApplicationById(appId);
+      const form2 = { ...(app?.formData?.form2 || { sections: {} }) };
+      form2.packageSignature = record;
+      form2.digitalSignature = record;
+      PMSStorage.saveFormData(appId, 'form2', form2, actor);
+      app = PMSStorage.getApplicationById(appId);
+      if (typeof PMSStorage.persistCritical === 'function') {
+        try { await PMSStorage.persistCritical(); } catch (_) { /* local save succeeded */ }
+      }
+      updateHubGuidance();
+    } catch (err) {
+      showToast(err.message || 'Could not save Form 2 authorization.', 'error');
+    }
+  }
+
   function mountOfficerAuth() {
     if (typeof PMSFormOfficerAuth === 'undefined') return;
     try {
-      const sectionKey = getActiveSectionKey();
-      const savedAuth = sectionKey
-        ? (app?.formData?.form2?.sections?.[sectionKey]?.digitalSignature || null)
-        : null;
-      const canSign = sectionKey === 'ppr'
-        ? (canEditPpr && !pprLocked)
-        : sectionKey === 'ddr'
-          ? (canEditDar && !darLocked)
-          : false;
+      const { canSign, savedAuth } = resolveOfficerAuthState();
       officerAuth = PMSFormOfficerAuth.create({
         mount: '#officer-auth-mount',
         actor,
@@ -488,7 +572,12 @@ const PMSForm2Assessment = (() => {
         formNumber: 2,
         readOnly: !canSign,
         savedRecord: savedAuth?.verified ? savedAuth : null,
-        onVerified: () => submitGate?.sync(),
+        onVerified: (record) => {
+          submitGate?.sync();
+          if (!getActiveSectionKey() && record?.verified) {
+            savePackageSignature(record);
+          }
+        },
       });
       submitGate = PMSFormOfficerAuth.gateSubmitButtons(
         officerAuth,
@@ -498,8 +587,8 @@ const PMSForm2Assessment = (() => {
             if (btn.id === 'btnSubmitPpr') return canEditPpr && !pprLocked;
             if (btn.id === 'btnSubmitDar') return canEditDar && !darLocked;
             if (btn.id === 'btnSubmitBoth') {
-              return typeof PMSStorage !== 'undefined'
-                && !PMSStorage.isForm2Complete(app?.formData?.form2);
+              if (form2BothComplete()) return canSignForm2Package();
+              return (canEditDar && !darLocked) || (canEditPpr && !pprLocked);
             }
             return true;
           },
@@ -518,10 +607,18 @@ const PMSForm2Assessment = (() => {
   }
 
   function requirePinForSubmit() {
-    return PMSFormOfficerAuth.requireVerified(officerAuth, {
+    const ok = PMSFormOfficerAuth.requireVerified(officerAuth, {
       showToast,
       message: 'Enter your 6-digit PIN and click Verify & Sign before submitting.',
     });
+    if (!ok && typeof PMSFieldValidation !== 'undefined') {
+      const pin = document.querySelector('#officer-auth-mount .officer-auth__pin-input');
+      PMSFieldValidation.applyIssues($('form2-root') || document, [{
+        element: pin || document.querySelector('#officer-auth-mount .officer-auth'),
+        message: 'Enter your 6-digit PIN and click Verify & Sign before submitting.',
+      }]);
+    }
+    return ok;
   }
 
   async function submitSection(sectionKey) {
@@ -574,12 +671,22 @@ const PMSForm2Assessment = (() => {
       submitGate?.sync();
       if (PMSStorage.isForm2Complete(app.formData?.form2)) {
         finalizeForm2Submission();
+      } else if (isPpr) {
+        const message = 'Pre-Parole Report submitted. Form 2 finishes when the CS Parole Clerk has also submitted the Detainee Assessment Report.';
+        if (typeof PMSUI !== 'undefined' && PMSUI.showAlertDialog) {
+          PMSUI.showAlertDialog(message, { title: 'Action required', type: 'success', buttonLabel: 'Close' });
+        } else {
+          showToast(message, 'success');
+        }
       } else {
-        showToast(
-          `${isPpr ? 'Pre-Parole Report' : 'Detainee Assessment Report'} submitted successfully. The report stays open for review.`,
-          'success',
-        );
+        const message = 'Detainee Assessment Report submitted. Form 2 cannot continue until the DJAG Parole Clerk submits the Pre-Parole Report. Sign in as the DJAG clerk to complete that section.';
+        if (typeof PMSUI !== 'undefined' && PMSUI.showAlertDialog) {
+          PMSUI.showAlertDialog(message, { title: 'Action required', type: 'success', buttonLabel: 'Close' });
+        } else {
+          showToast(message, 'success');
+        }
       }
+      updateHubGuidance();
     } catch (err) {
       showToast(err.message || 'Submission failed.', 'error');
     }
@@ -711,11 +818,9 @@ const PMSForm2Assessment = (() => {
   }
 
   function showForm2CompleteNotice() {
+    updateHubGuidance();
     const hubIntro = $('reportsHub')?.querySelector('.reports-hub__intro');
-    if (hubIntro && !hubIntro.dataset.completeNotice) {
-      hubIntro.dataset.completeNotice = 'true';
-      hubIntro.textContent = 'Both DAR and PPR are complete. Open either report to review submitted assessments. Leave this page when you are finished.';
-    }
+    if (hubIntro) hubIntro.dataset.completeNotice = 'true';
     const workspaceBar = document.querySelector('.reports-workspace__bar');
     if (workspaceBar && !workspaceBar.querySelector('.form2-complete-notice')) {
       const notice = document.createElement('p');
@@ -744,10 +849,19 @@ const PMSForm2Assessment = (() => {
     const ppr = app?.formData?.form2?.sections?.ppr;
     const ddr = app?.formData?.form2?.sections?.ddr;
     if (!ppr?.submitted || !ddr?.submitted) {
-      if (!validatePPR(collectPPR()) || !validateDAR(collectDAR())) return;
+      if (!validateDAR(collectDAR())) {
+        openReportSection('dar');
+        return;
+      }
+      if (!validatePPR(collectPPR())) {
+        openReportSection('ppr');
+        return;
+      }
       showToast('Submit each report section individually first, or complete all required fields.', 'error');
       return;
     }
+    const record = officerAuth?.getRecord();
+    if (record?.verified) await savePackageSignature(record);
     if (typeof PMSStorage !== 'undefined' && PMSStorage.isForm2Complete(app.formData.form2)) {
       finalizeForm2Submission();
     }
@@ -769,7 +883,6 @@ const PMSForm2Assessment = (() => {
     const steps = {
       dar: document.querySelector('[data-ppr-step="dar"]'),
       ppr: document.querySelector('[data-ppr-step="ppr"]'),
-      board: document.querySelector('[data-ppr-step="board"]'),
       decision: document.querySelector('[data-ppr-step="decision"]'),
     };
     Object.values(steps).forEach((el) => el?.classList.remove('active', 'completed'));
@@ -778,8 +891,10 @@ const PMSForm2Assessment = (() => {
       if (pprDone) steps.ppr.classList.add('completed');
       else if (darDone) steps.ppr.classList.add('active');
     }
-    if (steps.board && pprDone) steps.board.classList.add('active');
-    if (steps.decision && bothDone) steps.decision.classList.add('completed');
+    if (steps.decision) {
+      if (bothDone) steps.decision.classList.add('completed');
+      else if (pprDone) steps.decision.classList.add('active');
+    }
   }
 
   let pprRecRadiosBound = false;
@@ -825,7 +940,6 @@ const PMSForm2Assessment = (() => {
     });
     body.querySelectorAll('input[type="radio"]').forEach((el) => { el.checked = false; });
     setRadio('pprRecommendation', 'recommend');
-    setRadio('pprInterviewConducted', 'pending');
     PPR_FILE_IDS.forEach((id) => {
       const input = $(id);
       const preview = $(`${id}Preview`);
@@ -881,10 +995,6 @@ const PMSForm2Assessment = (() => {
     setVal('sponsorNotes', ppr.sponsorNotes);
     setVal('accommodationStability', ppr.accommodationStability);
     setVal('reintegrationPlan', ppr.reintegrationPlan);
-    setVal('pprBoardInterviewDate', ppr.pprBoardInterviewDate);
-    setVal('pprInterviewSummary', ppr.pprInterviewSummary);
-    setVal('pprBoardInterviewer', ppr.pprBoardInterviewer);
-    setVal('pprInmateDemeanor', ppr.pprInmateDemeanor);
     setVal('pprRecommendationJustification', ppr.pprRecommendationJustification);
     setVal('communityStatements', ppr.communityStatements);
     setVal('customarySettlement', ppr.customarySettlement);
@@ -894,7 +1004,6 @@ const PMSForm2Assessment = (() => {
 
     setRadio('communitySafety', ppr.communitySafety);
     setRadio('victimStatementReceived', ppr.victimStatementReceived);
-    setRadio('pprInterviewConducted', ppr.pprInterviewConducted || 'pending');
     setRadio('pprRecommendation', ppr.pprRecommendation || 'recommend');
     }
 
@@ -1042,10 +1151,6 @@ const PMSForm2Assessment = (() => {
         window.location.href = `form1.html?appId=${encodeURIComponent(appId)}`;
       }
     });
-    $('btnNextForm3')?.addEventListener('click', () => {
-      if (typeof PMSFormWorkflow !== 'undefined' && appId) PMSFormWorkflow.openForm(3, appId);
-    });
-
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-f2-local-download]');
       if (!btn || !appId) return;
@@ -1089,8 +1194,12 @@ const PMSForm2Assessment = (() => {
     populateSummary();
     fillFormFromStorage();
     bindEvents();
+    if (typeof PMSFieldValidation !== 'undefined') {
+      PMSFieldValidation.bindLiveClear($('form2-root') || document);
+    }
     applyRoleLocks();
     submitGate?.sync();
+    updateHubGuidance();
 
     if (typeof PMSFormAutosave !== 'undefined') {
       PMSFormAutosave.create({

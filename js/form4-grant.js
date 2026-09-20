@@ -107,6 +107,18 @@ const PMSForm4Grant = (() => {
     }
 
     function validateForm() {
+      const root = document.querySelector('.page-main') || document;
+      if (typeof PMSFieldValidation !== 'undefined') {
+        const result = PMSFieldValidation.validateControls(root, [
+          { fieldId: 'date-completed', message: 'This field is required.' },
+          { fieldId: 'parole-period', message: 'This field is required.' },
+        ]);
+        if (!result.valid) {
+          showToast('Please complete all required fields before continuing.');
+          return false;
+        }
+        return true;
+      }
       if (!dateCompleted.value) { showToast('Please set the date completed on parole.'); dateCompleted.focus(); return false; }
       if (!parolePeriod.value.trim()) { showToast('Please enter total period on parole.'); parolePeriod.focus(); return false; }
       return true;
@@ -211,10 +223,15 @@ const PMSForm4Grant = (() => {
       }
     });
 
-    $('btn-prev-form')?.addEventListener('click', () => { if (app?.id) PMSFormWorkflow.openForm(3, app.id); });
+    $('btn-prev-form')?.addEventListener('click', () => {
+      if (app?.id) window.location.href = PMSFormWorkflow.hearingPortalHref(app.id);
+    });
     $('btn-print').addEventListener('click', () => { if (validateForm()) window.print(); });
 
     loadState();
+    if (typeof PMSFieldValidation !== 'undefined') {
+      PMSFieldValidation.bindLiveClear(document.querySelector('.page-main') || document);
+    }
     mountOfficerAuth();
     updateSummaryBanner();
     submitGate?.sync();

@@ -252,6 +252,12 @@ const PMSRBAC = (() => {
     return false;
   }
 
+  /** Final Form 2 PIN authorization after both reports are submitted. */
+  function canSignForm2Package(user) {
+    const role = normalizeRole(user?.role);
+    return ['CS Parole Clerk', 'CS Parole Officer', 'DJAG Parole Clerk'].includes(role);
+  }
+
   function canVerifyApplication(user) {
     return ['Jail Commander', 'CS Parole Clerk'].includes(normalizeRole(user?.role));
   }
@@ -366,6 +372,7 @@ const PMSRBAC = (() => {
     canSubmitAssessment,
     canRecordBoardDecision,
     canEditForm2Section,
+    canSignForm2Package,
     canVerifyApplication,
     canAuthorizeRelease,
     canScheduleHearing,

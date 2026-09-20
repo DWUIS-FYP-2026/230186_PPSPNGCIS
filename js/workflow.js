@@ -14,7 +14,7 @@ const PMSWorkflow = (() => {
     { id: 7, name: 'DJAG Review', status: 'Under DJAG Review', role: 'DJAG Parole Clerk', action: 'Verify documentation and review application' },
     { id: 8, name: 'Return for Correction', status: 'Returned for Correction', role: 'DJAG Parole Clerk', action: 'Return application to PNGCS for correction if required' },
     { id: 9, name: 'Schedule Hearing', status: 'Hearing Scheduled', role: 'DJAG Secretary', action: 'Schedule parole hearing within 14 days of commander verification' },
-    { id: 10, name: 'Form 3 — Parole Hearing Record', status: 'Hearing Scheduled', role: 'CS Parole Clerk', action: 'Record parole hearing proceedings after the DJAG Secretary sets the date' },
+    { id: 10, name: 'Parole Hearing Process', status: 'Hearing Scheduled', role: 'Board / CS Parole Clerk', action: 'Conduct hearing, record proceedings, and capture board votes in the hearing portal' },
     { id: 11, name: 'Board Assessments', status: 'Pending Board Review', role: 'Psychiatrist / PNGCS Commissioner / DJAG Secretary', action: 'Submit individual board assessments' },
     { id: 12, name: 'Score Calculation', status: 'Pending Board Review', role: 'System (Automated)', action: 'Calculate final parole score (simple majority of 3 board members)' },
     { id: 13, name: 'Form 4 or 5 Outcome', status: 'Parole Granted|Parole Refused', role: 'DJAG Secretary', action: 'Record Form 4 (Granted) or Form 5 (Refused) based on board vote' },
@@ -116,6 +116,7 @@ const PMSWorkflow = (() => {
       form1: summary.checks.form1,
       form2: summary.checks.form2,
       form3: summary.checks.form3,
+      hearing: summary.checks.hearing || summary.checks.form3,
       commanderVerified: PMSStorage.isCommanderVerified(app),
       hearingScheduled: PMSStorage.getHearingsByApplication(app.id).some((h) => !['Cancelled', 'Pending'].includes(h.status)),
       assessmentsComplete: PMSStorage.requiredBoardAssessmentsComplete(app),
@@ -146,7 +147,7 @@ const PMSWorkflow = (() => {
     if (['Parole Granted', 'Parole Refused', 'Pending Approval'].includes(toStatus)) {
       need('assessmentsComplete', 'All board assessments must be submitted.');
       need('scoreCalculated', 'Final parole score must be calculated.');
-      need('form3', 'Form 3 hearing record must be completed.');
+      need('hearing', 'Parole hearing process must be completed.');
     }
     if (toStatus === 'Approved') need('approvalsComplete', 'Required approval workflow must be completed.');
     if (toStatus === 'Released') {

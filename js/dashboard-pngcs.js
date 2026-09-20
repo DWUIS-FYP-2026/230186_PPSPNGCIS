@@ -57,14 +57,14 @@
   const FORM_WORKFLOW = [
     { n: 1, key: 'form1', label: 'Form 1 — Parole Eligibility Screening', owner: 'CS Parole Officer', prereqs: [] },
     { n: 2, key: 'form2', label: 'Form 2 — Personal Particulars', owner: 'CS Parole Clerk', prereqs: ['form1'] },
-    { n: 3, key: 'form3', label: 'Form 3 — Parole Hearing Record', owner: 'CS Parole Clerk', prereqs: ['form1', 'form2'] },
-    { n: 4, key: 'form4', label: 'Form 4 — Discharge of Parole Order', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'], outcome: 'Parole Granted' },
-    { n: 5, key: 'form5', label: 'Form 5 — Applications After Refusal', owner: 'DJAG Secretary', prereqs: ['form1', 'form2', 'form3'], outcome: 'Parole Refused' },
+    { n: 4, key: 'form4', label: 'Form 4 — Discharge of Parole Order', owner: 'DJAG Secretary', prereqs: ['form1', 'form2'], outcome: 'Parole Granted' },
+    { n: 5, key: 'form5', label: 'Form 5 — Applications After Refusal', owner: 'DJAG Secretary', prereqs: ['form1', 'form2'], outcome: 'Parole Refused' },
   ];
 
   function getFormWorkflowForApp(app) {
-    const base = FORM_WORKFLOW.filter((f) => f.n <= 3);
-    if (!app) return FORM_WORKFLOW;
+    const early = FORM_WORKFLOW.filter((f) => f.n <= 2);
+    if (!app) return early;
+    const base = [...early];
     const outcome = PMSStorage.getBoardDecisionOutcome?.(app);
     if (outcome === 'Parole Granted') return [...base, FORM_WORKFLOW.find((f) => f.n === 4)];
     if (outcome === 'Parole Refused') return [...base, FORM_WORKFLOW.find((f) => f.n === 5)];
@@ -259,6 +259,10 @@
     for (const f of workflow) {
       if (checks[f.key]) continue;
       if (!prereqsMet(checks, f.prereqs)) continue;
+      if (f.n === 2 && app && PMSStorage.needsDjagForm2Ppr?.(app)
+        && !PMSRBAC.canEditForm2Section(actor, 'ppr')) {
+        continue;
+      }
       if (PMSRBAC.canAccessForm(actor, f.n, 'edit')) return f.n;
     }
     return null;
@@ -273,6 +277,10 @@
     const app = findApplicationForPrisoner(prisonerId);
     if (!app) return { formN: 1, appId: null, label: 'Form 1 — start application' };
 
+    const eligibilityLabel = typeof PMSStorage.resolveEligibilityWorkflowLabel === 'function'
+      ? PMSStorage.resolveEligibilityWorkflowLabel(app)
+      : null;
+
     const target = PMSStorage.resolveApplicationEditTarget(app, actor);
     if (target?.formN) {
       const def = getFormWorkflowForApp(app).find((f) => f.n === target.formN);
@@ -283,7 +291,7 @@
       };
     }
     if (target?.label) {
-      return { formN: null, appId: app.id, label: target.label };
+      return { formN: null, appId: app.id, label: target.label || eligibilityLabel || 'Continue application' };
     }
 
     const checks = PMSStorage.getFormCompletionSummary(app).checks;
@@ -302,12 +310,7 @@
       if (canView || canEdit) return { formN: f.n, appId: app.id, label: f.label };
     }
 
-    for (const f of workflow) {
-      if (!checks[f.key]) return { formN: f.n, appId: app.id, label: f.label };
-    }
-
-    const last = workflow[workflow.length - 1];
-    return { formN: last.n, appId: app.id, label: last.label };
+    return { formN: null, appId: app.id, label: eligibilityLabel || app.status || 'Continue application' };
   }
 
   function openPrisonerWorkflowForm(prisonerId) {
@@ -643,13 +646,13 @@
 
         <div class="form-workflow-panel__header">
 
-          <h3>Forms 1–5 Workflow</h3>
+          <h3>Parole Forms Workflow</h3>
 
           <span class="form-workflow-panel__summary">${summary.completed}/${summary.total} complete${app && PMSStorage.describeFormVerification ? ` · ${PMSUI.esc(PMSStorage.describeFormVerification(app))}` : ''}</span>
 
         </div>
 
-        <p class="field-hint" style="margin-bottom:0.75rem">Complete Forms 1 and 2, then open Form 3 to view the hearing date set by the DJAG Secretary.</p>
+        <p class="field-hint" style="margin-bottom:0.75rem">Complete Forms 1 and 2. After Commander verification and the DJAG Secretary schedules the hearing, continue in the parole hearing portal (board vote and hearing record).</p>
 
         <div class="form-workflow-list">${rows}</div>
 
@@ -823,6 +826,10 @@
   }
 
   function openGuarantorModal(appId, guarantor) {
+    const guarantorForm = document.getElementById('guarantor-form');
+    if (typeof PMSFieldValidation !== 'undefined' && guarantorForm) {
+      PMSFieldValidation.bindLiveClear(guarantorForm);
+    }
     document.getElementById('guarantor-modal-title').textContent = guarantor ? 'Edit Guarantor' : 'Register Guarantor';
     document.getElementById('guarantor-id').value = guarantor?.id || '';
     fillGuarantorCaseSelect(appId || guarantor?.applicationId || '');
@@ -1008,6 +1015,19 @@
 
   document.getElementById('guarantor-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
+    const guarantorForm = document.getElementById('guarantor-form');
+    if (typeof PMSFieldValidation !== 'undefined') {
+      const result = PMSFieldValidation.validateControls(guarantorForm, [
+        { fieldId: 'guarantor-case', message: 'This field is required.' },
+        { fieldId: 'guarantor-name', message: 'This field is required.' },
+        { fieldId: 'guarantor-relationship', message: 'This field is required.' },
+        { fieldId: 'guarantor-contact', message: 'This field is required.' },
+      ]);
+      if (!result.valid) {
+        PMSUI.showError('Please complete all required fields.');
+        return;
+      }
+    }
     try {
       PMSStorage.saveGuarantor(document.getElementById('guarantor-case').value, {
         id: document.getElementById('guarantor-id').value || undefined,

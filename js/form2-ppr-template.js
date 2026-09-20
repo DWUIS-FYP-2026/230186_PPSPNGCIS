@@ -27,8 +27,7 @@ const PMSForm2PprTemplate = `
   <div class="ppr-progress no-print" id="pprProgress">
     <div class="ppr-progress__step" data-ppr-step="dar"><span class="ppr-progress__num">1</span><span>DAR Review</span></div>
     <div class="ppr-progress__step" data-ppr-step="ppr"><span class="ppr-progress__num">2</span><span>PPR Assessment</span></div>
-    <div class="ppr-progress__step" data-ppr-step="board"><span class="ppr-progress__num">3</span><span>Board Interview</span></div>
-    <div class="ppr-progress__step" data-ppr-step="decision"><span class="ppr-progress__num">4</span><span>Final Decision</span></div>
+    <div class="ppr-progress__step" data-ppr-step="decision"><span class="ppr-progress__num">3</span><span>Sign-Off &amp; Recommendation</span></div>
   </div>
   <div class="card-body ppr-form-body">
 
@@ -145,27 +144,9 @@ const PMSForm2PprTemplate = `
       </div>
     </section>
 
-    <section class="ppr-form-card ppr-form-card--highlight">
-      <div class="ppr-section-head ppr-section-head--amber">
-        <div class="ppr-section-head__title"><span class="ppr-section-num ppr-section-num--amber">6</span><h3>Parole Board Interview Verification</h3></div>
-        <span class="ppr-badge-pending">Mandatory Face-to-Face</span>
-      </div>
-      <div class="ppr-alert"><p><strong>Important:</strong> Once DAR and PPR establish baseline readiness, mandatory face-to-face interviews are conducted by Parole Board members inside prisons to cross-verify reports before granting an order.</p></div>
-      <div class="ppr-field-grid ppr-field-grid--2">
-        <div class="form-group"><label>Interview Conducted?</label><div class="ppr-radio-row"><label><input type="radio" name="pprInterviewConducted" value="yes"> Yes</label><label><input type="radio" name="pprInterviewConducted" value="pending" checked> Pending</label></div></div>
-        <div class="form-group"><label>Interview Date</label><input type="date" id="pprBoardInterviewDate"></div>
-      </div>
-      <div class="form-group" style="margin-top:0.75rem"><label>Interview Summary &amp; Cross-Verification Notes</label><textarea id="pprInterviewSummary" rows="3" placeholder="Board interview findings and discrepancies…"></textarea></div>
-      <div class="ppr-field-grid ppr-field-grid--2" style="margin-top:0.75rem">
-        <div class="form-group"><label>Board Member Interviewer</label><input type="text" id="pprBoardInterviewer" placeholder="Board member name"></div>
-        <div class="form-group"><label>Inmate Response &amp; Demeanor</label><select id="pprInmateDemeanor"><option value="">Select…</option><option value="positive">Positive — Engaged and remorseful</option><option value="neutral">Neutral — Cooperative but reserved</option><option value="concerning">Concerning — Needs further assessment</option></select></div>
-      </div>
-      ${pprSectionUpload('pprBoardInterviewDocs', 'Board interview supporting documents')}
-    </section>
-
     <section class="ppr-form-card">
       <div class="ppr-section-head">
-        <div class="ppr-section-head__title"><span class="ppr-section-num">7</span><h3>Sign-Off &amp; Recommendation</h3></div>
+        <div class="ppr-section-head__title"><span class="ppr-section-num">6</span><h3>Sign-Off &amp; Recommendation</h3></div>
         <span class="ppr-section-ref">PPR Section E</span>
       </div>
       <div class="ppr-stack">

@@ -120,7 +120,7 @@
 
   function renderDecisions() {
     document.getElementById('decisions-list').innerHTML = `
-      <p class="toolbar-note">Open the Board Vote portal to verify Form 2 claims, complete the interview evaluation (1–5), sign with your PIN, and submit your vote — the same workflow as other board members.</p>
+      <p class="toolbar-note">Open the Board Vote portal to review Chairman and Commissioner Form 2 assessments (read-only), complete the interview evaluation (1–5), sign with your PIN, and submit your vote.</p>
       ${PMSBoardVote.renderDecisionsList(
         actor,
         boardCases(),

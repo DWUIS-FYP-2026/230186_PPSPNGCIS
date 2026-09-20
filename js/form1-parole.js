@@ -203,7 +203,20 @@ const PMSForm1Parole = (() => {
   }
 
   function validateAssessment() {
+    const root = $('paroleForm') || document;
+    const issues = [];
     const eligibility = getEligibilityValue();
+    if (!eligibility) {
+      issues.push({
+        name: 'eligibility',
+        message: 'This field is required.',
+      });
+    }
+    if (typeof PMSFieldValidation !== 'undefined' && issues.length) {
+      PMSFieldValidation.applyIssues(root, issues);
+      showToast('Select Eligible or Not Eligible before continuing.', 'error');
+      return false;
+    }
     if (!eligibility) {
       showToast('Select Eligible or Not Eligible before continuing.', 'error');
       return false;
@@ -212,7 +225,17 @@ const PMSForm1Parole = (() => {
       showToast,
       message: 'Enter your 6-digit signing PIN and select Verify & Sign before submitting Form 1.',
     })) {
+      const pin = document.querySelector('#officer-auth-mount .officer-auth__pin-input');
+      if (typeof PMSFieldValidation !== 'undefined') {
+        PMSFieldValidation.applyIssues(root, [{
+          element: pin || document.querySelector('#officer-auth-mount .officer-auth'),
+          message: 'Enter your 6-digit PIN and click Verify & Sign before submitting.',
+        }]);
+      }
       return false;
+    }
+    if (typeof PMSFieldValidation !== 'undefined') {
+      PMSFieldValidation.clearAll(root);
     }
     return true;
   }
@@ -399,6 +422,9 @@ const PMSForm1Parole = (() => {
     mountOfficerAuth();
     populateForm();
     bindEvents();
+    if (typeof PMSFieldValidation !== 'undefined') {
+      PMSFieldValidation.bindLiveClear($('paroleForm') || document);
+    }
 
     if (typeof PMSFormWorkflow !== 'undefined') {
       PMSFormWorkflow.mountFormChrome(1, appId);

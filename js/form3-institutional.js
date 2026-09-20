@@ -149,7 +149,7 @@ const PMSForm3Institutional = (() => {
     }
     const issues = report.items.filter((i) => !i.ok).map((i) => i.label).slice(0, 3);
     alert.classList.remove('hidden');
-    alert.innerHTML = `<strong>Prerequisites incomplete:</strong> ${esc(issues.join('; '))}${issues.length < report.items.filter((i) => !i.ok).length ? '…' : ''} — complete Forms 1 and 2 before submitting Form 3.`;
+    alert.innerHTML = `<strong>Prerequisites incomplete:</strong> ${esc(issues.join('; '))}${issues.length < report.items.filter((i) => !i.ok).length ? '…' : ''} — complete Forms 1–2, Commander verification, and hearing scheduling before submitting Form 3.`;
     return false;
   }
 
@@ -296,6 +296,9 @@ const PMSForm3Institutional = (() => {
     updateStatusBadge(app);
     updateNavButtons(app);
     submitGate?.sync();
+    if (typeof PMSFieldValidation !== 'undefined') {
+      PMSFieldValidation.bindLiveClear($('form3-form') || document);
+    }
 
     if (app?.formData?.form3 && formComplete) {
       PMSFormWorkflow.showContinueBanner(3, app.id);
@@ -362,15 +365,18 @@ const PMSForm3Institutional = (() => {
         return;
       }
       if (!renderReadinessAlert(app)) {
-        showToast('Complete Forms 1 and 2 before submitting Form 3.');
+        showToast('Complete Forms 1–2, Commander verification, and hearing scheduling before submitting Form 3.');
         return;
       }
       const payload = collectPayload();
       const validation = PMSValidation.validateForm3(payload);
       if (!validation.valid) {
-        showToast(validation.errors[0] || 'Please complete all required fields.');
-        PMSValidation.showFieldErrors($('form3-form'), validation.errors);
+        showToast('Please complete all required fields before submitting Form 3.', 'error');
+        PMSValidation.showFieldErrors($('form3-form'), validation.errors, validation.issues);
         return;
+      }
+      if (typeof PMSFieldValidation !== 'undefined') {
+        PMSFieldValidation.clearAll($('form3-form'));
       }
       try {
         const digitalSignature = officerAuth?.getRecord();

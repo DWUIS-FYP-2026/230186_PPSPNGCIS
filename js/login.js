@@ -220,7 +220,9 @@ form?.addEventListener('submit', async (e) => {
       try {
         const { token, user } = await PMSApi.login(identifier, password);
         PMSStorage.setSession(user, token);
-        PMSStorage.reloadAll?.().catch(() => {});
+        if (typeof PMSStorage.reloadAll === 'function') {
+          await PMSStorage.reloadAll();
+        }
         redirecting = true;
         handleLoginSuccess(user);
         return;
