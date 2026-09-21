@@ -89,25 +89,47 @@ const PMSForm5Refusal = (() => {
     let officerAuth = null;
     let submitGate = null;
 
+    function setSubmitHint(message, ok = false) {
+      const hint = $('form5-submit-hint');
+      if (!hint) return;
+      hint.textContent = message;
+      hint.classList.toggle('form-submit-hint--ok', ok);
+      hint.classList.toggle('form-submit-hint--warn', !ok);
+    }
+
     function mountOfficerAuth() {
       if (typeof PMSFormOfficerAuth === 'undefined') return;
       try {
         const savedAuth = app?.formData?.form5?.digitalSignature || null;
         officerAuth = PMSFormOfficerAuth.create({
           mount: '#officer-auth-mount',
+          heading: 'DIGITAL PIN — FORM 5 REFUSAL',
           actor,
           applicationId: app?.id || '',
           formNumber: 5,
+          payloadSeed: 'form5-parole-refusal',
           readOnly: issued,
           savedRecord: savedAuth,
-          onVerified: () => submitGate?.sync(),
+          onVerified: () => {
+            submitGate?.sync();
+            setSubmitHint('PIN verified — you can issue Form 5.', true);
+          },
         });
         submitGate = PMSFormOfficerAuth.gateSubmitButtons(officerAuth, ['btn-issue'], {
           canEnable: () => !issued,
+          pinTitle: 'Enter your 6-digit PIN and click Verify & Sign first',
         });
         submitGate.sync();
+        if (issued) {
+          setSubmitHint('Form 5 has already been issued.');
+        } else if (officerAuth?.isVerified()) {
+          setSubmitHint('PIN verified — you can issue Form 5.', true);
+        } else {
+          setSubmitHint('Enter your 6-digit signing PIN above, click Verify & Sign, then Issue Form 5 becomes available.');
+        }
       } catch (err) {
         console.error('Officer authorization failed to mount:', err);
+        setSubmitHint('Digital PIN signing could not load. Refresh the page and try again.');
       }
     }
 
@@ -270,6 +292,7 @@ const PMSForm5Refusal = (() => {
         issuedBanner.classList.add('show');
         updateSummaryBanner();
         submitGate?.sync();
+        setSubmitHint('Form 5 has been issued and recorded.', true);
         showToast('Form 5 — Applications After Refusal issued.');
         PMSFormWorkflow.navigateAfterSubmit(5, app.id);
       } catch (err) {

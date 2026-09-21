@@ -211,16 +211,23 @@
         </div>
       </article>
 
-      <div id="officer-auth-mount"></div>
+      <section class="form-sign-panel no-print" aria-labelledby="form5-sign-heading">
+        <h2 class="form-sign-panel__title" id="form5-sign-heading">Digital signature (PIN)</h2>
+        <p class="form-sign-panel__lead">Enter your 6-digit signing PIN and click <strong>Verify &amp; Sign</strong>. The Issue button unlocks only after your PIN is verified.</p>
+        <div id="officer-auth-mount" class="form-sign-panel__mount"></div>
+      </section>
 
-      <div class="actions no-print form-actions-row">
-        <div class="left-btns">
-          <button type="button" class="btn btn-danger" id="btn-issue">Issue Form 5 — Reapplication</button>
-          <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
-          <button type="button" class="btn btn-outline" id="btn-prev-form">← Parole Hearing</button>
-        </div>
-        <div>
-          <button type="button" class="btn btn-secondary" id="btn-print">Print Form 5</button>
+      <div class="actions no-print form-actions-row form-actions-row--sign">
+        <p id="form5-submit-hint" class="form-submit-hint form-submit-hint--warn" role="status">Enter your 6-digit signing PIN above, click Verify &amp; Sign, then Issue Form 5 becomes available.</p>
+        <div class="form-actions-row__buttons">
+          <div class="left-btns">
+            <button type="button" class="btn btn-danger" id="btn-issue" disabled title="Enter your 6-digit PIN and click Verify &amp; Sign first">Issue Form 5 — Reapplication</button>
+            <button type="button" class="btn btn-primary" id="btn-save">Save Draft</button>
+            <button type="button" class="btn btn-outline" id="btn-prev-form">← Parole Hearing</button>
+          </div>
+          <div>
+            <button type="button" class="btn btn-secondary" id="btn-print">Print Form 5</button>
+          </div>
         </div>
       </div>
     </form>

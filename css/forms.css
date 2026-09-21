@@ -1565,6 +1565,101 @@ body.pms-portal-page {
   display: none !important;
 }
 
+/* Clear PIN + issue actions (Form 5 refusal / grant forms) */
+.pms-form-page .form-sign-panel {
+  margin: 1.5rem 0 0;
+  padding: 1.15rem 1.25rem 1.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pms-form-page .form-sign-panel__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0f2942;
+}
+
+.pms-form-page .form-sign-panel__lead {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.pms-form-page .form-sign-panel__mount .officer-auth {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.pms-form-page .form-sign-panel__mount .officer-auth__heading {
+  display: none;
+}
+
+.pms-form-page .form-sign-panel__mount .officer-auth__layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.pms-form-page .form-sign-panel__mount .officer-auth__pin-box,
+.pms-form-page .form-sign-panel__mount .officer-auth__id-block {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  flex-shrink: 1;
+}
+
+.pms-form-page .form-sign-panel__mount .officer-auth__input-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.pms-form-page .form-sign-panel__mount .officer-auth__pin-input {
+  flex: 1 1 10rem;
+  max-width: none;
+  min-width: 0;
+}
+
+.pms-form-page .form-actions-row--sign {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.pms-form-page .form-actions-row__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pms-form-page .form-submit-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.pms-form-page .form-submit-hint--warn {
+  color: #92400e;
+}
+
+.pms-form-page .form-submit-hint--ok {
+  color: #065f46;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .officer-auth__layout {
     flex-direction: column;
@@ -1583,6 +1678,15 @@ body.pms-portal-page {
   }
 
   .officer-auth__verify-btn {
+    width: 100%;
+  }
+
+  .pms-form-page .form-sign-panel__mount .officer-auth__input-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pms-form-page .form-sign-panel__mount .officer-auth__verify-btn {
     width: 100%;
   }
 }

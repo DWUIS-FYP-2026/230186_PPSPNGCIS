@@ -8,7 +8,7 @@
   const panelTitles = {
     overview: ['Overview', `Jail Commander — ${inst?.name || 'Institution'}`],
     verification: ['Case Verification', 'Prisoners awaiting your institutional verification'],
-    release: ['Authorize Release', 'Open Form 4 and authorize release after grant approvals'],
+    release: ['Sign Release Approval', 'Digital PIN sign-off with the CS Parole Clerk — both required for Released on Parole'],
     archive: ['Archived Cases', 'Granted parole records and authorized releases'],
     applications: ['Parole Applications', 'Institution parole cases (read-only overview)'],
     prisoners: ['Prisoner Records', 'Prisoners at your institution'],
@@ -200,10 +200,22 @@
     return '<span class="meta">Not ready</span>';
   }
 
+  function isAwaitingReleaseCase(app) {
+    if (!app || PMSStorage.isApplicationReleasedOnParole?.(app)) return false;
+    if (['Refused', 'Parole Refused'].includes(app.status)) return false;
+    if (typeof PMSStorage.isReleaseSignOffPending === 'function' && PMSStorage.isReleaseSignOffPending(app)) return true;
+    if (PMSStorage.isForm4Issued(app)) return true;
+    const form4 = app.formData?.form4;
+    if (form4?.issued === true || form4?.status === 'Parole Granted') return true;
+    const outcome = typeof PMSStorage.getBoardDecisionOutcome === 'function'
+      ? PMSStorage.getBoardDecisionOutcome(app)
+      : app.boardDecision?.outcome;
+    if (outcome === 'Parole Granted') return true;
+    return ['Approved', 'Pending Approval', 'Parole Granted'].includes(app.status);
+  }
+
   function releaseCandidates() {
-    return scopeApps(true).filter((a) => PMSStorage.isForm4Issued(a)
-      && a.status !== 'Released'
-      && !['Refused', 'Parole Refused'].includes(a.status));
+    return scopeApps(true).filter(isAwaitingReleaseCase);
   }
 
   function releaseReadyQueue() {
@@ -218,16 +230,38 @@
     return `<span class="status-pill status-pill--warn">${done}/${PMSStorage.BOARD_VOTING_ROLES.length} votes</span>`;
   }
 
+  function releaseSignOffSummary(app) {
+    const cmd = PMSStorage.hasReleaseSignOff(app, 'Jail Commander');
+    const clerk = PMSStorage.hasReleaseSignOff(app, 'CS Parole Clerk');
+    if (PMSStorage.isApplicationReleasedOnParole(app)) return '<span class="status-pill status-pill--success">Released on Parole</span>';
+    return `<span class="meta">Commander ${cmd ? '✓' : '○'} · Clerk ${clerk ? '✓' : '○'}</span>`;
+  }
+
   function releaseReadinessLabel(app) {
+    if (PMSStorage.isApplicationReleasedOnParole(app)) {
+      return '<span class="status-pill status-pill--success">Complete</span>';
+    }
     if (PMSStorage.canAuthorizeRelease(app, actor)) {
-      return '<span class="status-pill status-pill--success">Ready</span>';
+      return '<span class="status-pill status-pill--success">Your sign-off due</span>';
+    }
+    if (PMSStorage.hasReleaseSignOff(app, actor.role)) {
+      return '<span class="status-pill status-pill--success">You signed</span>';
     }
     const blockers = PMSStorage.getReleaseBlockers(app, actor);
     return `<span class="meta" title="${PMSUI.esc(blockers[0] || 'Not ready')}">${PMSUI.esc(blockers[0] || 'Not ready')}</span>`;
   }
 
-  async function refresh(panel) {
+  async function syncInstitutionCaseData() {
     await PMSStorage.ensureLoaded();
+    if (typeof PMSStorage.pullRemoteCaseProgress === 'function') {
+      try {
+        await PMSStorage.pullRemoteCaseProgress();
+      } catch (_) { /* keep current view if sync is briefly unavailable */ }
+    }
+  }
+
+  async function refresh(panel) {
+    await syncInstitutionCaseData();
     PMSUI.updateNotifBadge(actor);
     ({
       overview: renderOverview,
@@ -267,6 +301,21 @@
           </div>`;
         }).join('')
         : '<p class="empty-state">No cases awaiting institutional verification.</p>';
+    }
+
+    const releaseHost = document.getElementById('overview-release-queue');
+    if (releaseHost) {
+      const releaseQueue = releaseCandidates().filter((a) => !PMSStorage.hasReleaseSignOff(a, actor.role));
+      releaseHost.innerHTML = releaseQueue.length
+        ? releaseQueue.slice(0, 5).map((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          const ready = PMSStorage.canAuthorizeRelease(a, actor);
+          return `<div class="overview-row overview-row--clickable" data-goto-panel="release" data-goto-nav="release" role="button" tabindex="0">
+            <div class="overview-row__main"><strong>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : PMSUI.esc(a.caseNumber || a.id)}</strong><span class="meta">${releaseSignOffSummary(a)}${ready ? ' · enter your PIN' : ''}</span></div>
+            <button type="button" class="btn-primary btn-sm btn-release-sign" data-release="${PMSUI.esc(a.id)}" onclick="event.stopPropagation()">Sign Release Approval</button>
+          </div>`;
+        }).join('')
+        : `<p class="empty-state">No cases waiting for your PIN. <button type="button" class="btn-icon" data-goto-panel="release" data-goto-nav="release">Open Sign Release Approval</button></p>`;
     }
 
     const verifiedHost = document.getElementById('overview-verified-record');
@@ -327,6 +376,7 @@
         title: 'Ready for Release',
         columns: cols,
         getRows: () => releaseReadyQueue().map((a) => PMSUI.appDrilldownRow(a)),
+        onClick: () => PMSUI.switchPanel('release', panelTitles, refresh, 'release'),
       },
       {
         statId: 'stat-verified',
@@ -390,28 +440,102 @@
     renderVerifiedRecord();
   }
 
+  function releaseSignOffCardHtml(a) {
+    const p = PMSStorage.getPrisonerById(a.prisonerId);
+    const canRelease = PMSStorage.canAuthorizeRelease(a, actor);
+    const signed = PMSStorage.hasReleaseSignOff(a, actor.role);
+    const name = p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : PMSUI.esc(a.caseNumber || a.id);
+    const form4 = PMSStorage.isForm4Issued(a)
+      ? `<a href="${PMSUI.form4Href(a.id)}" class="btn-icon" onclick="event.stopPropagation()">View Form 4</a>`
+      : '';
+    let action;
+    if (signed) {
+      action = `<button type="button" class="btn-secondary" data-release-view="${PMSUI.esc(a.id)}">View your sign-off</button>`;
+    } else {
+      action = `<button type="button" class="btn-primary btn-release-sign" data-release="${PMSUI.esc(a.id)}">
+        <i class="fi fi-rr-fingerprint" aria-hidden="true"></i>
+        <span>Sign Release Approval</span>
+      </button>`;
+    }
+    const hint = signed
+      ? '<span class="meta release-card-hint">Your PIN sign-off is recorded. Waiting for the other role if needed.</span>'
+      : (canRelease
+        ? '<span class="meta release-card-hint release-card-hint--ready">Ready — click to enter your digital PIN and approve release.</span>'
+        : `<span class="meta release-card-hint">${PMSUI.esc((PMSStorage.getReleaseBlockers(a, actor)[0]) || 'Open to review release checklist.')}</span>`);
+    return `<article class="decision-card release-sign-card ${canRelease && !signed ? 'decision-card--pending' : 'decision-card--done'}" data-app="${PMSUI.esc(a.id)}">
+      <div class="decision-card__main">
+        <strong class="decision-card__name">${name}</strong>
+        <span class="decision-card__case">${PMSUI.esc(a.caseNumber || a.id)} · <span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></span>
+        <span class="meta">${releaseSignOffSummary(a)}</span>
+        ${hint}
+      </div>
+      <div class="decision-card__actions">
+        ${form4}
+        ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}
+        ${action}
+      </div>
+    </article>`;
+  }
+
   function renderRelease() {
     const rows = releaseCandidates();
-    document.getElementById('release-tbody').innerHTML = rows.length
-      ? rows.map((a) => {
-        const p = PMSStorage.getPrisonerById(a.prisonerId);
-        const canRelease = PMSStorage.canAuthorizeRelease(a, actor);
-        const form4 = PMSStorage.isForm4Issued(a)
-          ? `<a href="${PMSUI.form4Href(a.id)}" class="btn-icon">View Form 4</a>`
-          : '<span class="meta">Not issued</span>';
-        const authorize = canRelease
-          ? `<button type="button" class="btn-primary btn-sm" data-release="${PMSUI.esc(a.id)}">Authorize Release</button>`
-          : '';
-        return `<tr>
-          <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
-          <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
-          <td>${form4}</td>
-          <td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td>
-          <td>${releaseReadinessLabel(a)}</td>
-          <td>${authorize} ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">Case File</a>` : ''}</td>
-        </tr>`;
-      }).join('')
-      : '<tr><td colspan="6" class="empty-state">No Form 4 grants awaiting release. Cases appear here after Form 4 is issued and both grant approvals are recorded.</td></tr>';
+    const ready = rows.filter((a) => PMSStorage.canAuthorizeRelease(a, actor));
+    const needMine = rows.filter((a) => !PMSStorage.hasReleaseSignOff(a, actor.role));
+    const summary = document.getElementById('release-queue-summary');
+    if (summary) {
+      summary.textContent = needMine.length
+        ? `${needMine.length} case${needMine.length === 1 ? '' : 's'} need your digital PIN · ${ready.length} ready to sign now`
+        : (rows.length
+          ? 'You have signed all listed cases. Waiting for the CS Parole Clerk where needed.'
+          : 'No parole-granted cases awaiting release yet.');
+    }
+    const cta = document.getElementById('release-sign-cta');
+    if (cta) {
+      if (needMine.length) {
+        const first = needMine.find((a) => PMSStorage.canAuthorizeRelease(a, actor)) || needMine[0];
+        cta.classList.remove('hidden');
+        cta.innerHTML = `
+          <div class="release-sign-cta__copy">
+            <strong>${needMine.length} case${needMine.length === 1 ? '' : 's'} awaiting your digital signature</strong>
+            <span class="meta">Click <em>Sign Release Approval</em> on a case, enter release date/time, then Verify &amp; Sign with your 6-digit PIN.</span>
+          </div>
+          <button type="button" class="btn-primary btn-release-sign" data-release="${PMSUI.esc(first.id)}">
+            <i class="fi fi-rr-fingerprint" aria-hidden="true"></i>
+            <span>Sign next case</span>
+          </button>`;
+      } else {
+        cta.classList.add('hidden');
+        cta.innerHTML = '';
+      }
+    }
+    const list = document.getElementById('release-signoff-list');
+    if (list) {
+      list.innerHTML = rows.length
+        ? rows.map(releaseSignOffCardHtml).join('')
+        : `<div class="empty-state release-empty">
+            <p><strong>No release sign-offs waiting.</strong></p>
+            <p>Cases appear here after the board grants parole (Parole Granted / Form 4). Then click <strong>Sign Release Approval</strong> to enter your PIN.</p>
+          </div>`;
+    }
+    const tbody = document.getElementById('release-tbody');
+    if (tbody) {
+      tbody.innerHTML = rows.length
+        ? rows.map((a) => {
+          const p = PMSStorage.getPrisonerById(a.prisonerId);
+          const signed = PMSStorage.hasReleaseSignOff(a, actor.role);
+          const btn = signed
+            ? `<button type="button" class="btn-secondary btn-sm" data-release-view="${PMSUI.esc(a.id)}">View sign-off</button>`
+            : `<button type="button" class="btn-primary btn-sm btn-release-sign" data-release="${PMSUI.esc(a.id)}">Sign Release Approval</button>`;
+          return `<tr>
+            <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
+            <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
+            <td>${releaseSignOffSummary(a)}</td>
+            <td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td>
+            <td>${btn}</td>
+          </tr>`;
+        }).join('')
+        : '<tr><td colspan="5" class="empty-state">No cases in the release queue.</td></tr>';
+    }
     PMSUI.renderReleaseReport('release-report', { institutionId: actor.institutionId });
   }
 
@@ -427,7 +551,12 @@
         : (PMSStorage.isCommanderVerified(a)
           ? `<button type="button" class="btn-icon" data-view-verify="${PMSUI.esc(a.id)}">View Record</button>`
           : '');
-      return `<tr ${PMSUI.applicationRowAttributes(a, actor)}><td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${verificationBadge(a)}</td><td>${formsSummary(a)}</td><td>${verifyBtn} ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">View</a>` : ''} ${PMSUI.renderApplicationActionButtons(a, actor)}</td></tr>`;
+      const releaseBtn = isAwaitingReleaseCase(a) && !PMSStorage.hasReleaseSignOff(a, actor.role)
+        ? `<button type="button" class="btn-primary btn-sm btn-release-sign" data-release="${PMSUI.esc(a.id)}">Sign Release Approval</button>`
+        : (PMSStorage.hasReleaseSignOff(a, actor.role)
+          ? `<button type="button" class="btn-secondary btn-sm" data-release-view="${PMSUI.esc(a.id)}">View sign-off</button>`
+          : '');
+      return `<tr ${PMSUI.applicationRowAttributes(a, actor)}><td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td><td><span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td><td>${verificationBadge(a)}</td><td>${formsSummary(a)}</td><td>${releaseBtn} ${verifyBtn} ${p ? `<a href="${PMSRBAC.prisonerProfileUrl(p.id)}" class="btn-icon">View</a>` : ''} ${PMSUI.renderApplicationActionButtons(a, actor)}</td></tr>`;
     }).join('') || '<tr><td colspan="5" class="empty-state">No applications.</td></tr>';
   }
 
@@ -469,27 +598,143 @@
     ).join('')}</ul>`;
   }
 
-  function openReleaseModal(appId) {
-    const app = PMSStorage.getApplicationById(appId);
-    if (!app) return;
-    const blockers = PMSStorage.getReleaseBlockers(app, actor);
-    if (blockers.length) {
-      PMSUI.showError(blockers.join('\n'), 'Release cannot be authorized');
+  function releaseSignOffStatusHtml(app) {
+    const roles = ['Jail Commander', 'CS Parole Clerk'];
+    return `<ul class="release-signoff-status">${roles.map((role) => {
+      const rec = PMSStorage.getReleaseSignOffRecord(app, role);
+      const done = PMSStorage.hasReleaseSignOff(app, role);
+      return `<li class="${done ? 'release-signoff-status--done' : ''}"><strong>${PMSUI.esc(role)}</strong>: ${done
+        ? `Signed ${PMSUI.fmtDate(rec.signedAt)} · ${PMSUI.esc(rec.userName)}`
+        : 'Awaiting digital PIN sign-off'}</li>`;
+    }).join('')}</ul>`;
+  }
+
+  function showReleaseApprovalModal(app) {
+    const dialog = document.getElementById('release-approval-modal');
+    const msg = document.getElementById('release-approval-message');
+    if (!dialog || !msg) {
+      PMSUI.showSuccess('Parole release approved. Status is Released on Parole.');
       return;
     }
+    const p = PMSStorage.getPrisonerById(app?.prisonerId);
+    msg.textContent = `The parole release has been approved by both the Jail Commander and CS Parole Clerk, and ${p ? `${p.firstName} ${p.lastName}'s` : 'the parolee\'s'} status has been successfully changed to Released on Parole.`;
+    dialog.showModal();
+  }
+
+  let releaseOfficerAuth = null;
+  let releaseSubmitGate = null;
+
+  function destroyReleaseOfficerAuth() {
+    releaseOfficerAuth?.reset();
+    releaseOfficerAuth = null;
+    releaseSubmitGate = null;
+    const mount = document.getElementById('release-officer-auth-mount');
+    if (mount) {
+      mount.innerHTML = '';
+      mount.hidden = true;
+    }
+  }
+
+  function mountReleaseOfficerAuth(appId, readOnly = false) {
+    destroyReleaseOfficerAuth();
+    const mount = document.getElementById('release-officer-auth-mount');
+    if (!mount) return;
+    mount.hidden = false;
+    if (readOnly || typeof PMSFormOfficerAuth === 'undefined') {
+      if (readOnly) {
+        mount.innerHTML = '<p class="meta" style="padding:0.75rem 0">PIN entry is not required for this view.</p>';
+      }
+      return;
+    }
+    releaseOfficerAuth = PMSFormOfficerAuth.create({
+      mount,
+      heading: 'DIGITAL PIN — RELEASE SIGN-OFF',
+      actor,
+      applicationId: appId,
+      formNumber: 'release-signoff',
+      payloadSeed: 'parole-release-signoff',
+      onVerified: () => {
+        releaseSubmitGate?.sync();
+        const hint = document.getElementById('release-submit-hint');
+        if (hint) {
+          hint.textContent = 'PIN verified — you can submit your release sign-off.';
+          hint.classList.remove('release-submit-hint--warn');
+          hint.classList.add('release-submit-hint--ok');
+        }
+      },
+    });
+    releaseSubmitGate = PMSFormOfficerAuth.gateSubmitButtons(releaseOfficerAuth, ['btn-release-submit'], {
+      pinTitle: 'Enter your 6-digit PIN and click Verify & Sign first',
+    });
+    releaseSubmitGate?.sync();
+    const hint = document.getElementById('release-submit-hint');
+    if (hint) {
+      hint.textContent = 'Enter your 6-digit signing PIN above, click Verify & Sign, then Submit becomes available.';
+      hint.classList.add('release-submit-hint--warn');
+      hint.classList.remove('release-submit-hint--ok');
+    }
+  }
+
+  function openReleaseModal(appId, { viewOnly = false } = {}) {
+    const app = PMSStorage.getApplicationById(appId);
+    if (!app) return;
+    if (PMSStorage.isApplicationReleasedOnParole(app)) {
+      showReleaseApprovalModal(app);
+      return;
+    }
+    const alreadySigned = PMSStorage.hasReleaseSignOff(app, actor.role);
+    const blockers = alreadySigned || viewOnly ? [] : PMSStorage.getReleaseBlockers(app, actor);
+    const canSign = !viewOnly && !alreadySigned && blockers.length === 0;
     const p = PMSStorage.getPrisonerById(app.prisonerId);
+    const info = app.releaseInfo || {};
     document.getElementById('release-app-id').value = appId;
-    document.getElementById('release-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('release-date').value = info.releaseDate || new Date().toISOString().slice(0, 10);
     const timeEl = document.getElementById('release-time');
-    if (timeEl) timeEl.value = new Date().toTimeString().slice(0, 5);
-    document.getElementById('release-notes').value = '';
+    if (timeEl) timeEl.value = info.releaseTime || new Date().toTimeString().slice(0, 5);
+    document.getElementById('release-notes').value = info.notes || '';
+    const readOnly = viewOnly || alreadySigned || !canSign;
+    const blockerHtml = blockers.length
+      ? `<div class="release-blocker-banner" role="alert"><strong>Cannot sign yet:</strong><ul>${blockers.map((b) => `<li>${PMSUI.esc(b)}</li>`).join('')}</ul></div>`
+      : (alreadySigned
+        ? '<div class="release-ok-banner" role="status">Your release sign-off is already recorded for this case.</div>'
+        : '<div class="release-ok-banner" role="status">Enter release details, then Verify &amp; Sign with your 6-digit PIN below.</div>');
     document.getElementById('release-content').innerHTML = `
-      <p><strong>Case:</strong> ${PMSUI.esc(app.caseNumber || app.id)}</p>
-      <p><strong>Prisoner:</strong> ${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</p>
-      <p><strong>Status:</strong> ${PMSUI.esc(app.status)}</p>
-      <p>${PMSStorage.isForm4Issued(app) ? `<a href="${PMSUI.form4Href(app.id)}" class="btn-icon">View Form 4</a>` : ''}</p>
-      <h3 class="case-subheading">Release checklist</h3>
-      ${releaseRequirementsList(app)}`;
+      ${blockerHtml}
+      <dl class="release-modal-meta">
+        <div><dt>Case</dt><dd>${PMSUI.esc(app.caseNumber || app.id)}</dd></div>
+        <div><dt>Prisoner</dt><dd>${PMSUI.esc(p?.firstName)} ${PMSUI.esc(p?.lastName)}</dd></div>
+        <div><dt>Status</dt><dd><span class="status-pill status-pill--${PMSUI.statusClass(app.status)}">${PMSUI.esc(app.status)}</span></dd></div>
+        ${PMSStorage.isForm4Issued(app) ? `<div><dt>Form 4</dt><dd><a href="${PMSUI.form4Href(app.id)}" class="btn-icon">View Form 4</a></dd></div>` : ''}
+      </dl>
+      <div class="release-modal-block">
+        <h4 class="release-modal-block__title">Who has signed</h4>
+        ${releaseSignOffStatusHtml(app)}
+      </div>
+      <div class="release-modal-block">
+        <h4 class="release-modal-block__title">Release checklist</h4>
+        ${releaseRequirementsList(app)}
+      </div>`;
+    ['release-date', 'release-time', 'release-notes'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = readOnly;
+    });
+    const submitBtn = document.getElementById('btn-release-submit');
+    if (submitBtn) {
+      submitBtn.hidden = false;
+      submitBtn.disabled = readOnly;
+      submitBtn.textContent = alreadySigned ? 'Already signed' : 'Submit Release Sign-Off';
+    }
+    const hint = document.getElementById('release-submit-hint');
+    if (hint) {
+      if (readOnly) {
+        hint.textContent = alreadySigned
+          ? 'You have already signed this case.'
+          : 'This case cannot be signed yet — see the message above.';
+        hint.classList.add('release-submit-hint--warn');
+        hint.classList.remove('release-submit-hint--ok');
+      }
+    }
+    mountReleaseOfficerAuth(appId, readOnly);
     document.getElementById('release-modal').showModal();
   }
 
@@ -881,24 +1126,43 @@
       PMSUI.showError('Please set the release time.');
       return;
     }
+    if (typeof PMSFormOfficerAuth !== 'undefined' && !PMSFormOfficerAuth.requireVerified(releaseOfficerAuth, {
+      message: 'Enter your 6-digit PIN and click Verify & Sign before signing release approval.',
+      showToast: PMSUI.showError,
+    })) {
+      return;
+    }
+    const signature = releaseOfficerAuth?.getRecord?.() || null;
     try {
-      await PMSStorage.authorizeRelease(appId, { releaseDate, releaseTime, notes }, actor);
+      const result = await PMSStorage.authorizeRelease(appId, { releaseDate, releaseTime, notes }, actor, signature);
       document.getElementById('release-modal').close();
-      refresh('release');
-      refresh('archive');
-      refresh('overview');
-      refresh('applications');
-      refresh('prisoners');
-      PMSUI.showSuccess('Release authorized. The parolee is now recorded in Granted Parole.');
+      destroyReleaseOfficerAuth();
+      await refresh('release');
+      await refresh('archive');
+      await refresh('overview');
+      await refresh('applications');
+      await refresh('prisoners');
+      if (result?.releaseCompleted) {
+        showReleaseApprovalModal(result.app);
+      } else {
+        PMSUI.showSuccess('Your release sign-off was recorded. Awaiting the other required sign-off.');
+      }
     } catch (err) {
-      PMSUI.showError(err.message || 'Release authorization failed.');
+      PMSUI.showError(err.message || 'Release sign-off failed.');
     }
   });
+
+  document.getElementById('release-modal')?.addEventListener('close', () => destroyReleaseOfficerAuth());
 
   document.addEventListener('click', (e) => {
     const releaseBtn = e.target.closest('[data-release]');
     if (releaseBtn) {
       openReleaseModal(releaseBtn.dataset.release);
+      return;
+    }
+    const releaseViewBtn = e.target.closest('[data-release-view]');
+    if (releaseViewBtn) {
+      openReleaseModal(releaseViewBtn.dataset.releaseView, { viewOnly: true });
       return;
     }
     const viewVerifyBtn = e.target.closest('[data-view-verify]');
@@ -940,8 +1204,8 @@
   }
   setupStatCards();
 
-  PMSUI.bindLiveDataRefresh(() => {
+  PMSUI.bindLiveDataRefresh(async () => {
     const active = document.querySelector('.sidebar-nav .nav-item.active')?.dataset.panel || 'overview';
-    refresh(active);
-  });
+    await refresh(active);
+  }, { refreshOnFocus: true });
 })();

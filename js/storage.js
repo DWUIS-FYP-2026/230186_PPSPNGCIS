@@ -231,8 +231,12 @@ const PMSStorage = (() => {
     'Draft', 'Submitted', 'Under DJAG Review', 'Returned for Correction',
     'Pending Commander Review', 'Pre-Parole Report Prepared', 'Hearing Scheduled',
     'Hearing In Progress', 'Pending Board Review', 'Parole Granted', 'Parole Refused', 'Pending Approval',
-    'Approved', 'Deferred', 'Refused', 'Released',
+    'Approved', 'Deferred', 'Refused', 'Released', 'Released on Parole',
   ];
+  const RELEASE_SIGN_OFF_ROLE_KEYS = Object.freeze({
+    'Jail Commander': 'jailCommander',
+    'CS Parole Clerk': 'csParoleClerk',
+  });
   const HEARING_STATUSES = ['Pending', 'Scheduled', 'Upcoming', 'In Progress', 'Completed', 'Cancelled', 'Rescheduled'];
   const APPROVAL_DECISIONS = ['Pending Approval', 'Approved', 'Rejected', 'Returned for Correction'];
   const BOARD_CONTRACT_YEARS = 5;
@@ -1425,6 +1429,28 @@ const PMSStorage = (() => {
     return new Date(h?.updatedAt || h?.createdAt || h?.scheduledDate || 0).getTime();
   }
 
+  /** Merge remote hearing onto local without letting a stale DB snapshot overwrite a newer local schedule (outbound PUT). */
+  function mergeLocalHearingWithRemoteSnapshot(local, remRaw) {
+    if (!local || !remRaw) return { hearing: local, changed: false };
+    const rem = normalizeHearingRecord(unpackHearingNotes(remRaw));
+    if (local.status === 'Cancelled' || rem.status === 'Cancelled') return { hearing: local, changed: false };
+    const localScore = hearingRecencyScore(local);
+    const remoteScore = hearingRecencyScore(rem);
+    if (remoteScore > localScore) {
+      let changed = false;
+      const keys = ['scheduledDate', 'scheduledTime', 'location', 'notes', 'status', 'startedAt', 'startedBy', 'startedByName'];
+      keys.forEach((key) => {
+        if (rem[key] == null || rem[key] === '') return;
+        if (local[key] !== rem[key]) {
+          local[key] = rem[key];
+          changed = true;
+        }
+      });
+      return { hearing: local, changed };
+    }
+    return { hearing: local, changed: false };
+  }
+
   function normalizeHearingScheduleDate(value) {
     if (value == null || value === '') return '';
     if (typeof value === 'string') {
@@ -1995,7 +2021,9 @@ const PMSStorage = (() => {
       { label: 'Parole Hearing / Board Process', met: s.checks.hearing || s.checks.form3 },
       { label: 'Hearing Scheduled', met: hasScheduledParoleHearing(app) },
       { label: 'Board Votes Complete (4 members)', met: requiredBoardAssessmentsComplete(app) },
-      { label: 'Final Approval Workflow', met: requiredApprovalsComplete(app) },
+      { label: 'Final Approval Workflow', met: requiredApprovalsComplete(app) || isParoleGrantedForRelease(app) },
+      { label: 'Jail Commander Release Sign-Off', met: hasReleaseSignOff(app, 'Jail Commander') || isApplicationReleasedOnParole(app) },
+      { label: 'CS Parole Clerk Release Sign-Off', met: hasReleaseSignOff(app, 'CS Parole Clerk') || isApplicationReleasedOnParole(app) },
       { label: 'Parole Score Calculated', met: score.complete },
       { label: score.meetsThreshold || isForm4Issued(app) ? 'Form 4 — Parole Granted' : 'Decision Recorded', met: isForm4Issued(app) || isForm5Complete(app.formData?.form5) || app.status === 'Refused' },
     ];
@@ -2044,7 +2072,7 @@ const PMSStorage = (() => {
       { id: 'assessment', label: 'Board Assessment', done: requiredBoardAssessmentsComplete(app) },
       { id: 'decision', label: 'Decision', done: score.complete || isForm4Complete(app.formData?.form4) || isForm5Complete(app.formData?.form5) },
       { id: 'approval', label: 'Approval', done: requiredApprovalsComplete(app) || app.status === 'Approved' },
-      { id: 'release', label: 'Release', done: app.status === 'Released' || prisoner?.status === 'Released on Parole' },
+      { id: 'release', label: 'Release Sign-Off', done: isApplicationReleasedOnParole(app) || prisoner?.status === 'Released on Parole' },
     ];
 
     let currentIdx = stageDefs.findIndex((s) => !s.done);
@@ -3162,8 +3190,8 @@ const PMSStorage = (() => {
       transitionApplication(appId, 'Approved', actor, 'All required approvals completed');
       notifyRoles(
         ['CS Parole Clerk', 'Jail Commander'],
-        'Release Authorized — Pending Action',
-        `Approvals complete for ${app.caseNumber || appId} — authorize release`,
+        'Release Sign-Off Required',
+        `Grant approvals complete for ${app.caseNumber || appId} — Jail Commander and CS Parole Clerk must both sign release`,
         meta,
       );
     } else if (step.decision === 'Rejected') {
@@ -3932,6 +3960,7 @@ const PMSStorage = (() => {
     Approved: 10,
     Refused: 10,
     Released: 11,
+    'Released on Parole': 11,
   };
   const PRISONER_STATUS_RANK = {
     'Not Eligible': 0,
@@ -4042,7 +4071,9 @@ const PMSStorage = (() => {
       if (packedRelease?.authorizedAt && !app.releaseInfo?.authorizedAt) {
         app.releaseInfo = packedRelease;
       }
-      if ((sidecar.status === 'Released' || app.releaseInfo?.authorizedAt) && app.status !== 'Released') {
+      if ((sidecar.status === 'Released on Parole' || app.releaseInfo?.releasedOnParoleAt) && app.status !== 'Released on Parole') {
+        app.status = 'Released on Parole';
+      } else if ((sidecar.status === 'Released' || app.releaseInfo?.authorizedAt) && app.status !== 'Released' && !app.releaseInfo?.releasedOnParoleAt) {
         app.status = 'Released';
       } else if (sidecar.status && sidecar.status !== app.status) {
         const next = pickAdvancedStatus(app.status, sidecar.status, APP_SESSION_RANK);
@@ -4072,9 +4103,17 @@ const PMSStorage = (() => {
   }
 
   function boardAssessmentMergeKey(entry) {
-    const role = entry?.role || '';
+    const appId = entry?.applicationId || '';
+    const hearingId = entry?.hearingId != null && entry?.hearingId !== '' ? entry.hearingId : 'legacy';
     const assessor = entry?.assessorId || entry?.assessorName || '';
-    return `${role}|${assessor}`;
+    const role = entry?.role || '';
+    return `${appId}|${hearingId}|${assessor}|${role}`;
+  }
+
+  function dbHasSubmittedBoardVoteForKey(fromDb, key) {
+    return (fromDb || []).some(
+      (b) => boardAssessmentMergeKey(b) === key && b.submissionStatus === 'Submitted' && b.vote,
+    );
   }
 
   function boardAssessmentEntryRank(entry) {
@@ -4091,18 +4130,20 @@ const PMSStorage = (() => {
     return next;
   }
 
-  /** Merge board votes with MySQL/bootstrap as authority; keep local drafts only when DB has no submitted vote for that member. */
+  /** Merge board votes: DB submitted votes win per identity key; keep local submitted not yet in DB (outbound save); keep local drafts when DB has no submitted vote for that slot. */
   function mergeBoardAssessmentsFromDatabase(localList, dbList) {
     const fromDb = (dbList || []).map(normalizeBoardAssessmentRecord);
+    const localSubmitted = (localList || []).filter((entry) => {
+      if (!entry?.role || entry.submissionStatus !== 'Submitted' || !entry.vote) return false;
+      const key = boardAssessmentMergeKey(entry);
+      return !dbHasSubmittedBoardVoteForKey(fromDb, key);
+    }).map(normalizeBoardAssessmentRecord);
     const localDrafts = (localList || []).filter((entry) => {
       if (!entry?.role || entry.submissionStatus !== 'Draft') return false;
       const key = boardAssessmentMergeKey(entry);
-      const dbHasSubmitted = fromDb.some(
-        (b) => boardAssessmentMergeKey(b) === key && b.submissionStatus === 'Submitted' && b.vote,
-      );
-      return !dbHasSubmitted;
+      return !dbHasSubmittedBoardVoteForKey(fromDb, key);
     });
-    return mergeAssessmentLists(fromDb, localDrafts);
+    return mergeAssessmentLists(mergeAssessmentLists(fromDb, localSubmitted), localDrafts);
   }
 
   function mergeAssessmentLists(localList, remoteList) {
@@ -4376,12 +4417,20 @@ const PMSStorage = (() => {
         changed = true;
       }
       const remoteRelease = rem.releaseInfo || rem.formData?.__pmsReleaseInfo || rem.formData?.__pmsAppState?.releaseInfo;
-      if (remoteRelease?.authorizedAt && !local.releaseInfo?.authorizedAt) {
-        local.releaseInfo = remoteRelease;
-        changed = true;
+      if (remoteRelease) {
+        const mergedRelease = mergeReleaseInfoRecords(local.releaseInfo, remoteRelease);
+        if (JSON.stringify(mergedRelease || null) !== JSON.stringify(local.releaseInfo || null)) {
+          local.releaseInfo = mergedRelease;
+          packApplicationFormSidecar(local);
+          changed = true;
+        }
       }
-      if ((local.releaseInfo?.authorizedAt || rem.status === 'Released' || remoteRelease?.authorizedAt) && local.status !== 'Released') {
-        local.status = 'Released';
+      if (isApplicationReleasedOnParole(rem) && !isApplicationReleasedOnParole(local)) {
+        local.status = rem.status === 'Released on Parole' ? 'Released on Parole' : 'Released on Parole';
+        if (local.releaseInfo?.releasedOnParoleAt) changed = true;
+        changed = true;
+      } else if ((local.releaseInfo?.releasedOnParoleAt || rem.status === 'Released on Parole') && local.status !== 'Released on Parole' && bothReleaseSignOffsComplete(local)) {
+        local.status = 'Released on Parole';
         changed = true;
       }
       if (rem.archived && !local.archived) {
@@ -4458,19 +4507,8 @@ const PMSStorage = (() => {
     (data.hearings || []).forEach((local) => {
       const rem = remoteHearings.get(local.id);
       if (!rem) return;
-      if (local.status === 'Cancelled' || rem.status === 'Cancelled') return;
-      const nextStatus = pickAdvancedStatus(local.status, rem.status, HEARING_RECORD_RANK);
-      if (nextStatus && nextStatus !== local.status) {
-        local.status = nextStatus;
-        changed = true;
-      }
-      ['startedAt', 'startedBy', 'startedByName', 'scheduledDate', 'scheduledTime', 'location', 'notes', 'status'].forEach((key) => {
-        if (rem[key] == null || rem[key] === '') return;
-        if (local[key] !== rem[key]) {
-          local[key] = rem[key];
-          changed = true;
-        }
-      });
+      const { changed: hearingChanged } = mergeLocalHearingWithRemoteSnapshot(local, rem);
+      if (hearingChanged) changed = true;
     });
     if (applyEntityTombstones()) changed = true;
     (data.prisoners || []).forEach((prisoner) => {
@@ -4581,13 +4619,85 @@ const PMSStorage = (() => {
     if (!app) return false;
     if (['Refused', 'Parole Refused'].includes(app.status)) return false;
     if (isForm4Issued(app)) return true;
-    if (['Approved', 'Parole Granted', 'Pending Approval'].includes(app.status)) {
-      const score = app.paroleScore || calculateParoleScore(app);
-      if (app.status === 'Approved' || app.status === 'Parole Granted') return true;
-      if (score.meetsThreshold || isForm4Complete(app.formData?.form4)) return true;
-    }
+    if (getBoardDecisionOutcome(app) === 'Parole Granted') return true;
+    if (['Approved', 'Parole Granted', 'Pending Approval'].includes(app.status)) return true;
     const score = app.paroleScore || calculateParoleScore(app);
-    return score.meetsThreshold || isForm4Complete(app.formData?.form4);
+    return !!(score.meetsThreshold || isForm4Complete(app.formData?.form4));
+  }
+
+  function ensureReleaseInfo(app) {
+    if (!app) return null;
+    app.releaseInfo = app.releaseInfo && typeof app.releaseInfo === 'object' ? app.releaseInfo : {};
+    app.releaseInfo.signOffs = app.releaseInfo.signOffs && typeof app.releaseInfo.signOffs === 'object'
+      ? app.releaseInfo.signOffs
+      : {};
+    return app.releaseInfo;
+  }
+
+  function releaseSignOffStorageKey(role) {
+    const normalized = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(role) : role;
+    return RELEASE_SIGN_OFF_ROLE_KEYS[normalized] || null;
+  }
+
+  function getReleaseSignOffRecord(app, role) {
+    const key = releaseSignOffStorageKey(role);
+    if (!key) return null;
+    ensureReleaseInfo(app);
+    return app.releaseInfo.signOffs[key] || null;
+  }
+
+  function hasReleaseSignOff(app, role) {
+    const record = getReleaseSignOffRecord(app, role);
+    return !!(record?.verified && record?.signedAt && record?.userId);
+  }
+
+  function bothReleaseSignOffsComplete(app) {
+    return hasReleaseSignOff(app, 'Jail Commander') && hasReleaseSignOff(app, 'CS Parole Clerk');
+  }
+
+  function isLegacySingleStepRelease(app) {
+    const signOffs = app?.releaseInfo?.signOffs;
+    const hasDualSignOff = signOffs && (signOffs.jailCommander || signOffs.csParoleClerk);
+    return !!(app?.releaseInfo?.authorizedAt && !hasDualSignOff);
+  }
+
+  function isApplicationReleasedOnParole(app) {
+    if (!app) return false;
+    if (app.status === 'Released on Parole') return true;
+    if (isLegacySingleStepRelease(app) && (app.status === 'Released' || app.releaseInfo?.authorizedAt)) return true;
+    if (app.releaseInfo?.releasedOnParoleAt && bothReleaseSignOffsComplete(app)) return true;
+    return false;
+  }
+
+  function isReleaseSignOffPending(app) {
+    if (!app || isApplicationReleasedOnParole(app)) return false;
+    if (!isParoleGrantedForRelease(app)) return false;
+    return !bothReleaseSignOffsComplete(app);
+  }
+
+  function pickNewerReleaseSignOff(localEntry, remoteEntry) {
+    if (!remoteEntry?.signedAt) return localEntry || remoteEntry || null;
+    if (!localEntry?.signedAt) return remoteEntry;
+    const localTs = new Date(localEntry.signedAt).getTime();
+    const remoteTs = new Date(remoteEntry.signedAt).getTime();
+    return localTs >= remoteTs ? localEntry : remoteEntry;
+  }
+
+  function mergeReleaseInfoRecords(localInfo, remoteInfo) {
+    if (!remoteInfo) return localInfo || null;
+    if (!localInfo) return remoteInfo;
+    const merged = { ...remoteInfo, ...localInfo };
+    const locSign = localInfo.signOffs || {};
+    const remSign = remoteInfo.signOffs || {};
+    merged.signOffs = {
+      jailCommander: pickNewerReleaseSignOff(locSign.jailCommander, remSign.jailCommander),
+      csParoleClerk: pickNewerReleaseSignOff(locSign.csParoleClerk, remSign.csParoleClerk),
+    };
+    if (localInfo.releasedOnParoleAt || remoteInfo.releasedOnParoleAt) {
+      merged.releasedOnParoleAt = localInfo.releasedOnParoleAt || remoteInfo.releasedOnParoleAt;
+      merged.completedAt = localInfo.completedAt || remoteInfo.completedAt || merged.releasedOnParoleAt;
+    }
+    return merged;
   }
 
   function getReleaseBlockers(app, actor) {
@@ -4595,20 +4705,15 @@ const PMSStorage = (() => {
     if (!app) return ['Application not found.'];
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor?.role) : actor?.role;
     if (!['Jail Commander', 'CS Parole Clerk'].includes(role)) {
-      return ['You do not have permission to authorize release.'];
+      return ['You do not have permission to sign release approval.'];
     }
-    if (app.status === 'Released' || app.releaseInfo?.authorizedAt) return ['Prisoner has already been released.'];
+    if (isApplicationReleasedOnParole(app)) return ['This parolee has already been released on parole.'];
+    if (hasReleaseSignOff(app, role)) return ['You have already signed the release approval for this case.'];
     if (actor?.institutionId && app.institutionId !== actor.institutionId) {
       blockers.push('This case belongs to another institution.');
     }
-    if (!requiredBoardAssessmentsComplete(app) && !isForm4Issued(app)) {
-      blockers.push('All board members must submit their vote (Approve, Deny, or Defer) before release.');
-    }
     if (!isParoleGrantedForRelease(app)) {
-      blockers.push('Parole must be granted before release can be authorized.');
-    }
-    if (!requiredApprovalsComplete(app)) {
-      blockers.push('DJAG Secretary and CS Parole Clerk must both approve the grant before release.');
+      blockers.push('Parole must be granted (board decision / Form 4) before release sign-off.');
     }
     return blockers;
   }
@@ -4617,67 +4722,126 @@ const PMSStorage = (() => {
     return getReleaseBlockers(app, actor).length === 0;
   }
 
-  function authorizeRelease(appId, releaseInfo, actor) {
+  function completeParoleReleaseOnParole(appId, actor) {
+    const app = getApplicationById(appId);
+    if (!app) throw new Error('Application not found');
+    if (!bothReleaseSignOffsComplete(app)) {
+      throw new Error('Both Jail Commander and CS Parole Clerk must sign before release is finalized.');
+    }
+    const now = new Date();
+    const info = ensureReleaseInfo(app);
+    info.releasedOnParoleAt = now.toISOString();
+    info.completedAt = now.toISOString();
+    info.authorizedAt = info.releasedOnParoleAt;
+    const commander = getReleaseSignOffRecord(app, 'Jail Commander');
+    const clerk = getReleaseSignOffRecord(app, 'CS Parole Clerk');
+    info.authorizedBy = commander?.userId || actor.id;
+    info.authorizedByName = commander?.userName || `${actor.firstName} ${actor.lastName}`;
+    info.authorizedByRole = 'Jail Commander';
+    info.finalApprovalVerified = true;
+    info.requirements = getReleaseRequirements(app);
+    packApplicationFormSidecar(app);
+
+    const releaseTime = info.releaseTime || now.toTimeString().slice(0, 5);
+    const prisoner = getPrisonerById(app.prisonerId);
+    const inst = getInstitutionById(app.institutionId);
+    logAudit(actor, 'RELEASE', 'ParoleApplication', appId,
+      `Parole release finalized — ${info.releaseDate || now.toISOString().slice(0, 10)} ${releaseTime}`, {
+        newValues: { releaseInfo: info, signOffs: info.signOffs },
+        entityCaseNumber: app.caseNumber,
+      });
+
+    try {
+      if (app.status !== 'Released on Parole') {
+        transitionApplication(appId, 'Released on Parole', actor,
+          `Release sign-off complete (Commander: ${commander?.userName || '—'}, Clerk: ${clerk?.userName || '—'})`);
+      }
+    } catch (err) {
+      app.status = 'Released on Parole';
+      app.updatedAt = now.toISOString();
+      app.lastModifiedLabel = 'Status → Released on Parole';
+      app.workflowNotes = [...(app.workflowNotes || []), {
+        status: 'Released on Parole',
+        notes: `Parole release finalized after dual sign-off — ${info.releaseDate || ''} ${releaseTime}`.trim(),
+        at: now.toISOString(),
+        by: actor.id,
+        actorName: `${actor.firstName} ${actor.lastName}`,
+      }];
+      console.warn('Release on parole; workflow transition skipped:', err.message);
+    }
+    if (prisoner) {
+      prisoner.status = 'Released on Parole';
+      prisoner.releasedOnParoleAt = info.releasedOnParoleAt;
+      try { applyPrisonerEligibility(prisoner, actor); } catch (e) {
+        console.warn('Prisoner eligibility update skipped after release:', e.message);
+      }
+    }
+    recordParoleGrantedArchive(app, actor);
+    const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'prisoner';
+    const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'release', linkPanel: 'applications' };
+    notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk', 'Jail Commander'], 'Released on Parole',
+      `${pName} — status changed to Released on Parole (${inst?.name || 'institution'})`, meta);
+    notifyRole('System Administrator', 'Released on Parole', `${app.caseNumber || appId}: ${pName}`, app.institutionId, app.prisonerId, null, meta);
+    return app;
+  }
+
+  function authorizeRelease(appId, releaseInfo, actor, digitalSignature = null) {
     const role = typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(actor.role) : actor.role;
     const app = getApplicationById(appId);
     const blockers = getReleaseBlockers(app, actor);
     if (blockers.length) {
       throw new Error(blockers.join(' '));
     }
+    if (!digitalSignature?.verified) {
+      throw new Error('Enter your 6-digit PIN and click Verify & Sign before submitting release approval.');
+    }
+    const signKey = releaseSignOffStorageKey(role);
+    if (!signKey) throw new Error('Your role is not authorized for release sign-off.');
+
     const now = new Date();
     const releaseTime = releaseInfo.releaseTime || now.toTimeString().slice(0, 5);
-    app.releaseInfo = {
-      authorizedAt: now.toISOString(),
-      authorizedBy: actor.id,
-      authorizedByName: `${actor.firstName} ${actor.lastName}`,
-      authorizedByRole: actor.role,
-      releaseDate: releaseInfo.releaseDate || now.toISOString().slice(0, 10),
-      releaseTime,
-      notes: releaseInfo.notes || '',
-      institutionId: app.institutionId,
-      institutionName: getInstitutionById(app.institutionId)?.name || '',
-      caseNumber: app.caseNumber || app.id,
-      finalApprovalVerified: requiredApprovalsComplete(app) || app.status === 'Approved',
-      requirements: getReleaseRequirements(app),
+    const info = ensureReleaseInfo(app);
+    info.releaseDate = releaseInfo.releaseDate || info.releaseDate || now.toISOString().slice(0, 10);
+    info.releaseTime = releaseInfo.releaseTime || info.releaseTime || releaseTime;
+    info.notes = releaseInfo.notes != null ? releaseInfo.notes : (info.notes || '');
+    info.institutionId = app.institutionId;
+    info.institutionName = getInstitutionById(app.institutionId)?.name || '';
+    info.caseNumber = app.caseNumber || app.id;
+    info.finalApprovalVerified = requiredApprovalsComplete(app) || app.status === 'Approved';
+    info.requirements = getReleaseRequirements(app);
+
+    info.signOffs[signKey] = {
+      userId: actor.id,
+      userName: `${actor.firstName} ${actor.lastName}`,
+      role,
+      signedAt: now.toISOString(),
+      verified: true,
+      confirmed: true,
+      digitalSignature,
+      releaseDate: info.releaseDate,
+      releaseTime: info.releaseTime,
+      notes: info.notes || '',
     };
+    packApplicationFormSidecar(app);
+
     const prisoner = getPrisonerById(app.prisonerId);
-    const inst = getInstitutionById(app.institutionId);
-    logAudit(actor, 'RELEASE', 'ParoleApplication', appId, `Release authorized for ${prisoner?.prisonerNumber || app.prisonerId}`, {
-      newValues: app.releaseInfo,
-      entityCaseNumber: app.caseNumber,
-    });
-    try {
-      if (app.status !== 'Released') {
-        transitionApplication(appId, 'Released', actor, `Prisoner release authorized — ${app.releaseInfo.releaseDate} ${releaseTime}`);
-      }
-    } catch (err) {
-      app.status = 'Released';
-      app.updatedAt = now.toISOString();
-      app.lastModifiedLabel = 'Status → Released';
-      app.workflowNotes = [...(app.workflowNotes || []), {
-        status: 'Released',
-        notes: `Prisoner release authorized — ${app.releaseInfo.releaseDate} ${releaseTime}`,
-        at: now.toISOString(),
-        by: actor.id,
-        actorName: `${actor.firstName} ${actor.lastName}`,
-      }];
-      console.warn('Release authorized; workflow transition skipped:', err.message);
-    }
-    if (prisoner) {
-      prisoner.status = 'Released on Parole';
-      prisoner.releasedOnParoleAt = app.releaseInfo.authorizedAt;
-      try { applyPrisonerEligibility(prisoner, actor); } catch (err) {
-        console.warn('Prisoner eligibility update skipped after release:', err.message);
-      }
-    }
-    recordParoleGrantedArchive(app, actor);
+    logAudit(actor, 'RELEASE_SIGN_OFF', 'ParoleApplication', appId,
+      `${role} signed release approval for ${prisoner?.prisonerNumber || app.prisonerId}`, {
+        newValues: info.signOffs[signKey],
+        entityCaseNumber: app.caseNumber,
+      });
+
     const pName = prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : 'prisoner';
-    const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'release', linkPanel: 'applications' };
-    notifyRoles(['CS Parole Clerk', 'DJAG Parole Clerk'], 'Release Authorized', `${pName} released on parole from ${inst?.name || 'institution'}`, meta);
-    notifyRole('Jail Commander', 'Release Completed', `${pName} — release on parole recorded`, app.institutionId, app.prisonerId, actor.id, meta);
-    notifyRole('CS Parole Clerk', 'Release Completed', `${pName} — release on parole recorded`, app.institutionId, app.prisonerId, actor.id, meta);
-    notifyRole('System Administrator', 'Release Authorized', `${app.caseNumber || appId}: ${pName} released on parole`, app.institutionId, app.prisonerId, null, meta);
-    return persistCritical().then(() => app);
+    const meta = { applicationId: appId, institutionId: app.institutionId, prisonerId: app.prisonerId, type: 'release', linkPanel: 'release' };
+    const pendingRole = role === 'Jail Commander' ? 'CS Parole Clerk' : 'Jail Commander';
+    if (!bothReleaseSignOffsComplete(app)) {
+      notifyRole(pendingRole, 'Release Sign-Off Required',
+        `${pName} (${app.caseNumber || appId}) — your digital PIN sign-off is required to finalize release`, app.institutionId, app.prisonerId, null, meta);
+      return persistCritical().then(() => ({ app, releaseCompleted: false }));
+    }
+
+    completeParoleReleaseOnParole(appId, actor);
+    return persistCritical().then(() => ({ app: getApplicationById(appId), releaseCompleted: true }));
   }
 
   function overrideEligibility(prisonerId, override, actor) {
@@ -6655,7 +6819,7 @@ const PMSStorage = (() => {
   }
 
   const TERMINAL_APPLICATION_STATUSES = Object.freeze([
-    'Approved', 'Released', 'Refused', 'Deferred',
+    'Approved', 'Released', 'Released on Parole', 'Refused', 'Deferred',
     'Parole Refused', 'Parole Granted', 'Pending Approval',
   ]);
 
@@ -6775,6 +6939,7 @@ const PMSStorage = (() => {
     isParoleGrantedForRelease,
     BOARD_ASSESSOR_ROLES, BOARD_VOTING_ROLES,
     getReleaseBlockers, canAuthorizeRelease, authorizeRelease, overrideEligibility, saveCommanderCaseReview, saveCommanderVerificationDraft,
+    hasReleaseSignOff, bothReleaseSignOffsComplete, isReleaseSignOffPending, isApplicationReleasedOnParole, getReleaseSignOffRecord,
     reconcileCommanderVerification, syncCommanderVerificationState, resolveVerificationNotifications, resolveHearingNotifications,
     saveApprovalStep, getGuarantors, saveGuarantor, deleteGuarantor, requiredApprovalsComplete,
     getGrantApprovalQueue, roleHasApprovedGrant, isGrantApprovalPending,

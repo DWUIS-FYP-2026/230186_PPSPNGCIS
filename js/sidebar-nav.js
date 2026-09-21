@@ -29,7 +29,7 @@ const PMSSidebar = (() => {
     'CS Parole Clerk': [
       { label: 'Dashboard', ids: ['overview'] },
       { label: 'Parole Management', ids: ['applications', 'eligibility', 'form1', 'form2', 'board-hearing'] },
-      { label: 'Release', ids: ['approvals', 'archive'] },
+      { label: 'Release', ids: ['approvals', 'release-signoff', 'archive'] },
       { label: 'Prisoners', ids: ['prisoners'] },
       { label: 'Reports', ids: ['reports', 'profile'] },
     ],
@@ -100,6 +100,7 @@ const PMSSidebar = (() => {
       { id: 'form2', module: 'forms', href: 'forms/form2.html', label: 'Form 2', icon: 'fi fi-rr-document' },
       { id: 'board-hearing', module: 'hearings', href: 'forms/board-decisions.html', label: 'Parole Hearing', icon: 'fi fi-rr-gavel' },
       { id: 'approvals', module: 'release', panel: 'approvals', label: 'Grant Approvals', icon: 'fi fi-rr-badge-check' },
+      { id: 'release-signoff', module: 'release', panel: 'release-signoff', label: 'Sign Release Approval', icon: 'fi fi-rr-door-open' },
       { id: 'archive', module: 'archive', panel: 'archive', label: 'Archived Cases', icon: 'fi fi-rr-box' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
       { id: 'reports', module: 'reports', panel: 'reports', label: 'Reports', icon: 'fi fi-rr-chart-line-up' },
@@ -158,7 +159,7 @@ const PMSSidebar = (() => {
     'Jail Commander': [
       { id: 'overview', module: 'overview', panel: 'overview', label: 'Dashboard', icon: 'fi fi-rr-dashboard' },
       { id: 'verification', module: 'verification', panel: 'verification', label: 'Case Verification', icon: 'fi fi-rr-shield-check' },
-      { id: 'release', module: 'release', panel: 'release', label: 'Authorize Release', icon: 'fi fi-rr-door-open' },
+      { id: 'release', module: 'release', panel: 'release', label: 'Sign Release Approval', icon: 'fi fi-rr-door-open' },
       { id: 'archive', module: 'archive', panel: 'archive', label: 'Archived Cases', icon: 'fi fi-rr-box' },
       { id: 'applications', module: 'applications', panel: 'applications', label: 'Parole Applications', icon: 'fi fi-rr-folder' },
       { id: 'prisoners', module: 'prisoners', panel: 'prisoners', label: 'Prisoner Records', icon: 'fi fi-rr-id-card' },
@@ -177,8 +178,12 @@ const PMSSidebar = (() => {
     return d.innerHTML;
   }
 
+  function roleKey(user) {
+    return (typeof PMSRBAC !== 'undefined' ? PMSRBAC.normalizeRole(user?.role) : user?.role) || '';
+  }
+
   function getMenuItems(user) {
-    const items = MENUS[user.role] || [];
+    const items = MENUS[roleKey(user)] || MENUS[user.role] || [];
     return items.filter((item) => {
       if (item.hidden) return false;
       if (!item.module) return true;
@@ -227,7 +232,8 @@ const PMSSidebar = (() => {
 
   function renderGroupedNav(user) {
     const items = getMenuItems(user);
-    const sections = NAV_SECTIONS[user.role] || [{ label: 'Navigation', ids: items.map((i) => i.id) }];
+    const key = roleKey(user);
+    const sections = NAV_SECTIONS[key] || NAV_SECTIONS[user.role] || [{ label: 'Navigation', ids: items.map((i) => i.id) }];
     return sections.map((section) => {
       const sectionItems = items.filter((i) => section.ids.includes(i.id));
       if (!sectionItems.length) return '';
@@ -240,7 +246,7 @@ const PMSSidebar = (() => {
   }
 
   function renderSidebar(user, roleLabel) {
-    const brand = ROLE_BRAND[user.role] || { subtitle: user.role };
+    const brand = ROLE_BRAND[roleKey(user)] || ROLE_BRAND[user.role] || { subtitle: user.role };
     const subtitle = roleLabel || brand.subtitle;
     const inst = user.institutionId && PMSStorage.getInstitutionById(user.institutionId);
     const initial = (user.firstName || user.username || '?').charAt(0).toUpperCase();

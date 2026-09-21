@@ -99,10 +99,11 @@ function mapApplicationRow(row) {
   const sidecar = formData.__pmsAppState && typeof formData.__pmsAppState === 'object' ? formData.__pmsAppState : {};
   const packedRelease = sidecar.releaseInfo || formData.__pmsReleaseInfo || null;
   const packedReview = sidecar.commanderReview || formData.__pmsCommanderReview || null;
+  const releasedOnParole = sidecar.status === 'Released on Parole' || packedRelease?.releasedOnParoleAt;
   const released = sidecar.status === 'Released' || packedRelease?.authorizedAt;
-  const status = released && row.status !== 'Released'
-    ? 'Released'
-    : (row.status || sidecar.status || 'Draft');
+  let status = row.status || sidecar.status || 'Draft';
+  if (releasedOnParole && status !== 'Released on Parole') status = 'Released on Parole';
+  else if (released && status !== 'Released' && status !== 'Released on Parole') status = 'Released';
   return {
     id: row.id,
     prisonerId: row.prisoner_id,
