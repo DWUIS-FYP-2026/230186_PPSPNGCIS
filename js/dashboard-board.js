@@ -368,7 +368,7 @@
       <p><strong>Parole Board Meeting Summary</strong> — ${PMSUI.fmtDate(new Date().toISOString())}</p>
       <ul><li>Total applications reviewed: ${PMSUI.formatStat(boardApps().length)}</li>
       <li>Approved: ${PMSUI.formatStat(apps.filter((a) => a.status === 'Approved').length)}</li>
-      <li>Parole granted: ${PMSUI.formatStat(apps.filter((a) => a.status === 'Parole Granted').length)}</li>
+      <li>Parole granted: ${PMSUI.formatStat(grantedParole)}</li>
       <li>Deferred: ${PMSUI.formatStat(apps.filter((a) => a.status === 'Deferred').length)}</li>
       <li>Refused: ${PMSUI.formatStat(apps.filter((a) => ['Refused', 'Parole Refused'].includes(a.status)).length)}</li>
       <li>Pending decision: ${PMSUI.formatStat(pendingDecisionApps().length)}</li></ul>`;
@@ -414,17 +414,17 @@
       },
       {
         statId: 'stat-granted',
-        title: 'Parole Granted (Form 4)',
+        title: 'Parole Granted',
         columns: ['Case', 'Name', 'Institution', 'Granted', ''],
         getRows: () => PMSStorage.getGrantedParoleCases().map((a) => {
           const p = PMSStorage.getPrisonerById(a.prisonerId);
-          const form4 = a.formData?.form4 || {};
+          const when = a.formData?.form4?.issuedAt || a.boardDecision?.decidedAt || a.updatedAt;
           return `<tr>
             <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
             <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
             <td>${PMSUI.instName(a.institutionId)}</td>
-            <td>${PMSUI.fmtDate(form4.issuedAt)}</td>
-            <td>${form4.issued ? `<a href="forms/form4.html?appId=${encodeURIComponent(a.id)}" class="btn-icon">Form 4</a>` : ''}</td>
+            <td>${PMSUI.fmtDate(when)}</td>
+            <td><a href="forms/form4.html?appId=${encodeURIComponent(a.id)}" class="btn-icon">Form 4</a> <span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td>
           </tr>`;
         }),
       },

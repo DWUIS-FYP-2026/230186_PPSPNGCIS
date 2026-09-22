@@ -54,14 +54,14 @@ const PMSUI = (() => {
 
   function grantedParoleArchiveRowsHtml(rows) {
     if (!rows.length) {
-      return '<tr><td colspan="8" class="empty-state">No granted parole records yet. Cases appear here after Form 4 is issued. Release date, time, and the authorizing commander appear after the Jail Commander authorizes release.</td></tr>';
+      return '<tr><td colspan="8" class="empty-state">No granted parole records yet. Cases appear here after the board grants parole (Parole Granted). Form 4 and release details update as they are completed.</td></tr>';
     }
     return rows.map((row) => {
       const released = !!row.released;
       return `<tr>
         <td><strong>${esc(row.prisonerName || '—')}</strong><span class="meta">${esc(row.prisonerNumber || '')}</span></td>
         <td>${esc(row.caseNumber || row.applicationId || '—')}</td>
-        <td>${row.applicationId ? `<a href="${form4Href(row.applicationId)}" class="btn-icon">Form 4</a>` : '—'}</td>
+        <td>${row.applicationId ? `<a href="${form4Href(row.applicationId)}" class="btn-icon">${row.form4Issued ? 'Form 4' : 'Open Form 4'}</a>` : '—'}</td>
         <td>${fmtDate(row.grantedAt)}</td>
         <td>${row.releaseDate ? fmtDate(row.releaseDate) : '—'}</td>
         <td>${row.releaseTime ? fmtTime(row.releaseTime) : '—'}</td>

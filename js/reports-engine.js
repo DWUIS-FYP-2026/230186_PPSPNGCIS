@@ -95,7 +95,9 @@ const PMSReports = (() => {
   function scopeData(user, filters) {
     if (typeof PMSEligibility !== 'undefined') PMSEligibility.syncAllPrisoners(user, PMSStorage.getParoleApplications());
     let prisoners = PMSRBAC.filterPrisonersForUser(user, PMSStorage.getPrisoners());
-    let applications = PMSStorage.getParoleApplications();
+    let applications = typeof PMSStorage.getAllParoleApplications === 'function'
+      ? PMSStorage.getAllParoleApplications({ includeArchived: true })
+      : PMSStorage.getParoleApplications();
     const institutions = PMSStorage.getInstitutions();
     const hearings = PMSStorage.getHearings();
     const auditLogs = PMSStorage.getAuditLogs();
@@ -162,8 +164,11 @@ const PMSReports = (() => {
     const data = scopeData(user, filters);
     const { prisoners, applications, institutions, hearings, auditLogs, users } = data;
     const escalations = PMSStorage.getEscalations(filters.institutionId || user.institutionId || null);
-    const granted = applications.filter((a) => ['Approved', 'Parole Granted'].includes(a.status) || a.formData?.form4?.status === 'Parole Granted').length;
-    const refused = applications.filter((a) => ['Refused', 'Parole Refused'].includes(a.status)).length;
+    const granted = applications.filter((a) => PMSStorage.isParoleGrantedCase?.(a)
+      || ['Approved', 'Parole Granted', 'Pending Approval', 'Released on Parole'].includes(a.status)
+      || a.formData?.form4?.status === 'Parole Granted').length;
+    const refused = applications.filter((a) => PMSStorage.isParoleRefusedCase?.(a)
+      || ['Refused', 'Parole Refused'].includes(a.status)).length;
     const decided = granted + refused;
     const activeStatuses = ['Awaiting Eligibility', 'Eligible for Parole Application', 'Assessment in Progress', 'Hearing Scheduled'];
 
@@ -266,8 +271,14 @@ const PMSReports = (() => {
       case 'parole_refused':
         headers.push('Case No.', 'Prisoner', 'Outcome', 'Score', 'Decided', 'By');
         applications.filter((a) => {
-          if (reportType === 'parole_granted') return ['Approved', 'Parole Granted'].includes(a.status);
-          if (reportType === 'parole_refused') return ['Refused', 'Parole Refused'].includes(a.status);
+          if (reportType === 'parole_granted') {
+            return PMSStorage.isParoleGrantedCase?.(a)
+              || ['Approved', 'Parole Granted', 'Pending Approval', 'Released on Parole'].includes(a.status);
+          }
+          if (reportType === 'parole_refused') {
+            return PMSStorage.isParoleRefusedCase?.(a)
+              || ['Refused', 'Parole Refused'].includes(a.status);
+          }
           return !!a.boardDecision;
         }).forEach((a) => {
           const p = PMSStorage.getPrisonerById(a.prisonerId);
@@ -276,7 +287,9 @@ const PMSReports = (() => {
         break;
       case 'released_prisoner':
         headers.push('Prisoner No.', 'Name', 'Institution', 'Release Date', 'Officer');
-        applications.filter((a) => a.status === 'Released' || a.releaseInfo).forEach((a) => {
+        applications.filter((a) => a.status === 'Released' || a.status === 'Released on Parole'
+          || a.releaseInfo?.releasedOnParoleAt || a.releaseInfo?.authorizedAt
+          || PMSStorage.isApplicationReleasedOnParole?.(a)).forEach((a) => {
           const p = PMSStorage.getPrisonerById(a.prisonerId);
           rows.push([p?.prisonerNumber, p ? `${p.firstName} ${p.lastName}` : '—', PMSStorage.getInstitutionById(a.institutionId)?.name, fmtDate(a.releaseInfo?.releaseDate), a.releaseInfo?.authorizedByName || '—']);
         });

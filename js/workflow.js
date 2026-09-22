@@ -33,10 +33,10 @@ const PMSWorkflow = (() => {
     'Hearing Scheduled': ['Hearing In Progress', 'Pending Board Review', 'Parole Granted', 'Parole Refused', 'Deferred'],
     'Hearing In Progress': ['Pending Board Review', 'Parole Granted', 'Parole Refused', 'Deferred'],
     'Pending Board Review': ['Parole Granted', 'Parole Refused', 'Pending Approval', 'Deferred'],
-    'Parole Granted': ['Pending Approval', 'Approved'],
+    'Parole Granted': ['Pending Approval', 'Approved', 'Released', 'Released on Parole'],
     'Parole Refused': ['Refused'],
-    'Pending Approval': ['Approved', 'Returned for Correction', 'Refused', 'Released'],
-    Approved: ['Released'],
+    'Pending Approval': ['Approved', 'Returned for Correction', 'Refused', 'Released', 'Released on Parole'],
+    Approved: ['Released', 'Released on Parole'],
   };
 
   const TRANSITION_ROLES = {
@@ -73,11 +73,14 @@ const PMSWorkflow = (() => {
     'Parole Granted→Approved': ['DJAG Secretary', 'CS Parole Clerk'],
     'Parole Refused→Refused': ['DJAG Secretary'],
     'Parole Granted→Released': ['Jail Commander', 'CS Parole Clerk'],
+    'Parole Granted→Released on Parole': ['Jail Commander', 'CS Parole Clerk'],
     'Pending Approval→Approved': ['DJAG Secretary', 'CS Parole Clerk'],
     'Pending Approval→Returned for Correction': ['DJAG Secretary', 'CS Parole Clerk'],
     'Pending Approval→Refused': ['DJAG Secretary'],
     'Pending Approval→Released': ['Jail Commander', 'CS Parole Clerk'],
+    'Pending Approval→Released on Parole': ['Jail Commander', 'CS Parole Clerk'],
     'Approved→Released': ['Jail Commander', 'CS Parole Clerk'],
+    'Approved→Released on Parole': ['Jail Commander', 'CS Parole Clerk'],
   };
 
   const FORM_OWNERS = {
@@ -150,12 +153,13 @@ const PMSWorkflow = (() => {
       need('hearing', 'Parole hearing process must be completed.');
     }
     if (toStatus === 'Approved') need('approvalsComplete', 'Required approval workflow must be completed.');
-    if (toStatus === 'Released') {
+    if (toStatus === 'Released' || toStatus === 'Released on Parole') {
       if (!PMSStorage.isForm4Issued(app) && !PMSStorage.requiredApprovalsComplete(app)) {
         need('assessmentsComplete', 'All board interview assessments must be completed before release.');
       }
       const grantReady = PMSStorage.isForm4Issued(app)
-        || ['Approved', 'Pending Approval', 'Parole Granted', 'Released'].includes(app.status);
+        || ['Approved', 'Pending Approval', 'Parole Granted', 'Released', 'Released on Parole'].includes(app.status)
+        || PMSStorage.isParoleGrantedCase?.(app);
       if (!grantReady) {
         blockers.push('Case must be approved or parole granted before release authorization.');
       }

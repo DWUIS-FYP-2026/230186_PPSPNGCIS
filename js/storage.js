@@ -1329,7 +1329,14 @@ const PMSStorage = (() => {
 
   function prisonerStatusFromApplication(prisoner, app) {
     if (!prisoner) return null;
-    if (prisoner.releasedOnParoleAt || app?.status === 'Released' || app?.releaseInfo?.authorizedAt) {
+    if (
+      prisoner.releasedOnParoleAt
+      || app?.status === 'Released on Parole'
+      || app?.status === 'Released'
+      || app?.releaseInfo?.releasedOnParoleAt
+      || app?.releaseInfo?.authorizedAt
+      || (typeof isApplicationReleasedOnParole === 'function' && isApplicationReleasedOnParole(app))
+    ) {
       return 'Released on Parole';
     }
     if (!app) {
@@ -1338,7 +1345,7 @@ const PMSStorage = (() => {
       return prisoner.status || 'Awaiting Eligibility';
     }
     const status = app.status;
-    if (status === 'Released') return 'Released on Parole';
+    if (status === 'Released on Parole' || status === 'Released') return 'Released on Parole';
     if (status === 'Approved' || status === 'Parole Granted' || status === 'Pending Approval') return 'Approved';
     if (status === 'Refused' || status === 'Parole Refused') return 'Refused';
     if (status === 'Pending Board Review') return 'Board Review';
@@ -1381,8 +1388,9 @@ const PMSStorage = (() => {
     let percent = Math.round((done / total) * 100);
     if (percent === 0 && isForm1Complete(app.formData?.form1)) percent = 20;
     const refused = ['Refused', 'Parole Refused'].includes(app.status);
-    const granted = ['Approved', 'Parole Granted', 'Released', 'Pending Approval'].includes(app.status)
-      || prisoner.status === 'Released on Parole';
+    const granted = ['Approved', 'Parole Granted', 'Released', 'Released on Parole', 'Pending Approval'].includes(app.status)
+      || prisoner.status === 'Released on Parole'
+      || isParoleGrantedCase(app);
     return {
       percent,
       label: current ? `${current.label} · ${done}/${total}` : `${done}/${total} stages`,
@@ -2345,6 +2353,29 @@ const PMSStorage = (() => {
     return form4?.status === 'Parole Granted' || form4?.decision === 'Parole Granted';
   }
 
+  /** Board grant, Form 4, or completed release — used for dashboard Parole Granted lists/stats. */
+  function isParoleGrantedCase(app) {
+    if (!app) return false;
+    if (['Refused', 'Parole Refused'].includes(app.status)) return false;
+    if (isForm5Complete(app.formData?.form5)) return false;
+    if (isForm4Issued(app)) return true;
+    if (typeof isApplicationReleasedOnParole === 'function' && isApplicationReleasedOnParole(app)) return true;
+    if (['Parole Granted', 'Approved', 'Pending Approval', 'Released', 'Released on Parole'].includes(app.status)) return true;
+    if (getBoardDecisionOutcome(app) === 'Parole Granted') return true;
+    return false;
+  }
+
+  function paroleGrantedAt(app) {
+    if (!app) return '';
+    return app.formData?.form4?.issuedAt
+      || app.boardDecision?.decidedAt
+      || app.releaseInfo?.releasedOnParoleAt
+      || app.releaseInfo?.authorizedAt
+      || app.archivedAt
+      || app.updatedAt
+      || '';
+  }
+
   function getAllParoleApplications(opts = {}) {
     const list = [...(data?.applications || [])];
     if (opts.includeArchived) return list;
@@ -2354,9 +2385,9 @@ const PMSStorage = (() => {
   function getGrantedParoleCases(opts = {}) {
     const { institutionId } = opts;
     return getAllParoleApplications({ includeArchived: true })
-      .filter((a) => isForm4Issued(a))
+      .filter((a) => isParoleGrantedCase(a))
       .filter((a) => !institutionId || a.institutionId === institutionId)
-      .sort((a, b) => new Date(b.formData?.form4?.issuedAt || b.archivedAt || 0) - new Date(a.formData?.form4?.issuedAt || a.archivedAt || 0));
+      .sort((a, b) => new Date(paroleGrantedAt(b) || 0) - new Date(paroleGrantedAt(a) || 0));
   }
 
   function countGrantedParole(scopeInstitutionId = null) {
@@ -2394,6 +2425,15 @@ const PMSStorage = (() => {
     return list.sort((a, b) => new Date(b.releasedAt || b.grantedAt || 0) - new Date(a.releasedAt || a.grantedAt || 0));
   }
 
+  function isReleaseRecordComplete(app, prisoner = null) {
+    if (!app) return false;
+    if (typeof isApplicationReleasedOnParole === 'function' && isApplicationReleasedOnParole(app)) return true;
+    if (app.status === 'Released on Parole' || app.status === 'Released') return true;
+    if (prisoner?.status === 'Released on Parole') return true;
+    const release = app.releaseInfo || {};
+    return !!(release.releasedOnParoleAt || release.authorizedAt);
+  }
+
   function getGrantedParoleRegister(opts = {}) {
     const { institutionId } = opts;
     return getGrantedParoleCases({ institutionId }).map((app) => {
@@ -2401,9 +2441,14 @@ const PMSStorage = (() => {
       const form4 = app.formData?.form4 || {};
       const release = app.releaseInfo || {};
       const archive = (data.paroleGrantedArchive || []).find((e) => e.applicationId === app.id) || {};
-      const released = app.status === 'Released'
-        || prisoner?.status === 'Released on Parole'
-        || !!release.authorizedAt;
+      const released = isReleaseRecordComplete(app, prisoner);
+      const status = released
+        ? 'Released on Parole'
+        : (app.status === 'Pending Approval'
+          ? 'Parole Granted — pending approvals'
+          : (isForm4Issued(app) || getBoardDecisionOutcome(app) === 'Parole Granted'
+            ? 'Parole Granted'
+            : (app.status || 'Parole Granted')));
       return {
         applicationId: app.id,
         caseNumber: app.caseNumber || app.id,
@@ -2411,16 +2456,17 @@ const PMSStorage = (() => {
         prisonerNumber: prisoner?.prisonerNumber || archive.prisonerNumber || '',
         prisonerName: prisoner ? `${prisoner.firstName} ${prisoner.lastName}` : (archive.prisonerName || ''),
         institutionId: app.institutionId,
-        grantedAt: form4.issuedAt || archive.grantedAt || app.archivedAt || '',
+        grantedAt: paroleGrantedAt(app) || archive.grantedAt || '',
         issuedBy: form4.issuedBy || archive.issuedBy || '',
         paroleOrderNo: form4.paroleOrderNo || archive.paroleOrderNo || '',
+        form4Issued: isForm4Issued(app),
         released,
         releaseDate: release.releaseDate || archive.releaseDate || '',
         releaseTime: release.releaseTime || archive.releaseTime || '',
-        authorizedAt: release.authorizedAt || archive.releasedAt || '',
+        authorizedAt: release.releasedOnParoleAt || release.authorizedAt || archive.releasedAt || '',
         authorizedBy: release.authorizedByName || archive.authorizedBy || '',
         authorizedByRole: release.authorizedByRole || archive.authorizedByRole || '',
-        status: released ? 'Released on Parole' : (app.status === 'Pending Approval' ? 'Pending Approval' : 'Parole Granted'),
+        status,
       };
     });
   }
@@ -2432,7 +2478,7 @@ const PMSStorage = (() => {
     const existingIdx = data.paroleGrantedArchive.findIndex((e) => e.applicationId === app.id);
     const prev = existingIdx >= 0 ? data.paroleGrantedArchive[existingIdx] : {};
     const release = app.releaseInfo || {};
-    const released = app.status === 'Released' || prisoner?.status === 'Released on Parole' || !!release.authorizedAt;
+    const released = isReleaseRecordComplete(app, prisoner);
     const entry = {
       ...prev,
       id: prev.id || generateId('PGA'),
@@ -6919,7 +6965,7 @@ const PMSStorage = (() => {
     verifyApplicationForm, submitApplicationToDJAG, createEmptyForms, createEmptyFormData,
     saveFormData, saveForm1Screening, saveForm2Section, getOrCreateDraftApplication, isForm1Complete, isForm2Complete, isForm2SectionVerified,
     FORM2_ATTACHMENT_LABELS, getForm2AttachmentFiles, getForm2AttachmentFile, canDownloadForm2Attachments, downloadForm2Attachment,
-    isForm4Issued, getAllParoleApplications, getGrantedParoleCases, countGrantedParole, getParoleGrantedArchive, getGrantedParoleRegister, archiveParoleGrantedCase,
+    isForm4Issued, isParoleGrantedCase, getAllParoleApplications, getGrantedParoleCases, countGrantedParole, getParoleGrantedArchive, getGrantedParoleRegister, archiveParoleGrantedCase,
     isParoleRefusedCase, getRefusedParoleCases, countRefusedParole,
     needsDjagForm2Ppr, getApplicationsForDjagClerk, isForm3Complete, isForm3HearingPhaseOpen, isForm3WorkflowAccessible,
     hasScheduledParoleHearing, resolveEligibilityWorkflowLabel, getParoleHearingPortalHref, isForm4Complete, isForm5Complete,

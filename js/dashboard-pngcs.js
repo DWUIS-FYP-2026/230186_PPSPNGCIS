@@ -46,14 +46,26 @@
 
 
 
-  function scopeApps() {
-
-    let list = PMSStorage.getParoleApplications();
-
+  function scopeApps(includeArchived = false) {
+    let list = includeArchived
+      ? PMSStorage.getAllParoleApplications({ includeArchived: true })
+      : PMSStorage.getParoleApplications();
     if (actor.institutionId) list = list.filter((a) => a.institutionId === actor.institutionId);
-
     return list;
+  }
 
+  /** Active cases plus Form-4/grant cases that stay archived until release. */
+  function appsForClerkList() {
+    const active = scopeApps(false);
+    const ids = new Set(active.map((a) => a.id));
+    const keepVisible = scopeApps(true).filter((a) => {
+      if (!a.archived || ids.has(a.id)) return false;
+      if (PMSStorage.isApplicationReleasedOnParole?.(a)) return false;
+      return PMSStorage.isParoleGrantedCase?.(a)
+        || PMSStorage.isGrantApprovalPending?.(a)
+        || PMSStorage.isReleaseSignOffPending?.(a);
+    });
+    return [...active, ...keepVisible];
   }
 
   const FORM_WORKFLOW = [
@@ -426,17 +438,19 @@
     return list.map((a) => {
       const p = PMSStorage.getPrisonerById(a.prisonerId);
       const when = granted
-        ? a.formData?.form4?.issuedAt
-        : (a.formData?.form5?.issuedAt || a.formData?.form5?.recordedAt);
+        ? (a.formData?.form4?.issuedAt || a.boardDecision?.decidedAt || a.updatedAt)
+        : (a.formData?.form5?.issuedAt || a.formData?.form5?.recordedAt || a.boardDecision?.decidedAt);
+      const form4Ready = granted && PMSStorage.isForm4Issued?.(a);
       const href = granted
         ? `forms/form4.html?appId=${encodeURIComponent(a.id)}`
         : `forms/form5.html?appId=${encodeURIComponent(a.id)}`;
+      const actionLabel = granted ? (form4Ready ? 'Form 4' : 'Open Form 4') : 'Form 5';
       return `<tr>
         <td>${PMSUI.esc(a.caseNumber || a.id)}</td>
         <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
         <td>${PMSUI.instName(a.institutionId)}</td>
         <td>${PMSUI.fmtDate(when)}</td>
-        <td><a href="${href}" class="btn-icon">${granted ? 'Form 4' : 'Form 5'}</a></td>
+        <td><a href="${href}" class="btn-icon">${actionLabel}</a> <span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td>
       </tr>`;
     });
   }
@@ -460,7 +474,7 @@
     const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = `
       <div class="overview-row"><strong>Form 1 completed</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => PMSStorage.isForm1Complete(a.formData?.form1)).length)} cases</span></div>
-      <div class="overview-row"><strong>Parole granted</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countGrantedParole(actor.institutionId))} Form 4 issued</span></div>
+      <div class="overview-row"><strong>Parole granted</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countGrantedParole(actor.institutionId))} board granted / Form 4</span></div>
       <div class="overview-row"><strong>Parole refused</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countRefusedParole(actor.institutionId))} Form 5 / refused</span></div>
       <div class="overview-row"><strong>Active cases</strong><span class="meta">${PMSUI.formatStat(activeCases)}</span></div>
       <div class="overview-row"><strong>Requiring action</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => ['Draft', 'Returned for Correction', 'Pending Commander Review'].includes(a.status)).length)}</span></div>
@@ -680,7 +694,7 @@
 
   function renderApplications() {
 
-    document.getElementById('applications-tbody').innerHTML = scopeApps().map((a) => {
+    document.getElementById('applications-tbody').innerHTML = appsForClerkList().map((a) => {
 
       const p = PMSStorage.getPrisonerById(a.prisonerId);
       const inReleaseQueue = releaseSignOffRows().some((r) => r.id === a.id);
@@ -785,7 +799,7 @@
   }
 
   function releaseSignOffRows() {
-    return scopeApps().filter((a) => {
+    return scopeApps(true).filter((a) => {
       if (!a || PMSStorage.isApplicationReleasedOnParole?.(a)) return false;
       if (['Refused', 'Parole Refused'].includes(a.status)) return false;
       if (typeof PMSStorage.isReleaseSignOffPending === 'function' && PMSStorage.isReleaseSignOffPending(a)) return true;

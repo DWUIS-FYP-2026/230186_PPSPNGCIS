@@ -151,7 +151,7 @@
     const notifs = PMSUI.recentNotifications(actor, 5);
     document.getElementById('overview-notifications').innerHTML = `
       <div class="overview-row"><strong>Submitted from PNGCS</strong><span class="meta">${PMSUI.formatStat(apps.filter((a) => a.status === 'Submitted').length)} cases</span></div>
-      <div class="overview-row"><strong>Parole granted</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countGrantedParole())} Form 4 issued</span></div>
+      <div class="overview-row"><strong>Parole granted</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countGrantedParole())} board granted / Form 4</span></div>
       <div class="overview-row"><strong>Parole refused</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countRefusedParole())} Form 5 / refused</span></div>
       <div class="overview-row"><strong>Under DJAG review</strong><span class="meta">${PMSUI.formatStat(underReview)}</span></div>
       <div class="overview-row"><strong>Hearings scheduled</strong><span class="meta">${PMSUI.formatStat(PMSStorage.countUpcomingHearings())}</span></div>
@@ -166,8 +166,8 @@
     return list.map((a) => {
       const p = PMSStorage.getPrisonerById(a.prisonerId);
       const when = granted
-        ? a.formData?.form4?.issuedAt
-        : (a.formData?.form5?.issuedAt || a.formData?.form5?.recordedAt);
+        ? (a.formData?.form4?.issuedAt || a.boardDecision?.decidedAt || a.updatedAt)
+        : (a.formData?.form5?.issuedAt || a.formData?.form5?.recordedAt || a.boardDecision?.decidedAt);
       const href = granted
         ? `forms/form4.html?appId=${encodeURIComponent(a.id)}`
         : `forms/form5.html?appId=${encodeURIComponent(a.id)}`;
@@ -176,7 +176,7 @@
         <td>${p ? `${PMSUI.esc(p.firstName)} ${PMSUI.esc(p.lastName)}` : '—'}</td>
         <td>${PMSUI.instName(a.institutionId)}</td>
         <td>${PMSUI.fmtDate(when)}</td>
-        <td><a href="${href}" class="btn-icon">${granted ? 'Form 4' : 'Form 5'}</a></td>
+        <td><a href="${href}" class="btn-icon">${granted ? 'Form 4' : 'Form 5'}</a> <span class="status-pill status-pill--${PMSUI.statusClass(a.status)}">${PMSUI.esc(a.status)}</span></td>
       </tr>`;
     });
   }
